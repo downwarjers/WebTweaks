@@ -1,0 +1,18 @@
+/* ==UserStyle==
+@name         移除巴哈小屋背景圖
+@namespace    https://github.com/downwarjers/WebTweaks
+@version      1.0
+@description  巴哈姆特-移除小屋背景圖
+@author       downWarJers
+@license      MIT
+@downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/UserStyles/main/remove-baha-home-background/remove-baha-home-background.user.css
+@updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/UserStyles/main/remove-baha-home-background/remove-baha-home-background.user.css
+==/UserStyle== */
+
+@-moz-document domain("home.gamer.com.tw") {
+/* 鎖定 body 元素 */
+body {
+    /* 將背景設定為「無」，相當於 document.body.style.background = 'none' */
+    background: none !important;
+}
+}
