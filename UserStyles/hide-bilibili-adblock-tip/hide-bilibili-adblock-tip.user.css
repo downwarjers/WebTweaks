@@ -1,0 +1,18 @@
+/* ==UserStyle==
+@name         隱藏B站插件提示橫幅
+@namespace    https://github.com/downwarjers/WebTweaks
+@version      1.0
+@description  自動關閉B站頂部橫幅提示
+@author       downWarJers
+@license      MIT
+@downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/UserStyles/main/hide-bilibili-adblock-tip/hide-bilibili-adblock-tip.user.css
+@updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/UserStyles/main/hide-bilibili-adblock-tip/hide-bilibili-adblock-tip.user.css
+==/UserStyle== */
+
+@-moz-document domain("bilibili.com") {
+/* 對應 B 站的 .adblock-tips */
+  .adblock-tips {
+    /* 隱藏元素，並使用 !important 確保最高優先級，覆蓋網站原有樣式 */
+    display: none !important;
+  }
+}
