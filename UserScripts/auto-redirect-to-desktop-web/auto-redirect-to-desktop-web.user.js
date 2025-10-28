@@ -8,8 +8,8 @@
 // @match        *://*/*
 // @run-at       document-start
 // @grant        none
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/auto-redirect-to-desktop-web/auto-redirect-to-desktop-web.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/auto-redirect-to-desktop-web/auto-redirect-to-desktop-web.user.js
+// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-redirect-to-desktop-web/auto-redirect-to-desktop-web.user.js
+// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-redirect-to-desktop-web/auto-redirect-to-desktop-web.user.js
 // ==/UserScript==
 
 (function() {

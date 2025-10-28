@@ -8,8 +8,8 @@
 // @match       https://acgsecrets.hk/bangumi/*
 // @grant       GM_setClipboard
 // @grant       GM_download
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/acgsecrets-bangumi-copy/acgsecrets-bangumi-copy.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/acgsecrets-bangumi-copy/acgsecrets-bangumi-copy.user.js
+// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/acgsecrets-bangumi-copy/acgsecrets-bangumi-copy.user.js
+// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/acgsecrets-bangumi-copy/acgsecrets-bangumi-copy.user.js
 // ==/UserScript==
 
 (function() {
