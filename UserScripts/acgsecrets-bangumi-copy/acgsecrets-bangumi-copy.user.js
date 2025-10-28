@@ -28,6 +28,7 @@
         new RegExp(`\\s*${fullNum}(\\.|、)?${fullNum}\\s*$`, 'i'),
         new RegExp(`\\s*${fullNum}$`, 'i'),
         new RegExp(`\\s*${fullNum}\\s*(後篇|前篇|下篇|上篇)$`, 'i')
+    ];
 
     // 內容特別篇/續篇模式：包含「篇」、「幕」、「續篇」等關鍵字
     const contentArcPatterns = [
