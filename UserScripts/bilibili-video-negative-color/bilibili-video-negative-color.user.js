@@ -7,8 +7,8 @@
 // @license      MIT
 // @match        *://www.bilibili.com/*
 // @grant        none
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/bilibili-video-negative-color/bilibili-video-negative-color.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/bilibili-video-negative-color/bilibili-video-negative-color.user.js
+// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bilibili-video-negative-color/bilibili-video-negative-color.user.js
+// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bilibili-video-negative-color/bilibili-video-negative-color.user.js
 // ==/UserScript==
 
 (function () {

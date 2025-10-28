@@ -8,8 +8,8 @@
 // @match        *://www.vpngate.net/*
 // @grant        none
 // @run-at       document-idle
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/vpn-gate-table-filter/vpn-gate-table-filter.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/vpn-gate-table-filter/vpn-gate-table-filter.user.js
+// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpn-gate-table-filter/vpn-gate-table-filter.user.js
+// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpn-gate-table-filter/vpn-gate-table-filter.user.js
 // ==/UserScript==
 
 (function() {
