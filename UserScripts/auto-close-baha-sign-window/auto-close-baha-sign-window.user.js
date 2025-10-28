@@ -8,8 +8,8 @@
 // @match        https://*.gamer.com.tw/*
 // @grant        none
 // @run-at       document-body
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/auto-close-baha-sign-window/auto-close-baha-sign-window.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/auto-close-baha-sign-window/auto-close-baha-sign-window.user.js
+// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-close-baha-sign-window/auto-close-baha-sign-window.user.js
+// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-close-baha-sign-window/auto-close-baha-sign-window.user.js
 // ==/UserScript==
 
 (function() {

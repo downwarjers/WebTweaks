@@ -7,8 +7,8 @@
 // @license     MIT
 // @match       https://www.nicovideo.jp/watch/*
 // @grant       none
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/niconico-danmaku-zoom-in/niconico-danmaku-zoom-in.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/niconico-danmaku-zoom-in/niconico-danmaku-zoom-in.user.js
+// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/niconico-danmaku-zoom-in/niconico-danmaku-zoom-in.user.js
+// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/niconico-danmaku-zoom-in/niconico-danmaku-zoom-in.user.js
 // ==/UserScript==
 
 (function() {

@@ -7,8 +7,8 @@
 // @license      MIT
 // @match        https://www.youtube.com/*
 // @grant        GM_addStyle
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/youtube-notification-batch-setting/youtube-notification-batch-setting.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/youtube-notification-batch-setting/youtube-notification-batch-setting.user.js
+// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-notification-batch-setting/youtube-notification-batch-setting.user.js
+// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-notification-batch-setting/youtube-notification-batch-setting.user.js
 // ==/UserScript==
 
 (function() {
