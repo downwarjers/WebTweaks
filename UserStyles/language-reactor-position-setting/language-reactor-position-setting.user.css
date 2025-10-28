@@ -1,0 +1,19 @@
+/* ==UserStyle==
+@name         Language Reactor 字幕位置調整
+@namespace    https://github.com/downwarjers/WebTweaks
+@version      1.0
+@description  Language Reactor 字幕位置自動靠下
+@author       downWarJers
+@license      MIT
+@downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/UserStyles/main/language-reactor-position-setting/language-reactor-position-setting.user.css
+@updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/UserStyles/main/language-reactor-position-setting/language-reactor-position-setting.user.css
+==/UserStyle== */
+
+@-moz-document domain("netflix.com"), domain("youtube.com") {
+/* 鎖定 LLN 的主面板 ID: lln-bottom-panel */
+#lln-bottom-panel {
+    /* 將面板底部定位 (bottom) 調整為 5% */
+    /* !important 確保此樣式能覆蓋擴充功能本身的設定 */
+    bottom: 5% !important;
+}
+}
