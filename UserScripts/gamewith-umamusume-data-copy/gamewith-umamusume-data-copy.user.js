@@ -7,8 +7,8 @@
 // @license      MIT
 // @match        https://gamewith.jp/uma-musume/*
 // @grant        GM_setClipboard
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/gamewith-umamusume-data-copy/gamewith-umamusume-data-copy.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/gamewith-umamusume-data-copy/gamewith-umamusume-data-copy.user.js
+// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/gamewith-umamusume-data-copy/gamewith-umamusume-data-copy.user.js
+// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/gamewith-umamusume-data-copy/gamewith-umamusume-data-copy.user.js
 // ==/UserScript==
 
 (function() {

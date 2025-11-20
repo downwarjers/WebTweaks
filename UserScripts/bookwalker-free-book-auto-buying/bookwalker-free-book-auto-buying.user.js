@@ -11,8 +11,8 @@
 // @grant        GM_deleteValue
 // @require      https://code.jquery.com/jquery-3.6.0.min.js
 // @run-at       document-start
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/bookwalker-free-book-auto-buying/bookwalker-free-book-auto-buying.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/UserScripts/main/bookwalker-free-book-auto-buying/bookwalker-free-book-auto-buying.user.js
+// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bookwalker-free-book-auto-buying/bookwalker-free-book-auto-buying.user.js
+// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bookwalker-free-book-auto-buying/bookwalker-free-book-auto-buying.user.js
 // ==/UserScript==
 
 /* global $, window, document, localStorage, sessionStorage, alert, location */
