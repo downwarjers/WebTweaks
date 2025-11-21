@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      18.3
+// @version      25.0
 // @description  檢查當前YouTube影片存在於哪個播放清單
 // @author       downwarjers
 // @license      MIT
@@ -15,10 +15,10 @@
 (function() {
     'use strict';
 
-    // [2025-11-22] v24.0 更新：
-    // 針對使用者提供的 DOM 結構與中文文案進行精確匹配。
-    // Target: span.yt-core-attributed-string[role="text"]
-    // Patterns: "已儲存至「XXX」", "已從「XXX」中移除"
+    // [2025-11-22] v25.0 更新重點：
+    // 1. 移除 addedNodes 判斷，改為無差別監聽 Snackbar 內的變化。
+    // 2. 增加 characterData: true 設定，捕捉純文字的更動。
+    // 3. 加入 Debounce (防抖) 機制，避免一次文字變化觸發多次 Regex 解析。
 
     GM_addStyle(`
         /* 鬼影模式：初始檢查時隱藏選單 */
@@ -43,7 +43,6 @@
             margin-bottom: 10px;
         }
 
-        /* 操作鎖定遮罩 (僅初始檢查用) */
         #yt-checker-lock-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             z-index: 99998; cursor: wait; display: none;
@@ -61,43 +60,45 @@
     let hasInitialRun = false;
     let pendingCheckTimer = null;
     let snackbarObserver = null;
+    let debounceTimer = null; // 用來處理快速變化的計時器
 
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-    // UI 更新函式
+    function wait() { 
+        return new Promise(r => setTimeout(r, 50)); 
+    }
+
     function updateUI() {
         const oldStatus = document.getElementById('my-playlist-status');
         if (oldStatus) oldStatus.remove();
 
-        const anchor = document.querySelector('#above-the-fold #bottom-row') || document.querySelector('#above-the-fold h1');
+        const anchor = document.querySelector('#above-the-fold #top-row') || document.querySelector('#above-the-fold h1');
         if (!anchor) return;
 
         const div = document.createElement('div');
         div.id = 'my-playlist-status';
         
         const list = Array.from(savedPlaylists);
-        
         div.innerHTML = list.length > 0 
             ? `✅ 本影片已存在於：<span style="color: #4af; font-weight:bold;">${list.join('、 ')}</span>` 
             : `⚪ 未加入任何自訂清單`;
         
-        if (anchor.id === 'bottom-row') anchor.parentNode.insertBefore(div, anchor.nextSibling);
+        if (anchor.id === 'top-row') anchor.parentNode.insertBefore(div, anchor.nextSibling);
         else anchor.parentNode.appendChild(div);
     }
 
-    // ★ 核心修正：精確解析 Snackbar 文字
-    function handleSnackbarNode(node) {
-        // 1. 鎖定目標 span，避免讀取到按鈕文字或其他雜訊
-        const textSpan = node.querySelector('span.yt-core-attributed-string[role="text"]');
-        
+    // ★ 核心修正：直接讀取當前 Snackbar 內容
+    function checkSnackbarContent() {
+        // 直接抓取 container 內符合條件的 span，不管它是新加上去的還是原本就在那
+        const container = document.querySelector('snackbar-container');
+        if (!container) return;
+
+        const textSpan = container.querySelector('span.yt-core-attributed-string[role="text"]');
         if (!textSpan) return;
 
         const text = textSpan.textContent.trim();
         
-        // 2. 定義嚴格的正則表達式 (針對中文語境)
-        // 範例：已儲存至「Watch later」
-        // 範例：已從「Watch later」中移除
-        
+        // 正規表達式匹配
         const regexAdd = /^已儲存至「(.+)」$/;
         const regexRemove = /^已從「(.+)」中移除$/;
 
@@ -106,14 +107,13 @@
 
         if (matchAdd) {
             const listName = matchAdd[1];
+            // 避免重複加入 (Set 本身已有防重機制，但為了 Log 乾淨可以加判斷)
             savedPlaylists.add(listName);
             updateUI();
-            // console.log(`[Snackbar] 加入清單: ${listName}`);
         } else if (matchRemove) {
             const listName = matchRemove[1];
             savedPlaylists.delete(listName);
             updateUI();
-            // console.log(`[Snackbar] 移除清單: ${listName}`);
         }
     }
 
@@ -128,18 +128,23 @@
         }
 
         snackbarObserver = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.addedNodes.length > 0) {
-                    // 傳入新增的節點 (通常是 yt-snackbar-container-renderer 或類似 wrapper)
-                    handleSnackbarNode(mutation.addedNodes[0]);
-                }
-            });
+            // 不管發生什麼變動 (文字變了、屬性變了、子元素變了)，我們都統一處理
+            // 使用 Debounce 防抖，確保短時間內大量的 DOM 變動只會觸發一次檢查
+            if (debounceTimer) clearTimeout(debounceTimer);
+            
+            debounceTimer = setTimeout(() => {
+                checkSnackbarContent();
+            }, 100); // 延遲 100ms 讀取，確保文字已經渲染完成
         });
 
-        snackbarObserver.observe(container, { childList: true, subtree: true });
+        snackbarObserver.observe(container, { 
+            childList: true, 
+            subtree: true, 
+            characterData: true // ★ 關鍵：監聽純文字節點的內容變化
+        });
     }
 
-    // ★ 初始自動檢查 (維持不變，僅負責進頁面第一次讀取)
+    // ★ 初始自動檢查 (維持不變)
     async function runInitialScan() {
         if (!location.href.includes('/watch')) return;
         if (hasInitialRun) return;
@@ -163,7 +168,7 @@
                 await closeMenuFinal();
                 return;
             }
-            await sleep(50);
+            await wait();
 
             const items = document.querySelectorAll('toggleable-list-item-view-model yt-list-item-view-model');
             const found = [];
@@ -177,8 +182,8 @@
             savedPlaylists = new Set(found);
             updateUI();
             hasInitialRun = true;
-
-            await sleep(200);
+            
+            await wait();
             await closeMenuFinal();
 
         } catch (e) {
@@ -193,7 +198,6 @@
         }
     }
 
-    // 輔助邏輯
     function onVisibilityChange() {
         if (!document.hidden && !hasInitialRun) {
             if (pendingCheckTimer) clearTimeout(pendingCheckTimer);
@@ -204,7 +208,7 @@
     window.addEventListener('yt-navigate-finish', function() {
         const newVideoId = new URLSearchParams(window.location.search).get('v');
         
-        initSnackbarObserver(); // 確保監聽器存在
+        initSnackbarObserver();
 
         if (currentVideoId !== newVideoId) {
             currentVideoId = newVideoId;
@@ -225,7 +229,6 @@
         }
     });
 
-    // DOM 工具
     async function findButtonStrategy(timeout) {
         const start = Date.now();
         while (Date.now() - start < timeout) {
@@ -235,7 +238,7 @@
             if (moreBtn) {
                 if (!popup || popup.offsetParent === null) {
                     moreBtn.click();
-                    await sleep(100);
+                    await wait();
                 }
                 const menuItems = document.querySelectorAll('ytd-menu-service-item-renderer');
                 for (let item of menuItems) {
@@ -248,7 +251,7 @@
                 const label = (btn.getAttribute('aria-label') || "").toLowerCase();
                 if ((label.includes('save') || label.includes('儲存')) && !label.includes('cancel')) return btn;
             }
-            await sleep(100);
+            await wait();
         }
         return null;
     }
@@ -259,7 +262,7 @@
             const dropdown = document.querySelector('tp-yt-iron-dropdown[ytb-dropdown-visible="true"]');
             const hasContent = document.querySelector('toggleable-list-item-view-model');
             if (dropdown && hasContent) return dropdown;
-            await sleep(100);
+            await wait();
         }
         return null;
     }
@@ -268,7 +271,7 @@
         const escOpts = { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true, cancelable: true };
         document.dispatchEvent(new KeyboardEvent('keydown', escOpts));
         document.dispatchEvent(new KeyboardEvent('keyup', escOpts));
-        await sleep(100);
+        await wait();
         const bd = document.querySelector('iron-overlay-backdrop');
         if (bd) bd.click();
         const closeBtn = document.querySelector('ytd-add-to-playlist-renderer #close-button');
