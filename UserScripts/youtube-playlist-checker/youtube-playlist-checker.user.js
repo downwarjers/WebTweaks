@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      29.4
+// @version      29.5
 // @description  檢查當前YouTube影片存在於哪個播放清單
 // @author       downwarjers
 // @license      MIT
@@ -149,7 +149,6 @@
     // 4. 主功能：背景檢查 API
     // ==========================================
     async function checkPlaylists() {
-        // 這裡移除了 isUserTriggered 參數，因為不再需要
         if (isChecking) return;
         isChecking = true;
 
