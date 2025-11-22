@@ -26,7 +26,6 @@
             align-items: center;
             justify-content: center;
             height: 36px;
-            margin-right: 8px;
             margin-left: 8px;
             /* 關鍵：禁止縮小，防止 YouTube 在空間不足時嘗試壓扁它而造成計算錯誤 */
             flex: 0 0 auto; 
