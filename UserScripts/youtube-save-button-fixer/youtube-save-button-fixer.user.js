@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 影片儲存按鈕強制顯示
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.2
+// @version      1.3
 // @description  將隱藏於 Overflow Menu 的「儲存」按鈕提取至 Top-level Action Bar，採用原生 CSS Class 確保 UI 一致性，並透過 Ghost Click 技術達成無閃爍觸發。
 // @author       downwarjers
 // @license      MIT
@@ -16,30 +16,22 @@
 (function() {
     'use strict';
 
-    // Config: Target menu item label (L10n sensitive)
     const TARGET_LABEL = "儲存";
 
-    /**
-     * Inject custom CSS styles.
-     * Strategy:
-     * 1. Use `display: contents` on container to flatten DOM hierarchy, ensuring correct Flexbox behavior in parent `ytd-menu-renderer`.
-     * 2. Apply `margin` directly to the button for spacing alignment.
-     * 3. Define `.yt-proxy-clicking` state for invisible menu interaction (Ghost Mode).
-     */
+    // === CSS 優化 ===
+    // 放棄 display: contents，改用穩定的 Flex 容器來隔離佈局衝突
     GM_addStyle(`
-        /* Container Flattening: Bypass flex container encapsulation issues */
         #my-save-button-container {
-            display: contents !important;
+            display: flex !important;
+            align-items: center;
+            justify-content: center;
+            height: 36px;
+            margin-right: 8px;
+            margin-left: 8px;
+            /* 關鍵：禁止縮小，防止 YouTube 在空間不足時嘗試壓扁它而造成計算錯誤 */
+            flex: 0 0 auto; 
         }
 
-        /* Spacing Fix: Align with native action buttons (Share/Download) */
-        #my-save-button-container .my-native-btn {
-            margin-left: 8px !important;
-            margin-right: 8px !important;
-            cursor: pointer;
-        }
-
-        /* Icon Normalization */
         .my-native-icon svg {
             width: 24px;
             height: 24px;
@@ -48,67 +40,40 @@
             pointer-events: none;
         }
 
-        /* Ghost Mode: Hide popup container during programmatic interaction */
+        /* 隱形點擊模式 */
         body.yt-proxy-clicking ytd-popup-container {
             opacity: 0 !important;
             pointer-events: none !important;
         }
     `);
 
-    /**
-     * Core Logic: Proxy Click Handler
-     * Simulates user interaction by opening the menu, finding the target item, and clicking it.
-     * Uses CSS opacity hack to prevent UI flickering (Silent Execution).
-     *
-     * @param {HTMLElement} threeDotButton - The actual DOM element of the overflow menu trigger.
-     */
+    // === 核心邏輯：隱形點擊 (保持不變) ===
     async function executeInvisibleClick(threeDotButton) {
-        // Step 1: Enable Ghost Mode
         document.body.classList.add('yt-proxy-clicking');
-
         try {
-            // Step 2: Trigger Menu Open (Hydrates the lazy-loaded menu DOM)
             threeDotButton.click();
-
-            // Step 3: Poll for target item (Race condition handling)
             const saveItem = await waitForItem(TARGET_LABEL);
-
             if (saveItem) {
-                // Step 4: Dispatch real click event to trigger internal Polymer/YouTube logic
                 saveItem.click();
             } else {
-                // Fallback: Close menu if target not found to reset state
                 threeDotButton.click();
-                console.warn(`[YouTube Save Fix] Target item "${TARGET_LABEL}" not found in overflow menu.`);
+                console.warn(`[YouTube Save Fix] Target item "${TARGET_LABEL}" not found.`);
             }
         } catch (e) {
             console.error('[YouTube Save Fix] Proxy execution failed:', e);
         } finally {
-            // Step 5: Cleanup - Restore UI visibility with slight delay for animation clearance
             setTimeout(() => {
                 document.body.classList.remove('yt-proxy-clicking');
             }, 100);
         }
     }
 
-    /**
-     * Utility: DOM Polling
-     * Waits for the lazy-loaded menu item to appear in the DOM.
-     *
-     * @param {string} text - Inner text to match.
-     * @returns {Promise<HTMLElement|null>}
-     */
     function waitForItem(text) {
         return new Promise((resolve) => {
             let attempts = 0;
-            const maxAttempts = 50; // Timeout ~1000ms
-            const interval = 20;
-
             const timer = setInterval(() => {
                 attempts++;
-                // Query selectors for both standard menu items and new polymer paper items
                 const items = document.querySelectorAll('ytd-menu-service-item-renderer, tp-yt-paper-item');
-
                 for (let item of items) {
                     if (item.innerText.trim() === text) {
                         clearInterval(timer);
@@ -116,45 +81,45 @@
                         return;
                     }
                 }
-
-                if (attempts > maxAttempts) {
+                if (attempts > 50) {
                     clearInterval(timer);
                     resolve(null);
                 }
-            }, interval);
+            }, 20);
         });
     }
 
-    /**
-     * UI Component Factory
-     * Injects the proxy button into the DOM using YouTube's native classes for identical look-and-feel.
-     */
+    // === UI 構建與防抖動處理 ===
+    let initTimeout = null;
+
     function init() {
-        // 1. Validate Context: Ensure we are in the video metadata section
+        // 1. 檢查容器是否存在，避免重複
+        if (document.getElementById('my-save-button-container')) return;
+
+        // 2. 尋找主要的選單渲染器
         const menuRenderer = document.querySelector('ytd-menu-renderer.style-scope.ytd-watch-metadata');
         if (!menuRenderer) return;
 
-        // 2. Idempotency Check: Prevent duplicate injection
-        if (document.getElementById('my-save-button-container')) return;
-
-        // 3. Locate Anchor: The overflow menu button (three-dots)
+        // 3. 尋找三點選單按鈕 (作為定位點或觸發器)
         const threeDotButtonShape = menuRenderer.querySelector('yt-button-shape#button-shape');
         if (!threeDotButtonShape) return;
 
-        // 4. Reference Check: Ensure the actual button element exists
         const actualButton = threeDotButtonShape.querySelector('button');
         if (!actualButton) return;
 
-        // 5. Construct DOM
+        // 4. 建立容器與按鈕
         const container = document.createElement('div');
         container.id = 'my-save-button-container';
 
         const btn = document.createElement('button');
-        // Apply native classes for Tonal Button style (Gray background, rounded, no border)
+        // 使用原生 Class
         btn.className = 'my-native-btn yt-spec-button-shape-next yt-spec-button-shape-next--tonal yt-spec-button-shape-next--mono yt-spec-button-shape-next--size-m yt-spec-button-shape-next--icon-leading yt-spec-button-shape-next--enable-backdrop-filter-experiment';
         btn.setAttribute('aria-label', TARGET_LABEL);
+        // 確保樣式覆蓋
+        btn.style.cursor = 'pointer';
+        btn.style.display = 'flex';
+        btn.style.alignItems = 'center';
 
-        // Mimic native DOM structure: Icon Wrapper + Text Content + Touch Ripple
         btn.innerHTML = `
             <div aria-hidden="true" class="yt-spec-button-shape-next__icon my-native-icon">
                 <svg viewBox="0 0 24 24"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"></path></svg>
@@ -168,29 +133,41 @@
             </yt-touch-feedback-shape>
         `;
 
-        // 6. Event Binding
         btn.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
             executeInvisibleClick(actualButton);
         };
 
-        // 7. Injection: Insert before the overflow menu
         container.appendChild(btn);
-        menuRenderer.insertBefore(container, threeDotButtonShape);
+
+        // 5. 插入策略優化：
+        // 嘗試插入到 top-level-buttons-computed (按讚/分享區) 的最後面
+        // 這比直接插在三點選單旁更穩定，因為它是 Flex 容器，能更好地處理新增項目
+        const topLevelButtons = menuRenderer.querySelector('#top-level-buttons-computed');
+        if (topLevelButtons) {
+            topLevelButtons.appendChild(container);
+        } else {
+            // 備用方案：插在三點選單之前
+            menuRenderer.insertBefore(container, threeDotButtonShape);
+        }
     }
 
-    // === Main Entry Point ===
-    // Observe DOM mutations to handle YouTube's SPA navigation (soft reloads)
+    // === 監聽器優化：防抖動 (Debounce) ===
+    // 防止在視窗縮放或 DOM 重繪時觸發無限迴圈
     const observer = new MutationObserver(() => {
+        if (initTimeout) clearTimeout(initTimeout);
+        
+        // 只有當按鈕真的「不見了」才執行初始化，並延遲 100ms 執行
+        // 如果這段時間內 YouTube 又動了 DOM，會重置計時器，避免衝突
         if (!document.getElementById('my-save-button-container')) {
-            init();
+            initTimeout = setTimeout(init, 100);
         }
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Initial run
+    // 初次執行
     init();
 
 })();
