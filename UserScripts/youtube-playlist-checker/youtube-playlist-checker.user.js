@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      25.0
+// @version      29.3
 // @description  檢查當前YouTube影片存在於哪個播放清單
 // @author       downwarjers
 // @license      MIT
@@ -15,21 +15,14 @@
 (function() {
     'use strict';
 
-    // [2025-11-22] v25.0 更新重點：
-    // 1. 移除 addedNodes 判斷，改為無差別監聽 Snackbar 內的變化。
-    // 2. 增加 characterData: true 設定，捕捉純文字的更動。
-    // 3. 加入 Debounce (防抖) 機制，避免一次文字變化觸發多次 Regex 解析。
+    // --- CSS 設定 ---
+    function addStyle(css) {
+        const style = document.createElement('style');
+        style.textContent = css;
+        (document.head || document.documentElement).appendChild(style);
+    }
 
-    GM_addStyle(`
-        /* 鬼影模式：初始檢查時隱藏選單 */
-        body.yt-playlist-checking ytd-menu-popup-renderer,
-        body.yt-playlist-checking tp-yt-iron-dropdown,
-        body.yt-playlist-checking iron-overlay-backdrop {
-            opacity: 0 !important;
-            z-index: -9999 !important;
-        }
-        
-        /* 狀態顯示區 */
+    addStyle(`
         #my-playlist-status {
             margin-top: 8px;
             padding: 6px 12px;
@@ -41,241 +34,296 @@
             width: fit-content;
             display: block !important;
             margin-bottom: 10px;
+            font-family: Roboto, Arial, sans-serif;
+            transition: all 0.2s ease;
         }
-
-        #yt-checker-lock-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            z-index: 99998; cursor: wait; display: none;
+        /* 同步中狀態 (黃色/灰色) */
+        #my-playlist-status.syncing {
+            border-left-color: #f1c40f;
+            color: #ddd;
+            background-color: rgba(241, 196, 15, 0.1);
+        }
+        /* 錯誤狀態 (紅色) */
+        #my-playlist-status.error {
+            border-left-color: #ff4e45;
+            background-color: rgba(255, 78, 69, 0.1);
+            color: #ff4e45;
         }
     `);
 
-    const lockOverlay = document.createElement('div');
-    lockOverlay.id = 'yt-checker-lock-overlay';
-    document.body.appendChild(lockOverlay);
-
-    // 全域狀態
-    let savedPlaylists = new Set();
-    
     let currentVideoId = null;
-    let hasInitialRun = false;
-    let pendingCheckTimer = null;
     let snackbarObserver = null;
-    let debounceTimer = null; // 用來處理快速變化的計時器
+    let debounceTimer = null;
+    let isChecking = false; // 這是防止重複執行的鎖
 
-    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-    function wait() { 
-        return new Promise(r => setTimeout(r, 50)); 
+    // ==========================================
+    // 1. 介面控制
+    // ==========================================
+    function showStatus(htmlContent, className = '') {
+        let div = document.getElementById('my-playlist-status');
+        if (!div) {
+            div = document.createElement('div');
+            div.id = 'my-playlist-status';
+            const anchor = document.querySelector('#above-the-fold #top-row') || document.querySelector('#above-the-fold h1');
+            if (anchor) {
+                if (anchor.id === 'top-row') anchor.parentNode.insertBefore(div, anchor.nextSibling);
+                else anchor.parentNode.appendChild(div);
+            } else {
+                return;
+            }
+        }
+        if (div.innerHTML !== htmlContent) {
+            div.innerHTML = htmlContent;
+        }
+        div.className = className;
     }
 
-    function updateUI() {
-        const oldStatus = document.getElementById('my-playlist-status');
-        if (oldStatus) oldStatus.remove();
-
-        const anchor = document.querySelector('#above-the-fold #top-row') || document.querySelector('#above-the-fold h1');
-        if (!anchor) return;
-
-        const div = document.createElement('div');
-        div.id = 'my-playlist-status';
-        
-        const list = Array.from(savedPlaylists);
-        div.innerHTML = list.length > 0 
-            ? `✅ 本影片已存在於：<span style="color: #4af; font-weight:bold;">${list.join('、 ')}</span>` 
-            : `⚪ 未加入任何自訂清單`;
-        
-        if (anchor.id === 'top-row') anchor.parentNode.insertBefore(div, anchor.nextSibling);
-        else anchor.parentNode.appendChild(div);
+    // ==========================================
+    // 2. 核心工具：驗證與設定
+    // ==========================================
+    function waitForConfig(timeout = 5000) {
+        return new Promise((resolve) => {
+            if (window.ytcfg && window.ytcfg.get) return resolve(window.ytcfg);
+            const start = Date.now();
+            const interval = setInterval(() => {
+                if (window.ytcfg && window.ytcfg.get) {
+                    clearInterval(interval);
+                    resolve(window.ytcfg);
+                } else if (Date.now() - start > timeout) {
+                    clearInterval(interval);
+                    resolve(null);
+                }
+            }, 100);
+        });
     }
 
-    // ★ 核心修正：直接讀取當前 Snackbar 內容
-    function checkSnackbarContent() {
-        // 直接抓取 container 內符合條件的 span，不管它是新加上去的還是原本就在那
-        const container = document.querySelector('snackbar-container');
-        if (!container) return;
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
 
-        const textSpan = container.querySelector('span.yt-core-attributed-string[role="text"]');
-        if (!textSpan) return;
+    async function generateSAPISIDHASH() {
+        const sapisid = getCookie('SAPISID');
+        if (!sapisid) return null;
+        const timestamp = Math.floor(Date.now() / 1000);
+        const origin = window.location.origin;
+        const str = `${timestamp} ${sapisid} ${origin}`;
+        const buffer = new TextEncoder().encode(str);
+        const hashBuffer = await crypto.subtle.digest('SHA-1', buffer);
+        const hashHex = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        return `SAPISIDHASH ${timestamp}_${hashHex}`;
+    }
 
-        const text = textSpan.textContent.trim();
-        
-        // 正規表達式匹配
-        const regexAdd = /^已儲存至「(.+)」$/;
-        const regexRemove = /^已從「(.+)」中移除$/;
+    // ==========================================
+    // 3. 搜尋邏輯
+    // ==========================================
+    function findButtonByText(obj, targetTexts, visited = new Set()) {
+        if (!obj || typeof obj !== 'object') return null;
+        if (visited.has(obj)) return null;
+        visited.add(obj);
 
-        const matchAdd = text.match(regexAdd);
-        const matchRemove = text.match(regexRemove);
+        let foundText = null;
+        if (obj.simpleText) foundText = obj.simpleText;
+        else if (obj.runs && obj.runs[0] && obj.runs[0].text) foundText = obj.runs[0].text;
 
-        if (matchAdd) {
-            const listName = matchAdd[1];
-            // 避免重複加入 (Set 本身已有防重機制，但為了 Log 乾淨可以加判斷)
-            savedPlaylists.add(listName);
-            updateUI();
-        } else if (matchRemove) {
-            const listName = matchRemove[1];
-            savedPlaylists.delete(listName);
-            updateUI();
+        if (foundText && targetTexts.includes(foundText.trim())) return { found: true, text: foundText };
+
+        for (let k in obj) {
+            if (k === 'secondaryResults' || k === 'frameworkUpdates' || k === 'loggingContext' || k === 'playerOverlays') continue;
+            const result = findButtonByText(obj[k], targetTexts, visited);
+            if (result) {
+                if (result.found) {
+                    const keys = ['addToPlaylistServiceEndpoint', 'serviceEndpoint', 'command', 'navigationEndpoint', 'showSheetCommand'];
+                    for (let key of keys) if (obj[key]) return obj[key];
+                    return result;
+                }
+                return result;
+            }
+        }
+        return null;
+    }
+
+    // ==========================================
+    // 4. 主功能：背景檢查 API
+    // ==========================================
+    async function checkPlaylists() {
+        // 這裡移除了 isUserTriggered 參數，因為不再需要
+        if (isChecking) return;
+        isChecking = true;
+
+        try {
+            const ytConfig = await waitForConfig();
+            if (!ytConfig) {
+                isChecking = false;
+                return;
+            }
+
+            const app = document.querySelector('ytd-app');
+            const rawData = app?.data?.response || window.ytInitialData;
+            const mainVideoScope = rawData?.contents?.twoColumnWatchNextResults?.results?.results?.contents;
+            const searchTargets = mainVideoScope ? [mainVideoScope] : [rawData, window.ytInitialPlayerResponse];
+
+            let params = null;
+            let videoIdFromEndpoint = null;
+
+            for (let source of searchTargets) {
+                let candidate = findButtonByText(source, ['儲存', 'Save', '保存']);
+                if (candidate) {
+                    let ep = candidate;
+                    if (candidate.addToPlaylistServiceEndpoint) ep = candidate.addToPlaylistServiceEndpoint;
+                    else if (candidate.command && candidate.command.addToPlaylistServiceEndpoint) ep = candidate.command.addToPlaylistServiceEndpoint;
+                    else if (candidate.showSheetCommand && candidate.showSheetCommand.panelLoadingStrategy) ep = candidate.showSheetCommand.panelLoadingStrategy.requestTemplate;
+                    else if (candidate.panelLoadingStrategy) ep = candidate.panelLoadingStrategy.requestTemplate;
+
+                    if (ep && ep.params) {
+                        params = ep.params;
+                        if (ep.videoId) videoIdFromEndpoint = ep.videoId;
+                        break;
+                    }
+                }
+            }
+
+            if (!params) {
+                const menuRenderer = document.querySelector('#above-the-fold ytd-menu-renderer');
+                if (menuRenderer && menuRenderer.data) {
+                    const buttons = menuRenderer.data.topLevelButtons || [];
+                    for (let btn of buttons) {
+                        const icon = btn.buttonRenderer?.icon?.iconType || btn.flexibleActionsViewModel?.iconName;
+                        if (icon === 'PLAYLIST_ADD' || icon === 'SAVE') {
+                            let ep = btn.buttonRenderer?.serviceEndpoint || btn.buttonRenderer?.command || btn.flexibleActionsViewModel?.onTap?.command;
+                            if (ep) {
+                                if (ep.addToPlaylistServiceEndpoint) params = ep.addToPlaylistServiceEndpoint.params;
+                                else if (ep.showSheetCommand) params = ep.showSheetCommand.panelLoadingStrategy?.requestTemplate?.params;
+                                else if (ep.params) params = ep.params;
+                            }
+                            if (params) break;
+                        }
+                    }
+                }
+            }
+
+            if (!params) throw new Error("API Params Not Found");
+
+            const currentUrlId = new URLSearchParams(window.location.search).get('v');
+            const finalVideoId = videoIdFromEndpoint || currentUrlId;
+            const apiKey = ytConfig.get('INNERTUBE_API_KEY');
+            const context = ytConfig.get('INNERTUBE_CONTEXT');
+            const sessionIndex = ytConfig.get('SESSION_INDEX') || '0';
+            const authHeader = await generateSAPISIDHASH();
+
+            if (!authHeader || !apiKey) throw new Error("Auth Failed");
+
+            const response = await fetch(`https://www.youtube.com/youtubei/v1/playlist/get_add_to_playlist?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': authHeader,
+                    'X-Origin': window.location.origin,
+                    'X-Goog-AuthUser': sessionIndex
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    context: context,
+                    videoIds: [finalVideoId],
+                    params: params
+                })
+            });
+
+            if (!response.ok) throw new Error(`API ${response.status}`);
+            const json = await response.json();
+
+            function findPlaylistsRecursive(obj) {
+                let results = [];
+                if (!obj || typeof obj !== 'object') return results;
+                if (obj.playlistAddToOptionRenderer) results.push(obj.playlistAddToOptionRenderer);
+                for (let k in obj) results = results.concat(findPlaylistsRecursive(obj[k]));
+                return results;
+            }
+
+            const playlists = findPlaylistsRecursive(json);
+            const added = [];
+
+            playlists.forEach(p => {
+                const title = p.title.simpleText || p.title.runs?.[0]?.text;
+                const rawStatus = p.containsSelectedVideos || p.containsSelectedVideo;
+                const isAdded = rawStatus === 'ALL' || rawStatus === 'TRUE' || rawStatus === true;
+                if (isAdded) added.push(title);
+            });
+
+            const html = added.length > 0 
+                ? `✅ 本影片已存在於：<span style="color: #4af; font-weight:bold;">${added.join('、 ')}</span>` 
+                : `⚪ 未加入任何自訂清單`;
+            
+            showStatus(html, '');
+
+        } catch (e) {
+            console.error("[YT-Checker]", e);
+            showStatus(`❌ 錯誤: ${e.message}`, 'error');
+        } finally {
+            isChecking = false;
         }
     }
 
-    // ★ 啟動 Snackbar 監聽器
+    // ==========================================
+    // 5. 觸發與監聽
+    // ==========================================
+    window.addEventListener('yt-navigate-finish', function() {
+        const newVideoId = new URLSearchParams(window.location.search).get('v');
+        
+        const statusEl = document.getElementById('my-playlist-status');
+        if (statusEl) statusEl.remove();
+
+        if (!location.href.includes('/watch')) return;
+
+        if (currentVideoId !== newVideoId) {
+            currentVideoId = newVideoId;
+            initSnackbarObserver();
+
+            if (document.hidden) {
+                document.addEventListener('visibilitychange', onVisibilityChange, { once: true });
+            } else {
+                // 初始載入
+                setTimeout(checkPlaylists, 1500);
+            }
+        }
+    });
+
+    function onVisibilityChange() {
+        if (!document.hidden) {
+            setTimeout(checkPlaylists, 1000);
+        }
+    }
+
     function initSnackbarObserver() {
         if (snackbarObserver) return;
 
         const container = document.querySelector('snackbar-container');
         if (!container) {
-            setTimeout(initSnackbarObserver, 1000);
+            setTimeout(initSnackbarObserver, 2000);
             return;
         }
 
         snackbarObserver = new MutationObserver((mutations) => {
-            // 不管發生什麼變動 (文字變了、屬性變了、子元素變了)，我們都統一處理
-            // 使用 Debounce 防抖，確保短時間內大量的 DOM 變動只會觸發一次檢查
-            if (debounceTimer) clearTimeout(debounceTimer);
-            
-            debounceTimer = setTimeout(() => {
-                checkSnackbarContent();
-            }, 100); // 延遲 100ms 讀取，確保文字已經渲染完成
+            const hasToast = container.childElementCount > 0;
+
+            if (hasToast) {
+                // Toast 出現：代表忙碌中，強制顯示同步狀態
+                if (debounceTimer) clearTimeout(debounceTimer);
+                showStatus('⏳ 同步中...', 'syncing');
+            } else {
+                // Toast 消失：代表閒置，執行更新
+                if (debounceTimer) clearTimeout(debounceTimer);
+                checkPlaylists();
+            }
         });
 
         snackbarObserver.observe(container, { 
             childList: true, 
-            subtree: true, 
-            characterData: true // ★ 關鍵：監聽純文字節點的內容變化
+            subtree: true 
         });
-    }
-
-    // ★ 初始自動檢查 (維持不變)
-    async function runInitialScan() {
-        if (!location.href.includes('/watch')) return;
-        if (hasInitialRun) return;
-
-        if (document.hidden) {
-            document.addEventListener('visibilitychange', onVisibilityChange, { once: true });
-            return;
-        }
-
-        try {
-            document.body.classList.add('yt-playlist-checking');
-            lockOverlay.style.display = 'block';
-
-            const targetBtn = await findButtonStrategy(10000);
-            if (!targetBtn) return;
-
-            targetBtn.click();
-
-            const menu = await waitForMenuVisible(8000);
-            if (!menu) {
-                await closeMenuFinal();
-                return;
-            }
-            await wait();
-
-            const items = document.querySelectorAll('toggleable-list-item-view-model yt-list-item-view-model');
-            const found = [];
-            items.forEach(item => {
-                if (item.getAttribute('aria-pressed') === 'true') {
-                    const title = item.querySelector('.yt-list-item-view-model__title')?.textContent.trim();
-                    if (title) found.push(title);
-                }
-            });
-
-            savedPlaylists = new Set(found);
-            updateUI();
-            hasInitialRun = true;
-            
-            await wait();
-            await closeMenuFinal();
-
-        } catch (e) {
-            console.error(e);
-            await closeMenuFinal();
-        } finally {
-            document.body.classList.remove('yt-playlist-checking');
-            lockOverlay.style.display = 'none';
-            if (document.activeElement) document.activeElement.blur();
-            const player = document.getElementById('movie_player');
-            if (player) player.focus();
-        }
-    }
-
-    function onVisibilityChange() {
-        if (!document.hidden && !hasInitialRun) {
-            if (pendingCheckTimer) clearTimeout(pendingCheckTimer);
-            pendingCheckTimer = setTimeout(runInitialScan, 1500);
-        }
-    }
-
-    window.addEventListener('yt-navigate-finish', function() {
-        const newVideoId = new URLSearchParams(window.location.search).get('v');
         
-        initSnackbarObserver();
-
-        if (currentVideoId !== newVideoId) {
-            currentVideoId = newVideoId;
-            hasInitialRun = false;
-            savedPlaylists.clear();
-            
-            const oldStatus = document.getElementById('my-playlist-status');
-            if (oldStatus) oldStatus.remove();
-            document.body.classList.remove('yt-playlist-checking');
-            
-            if (pendingCheckTimer) clearTimeout(pendingCheckTimer);
-
-            if (document.hidden) {
-                document.addEventListener('visibilitychange', onVisibilityChange, { once: true });
-            } else {
-                pendingCheckTimer = setTimeout(runInitialScan, 2500);
-            }
-        }
-    });
-
-    async function findButtonStrategy(timeout) {
-        const start = Date.now();
-        while (Date.now() - start < timeout) {
-            const moreBtn = document.querySelector('button[aria-label="其他動作"], button[aria-label="More actions"]');
-            const popup = document.querySelector('ytd-menu-popup-renderer');
-            
-            if (moreBtn) {
-                if (!popup || popup.offsetParent === null) {
-                    moreBtn.click();
-                    await wait();
-                }
-                const menuItems = document.querySelectorAll('ytd-menu-service-item-renderer');
-                for (let item of menuItems) {
-                    const txt = (item.innerText || "").toLowerCase();
-                    if (txt.includes('save') || txt.includes('儲存') || txt.includes('保存')) return item;
-                }
-            }
-            const topButtons = document.querySelectorAll('ytd-menu-renderer button');
-            for (let btn of topButtons) {
-                const label = (btn.getAttribute('aria-label') || "").toLowerCase();
-                if ((label.includes('save') || label.includes('儲存')) && !label.includes('cancel')) return btn;
-            }
-            await wait();
-        }
-        return null;
-    }
-
-    async function waitForMenuVisible(timeout) {
-        const start = Date.now();
-        while (Date.now() - start < timeout) {
-            const dropdown = document.querySelector('tp-yt-iron-dropdown[ytb-dropdown-visible="true"]');
-            const hasContent = document.querySelector('toggleable-list-item-view-model');
-            if (dropdown && hasContent) return dropdown;
-            await wait();
-        }
-        return null;
-    }
-
-    async function closeMenuFinal() {
-        const escOpts = { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true, cancelable: true };
-        document.dispatchEvent(new KeyboardEvent('keydown', escOpts));
-        document.dispatchEvent(new KeyboardEvent('keyup', escOpts));
-        await wait();
-        const bd = document.querySelector('iron-overlay-backdrop');
-        if (bd) bd.click();
-        const closeBtn = document.querySelector('ytd-add-to-playlist-renderer #close-button');
-        if (closeBtn) closeBtn.click();
+        // console.log("[YT-Checker] 背景監聽器已啟動");
     }
 
 })();
