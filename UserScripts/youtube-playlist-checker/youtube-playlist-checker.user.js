@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         YouTube 播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      29.3
+// @version      29.4
 // @description  檢查當前YouTube影片存在於哪個播放清單
 // @author       downwarjers
 // @license      MIT
 // @match        https://www.youtube.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=youtube.com
-// @grant        GM_addStyle
+// @grant        none
+// @run-at       document-idle
 // @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-playlist-checker/youtube-playlist-checker.user.js
 // @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-playlist-checker/youtube-playlist-checker.user.js
 // ==/UserScript==
