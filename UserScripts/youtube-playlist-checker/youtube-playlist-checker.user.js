@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      29.5
+// @version      29.6
 // @description  檢查當前YouTube影片存在於哪個播放清單
 // @author       downwarjers
 // @license      MIT
@@ -185,7 +185,7 @@
             }
 
             if (!params) {
-                const menuRenderer = document.querySelector('#above-the-fold ytd-menu-renderer');
+                const menuRenderer = document.querySelector('ytd-menu-renderer[class*="ytd-watch-metadata"]');
                 if (menuRenderer && menuRenderer.data) {
                     const buttons = menuRenderer.data.topLevelButtons || [];
                     for (let btn of buttons) {
