@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Disp.cc PTT 網址自動跳轉
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.3
+// @version      1.4
 // @description  自動將 disp.cc 上的 PTT 連結 (精準比對 "※ 文章網址:" 文字) 從 www.ptt.cc 轉址到 www.pttweb.cc
 // @author       downwarjers
 // @license      MIT
@@ -15,69 +15,90 @@
 (function() {
     'use strict';
 
-    console.log('[Disp.cc 腳本 v1.3] 已啟動，開始輪詢 (精準比對)...');
+    console.log('[Disp.cc 腳本 v1.4] 已啟動 (MutationObserver 模式)...');
 
-    let checkInterval = null; // 用來存放 setInterval 的 ID
-    let attempts = 0; // 嘗試次數
-    const maxAttempts = 60; // 最多嘗試 60 次 (60 * 250ms = 15 秒)
+    // 核心檢查函式：傳入一個 span 元素，檢查是否為目標並執行跳轉
+    function checkAndRedirect(span) {
+        // 1. 確保有子節點且第一個是文字節點 (避免報錯)
+        const textNode = span.childNodes[0];
+        if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return false;
 
-    const findAndRedirect = () => {
-        attempts++;
-
-        // 1. 抓取所有 class="record" 的 span 元素
-        const allRecordSpans = document.querySelectorAll('span.record');
-        
-        if (allRecordSpans.length === 0 && attempts < maxAttempts) {
-            // 如果還沒抓到任何 span.record，就繼續等
-            return;
-        }
-
-        let found = false; // 標記是否已找到並處理
-
-        // 2. 迭代檢查每一個 span
-        for (const span of allRecordSpans) {
+        // 2. 檢查文字內容是否以 "※ 文章網址:" 開頭
+        if (textNode.textContent.trim().startsWith('※ 文章網址:')) {
             
-            // 3. 檢查文字內容是否以 "※ 文章網址:" 開頭 (使用 trim() 移除前後空白)
-            // Node.TEXT_NODE === 3
-            // 我們只檢查第一個子節點 (文字節點)
-            const textNode = span.childNodes[0];
-            if (textNode && textNode.nodeType === Node.TEXT_NODE && textNode.textContent.trim().startsWith('※ 文章網址:')) {
-                
-                // 4. 如果文字符合，就在這個 span 內部尋找 <a> 連結
-                const pttLinkElement = span.querySelector('a');
+            // 3. 尋找內部的 <a> 連結
+            const pttLinkElement = span.querySelector('a');
+            if (pttLinkElement) {
+                const originalUrl = pttLinkElement.href;
 
-                if (pttLinkElement) {
-                    let originalUrl = pttLinkElement.href;
+                // 4. 檢查網址是否為 ptt.cc
+                if (originalUrl.startsWith('https://www.ptt.cc/')) {
+                    const newUrl = originalUrl.replace('https://www.ptt.cc/', 'https://www.pttweb.cc/');
 
-                    // 5. 檢查網址是否為 ptt.cc
-                    if (originalUrl.startsWith('https://www.ptt.cc/')) {
+                    console.log(`[Disp.cc 腳本] 找到目標: ${textNode.textContent.trim()}`);
+                    console.log(`[Disp.cc 腳本] 原始網址: ${originalUrl}`);
+                    console.log(`[Disp.cc 腳本] 正在導向到: ${newUrl}`);
+                    
+                    // 執行跳轉
+                    // 使用 replace() 取代 href，這樣使用者按「上一頁」才不會卡在無限迴圈
+                    window.location.replace(newUrl); 
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // 全域掃描函式 (用於初始檢查)
+    function scanAll() {
+        // 直接選取所有可能的目標，效率最高
+        const spans = document.querySelectorAll('span.record');
+        for (const span of spans) {
+            if (checkAndRedirect(span)) return true;
+        }
+        return false;
+    }
+
+    // --- 主執行流程 ---
+
+    // 1. 先執行一次立即檢查 (如果腳本載入時，內容已經在頁面上了)
+    if (scanAll()) return;
+
+    // 2. 如果沒找到，建立 MutationObserver 監聽後續載入的內容
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.type === 'childList') {
+                for (const node of mutation.addedNodes) {
+                    // 確保新增的是元素節點 (Type 1)
+                    if (node.nodeType === Node.ELEMENT_NODE) {
                         
-                        // 停止輪詢
-                        clearInterval(checkInterval);
-                        found = true; // 標記已找到
-
-                        let newUrl = originalUrl.replace('https://www.ptt.cc/', 'https://www.pttweb.cc/');
-
-                        console.log(`[Disp.cc 腳本] 找到目標: ${textNode.textContent.trim()}`);
-                        console.log(`[Disp.cc 腳本] 原始網址: ${originalUrl}`);
-                        console.log(`[Disp.cc 腳本] 正在導向到: ${newUrl}`);
+                        // 情況 A: 新增的節點本身就是 span.record
+                        if (node.matches('span.record')) {
+                            if (checkAndRedirect(node)) {
+                                observer.disconnect(); // 任務完成，停止監聽
+                                return;
+                            }
+                        }
                         
-                        // 執行跳轉
-                        window.location.href = newUrl;
-                        break; // 跳出 for 迴圈
+                        // 情況 B: span.record 包在新增的區塊裡面 (例如整個文章區塊被載入)
+                        // 使用 querySelectorAll 找出該節點下所有的目標
+                        const childSpans = node.querySelectorAll('span.record');
+                        for (const span of childSpans) {
+                            if (checkAndRedirect(span)) {
+                                observer.disconnect();
+                                return;
+                            }
+                        }
                     }
                 }
             }
         }
+    });
 
-        // 6. 檢查是否輪詢超時
-        if (!found && attempts > maxAttempts) {
-            console.log(`[Disp.cc 腳本] 超過 ${maxAttempts} 次嘗試 (15秒)，未找到 "※ 文章網址:" 元素。停止腳本。`);
-            clearInterval(checkInterval); // 停止輪詢
-        }
-    };
-
-    // 啟動輪詢，每 250 毫秒執行一次
-    checkInterval = setInterval(findAndRedirect, 250);
+    // 開始監聽 document.body 的變化
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
 
 })();
