@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch 精確日期轉換器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.5.1
+// @version      1.6.0
 // @description  使用 Twitch 原始時間戳將所有日期轉換為 yyyy-MM-dd 格式
 // @author       downwarjers
 // @license      MIT
@@ -15,13 +15,15 @@
 (function() {
     'use strict';
 
-    // 關鍵字列表 (第一階段檢查)
+    // --- 設定區 ---
+    const DEBOUNCE_DELAY_MS = 300; // 防抖延遲 (毫秒)，設為 200~500 之間體感最好
+    
+    // --- 關鍵字列表 ---
     const relativeTimeKeywords = [
         '前', 'ago', 'yesterday', '小時', '天', '週', '月', '年',
         'hour', 'day', 'week', 'month', 'year', 'just now'
     ];
 
-    // 特殊單字列表 (針對沒有數字的相對時間)
     const specialRelativeWords = [
         '剛剛', 'just now',
         '昨天', 'yesterday',
@@ -32,102 +34,100 @@
     ];
 
     /**
-     * 檢查文字是否為相對時間 (v3 修正版)
+     * 檢查文字是否為相對時間
      * @param {string} text
      * @returns {boolean}
      */
     function isRelativeTime(text) {
         if (!text) return false;
-
         const lowerText = text.toLowerCase();
 
         // 1. 必須包含基礎關鍵字
-        const hasKeyword = relativeTimeKeywords.some(keyword => lowerText.includes(keyword));
-        if (!hasKeyword) return false;
-
-        // 2. 排除 "觀看次數" (views)
-        if (lowerText.includes('觀看') || lowerText.includes('view') || lowerText.includes('visualizaç')) {
+        if (!relativeTimeKeywords.some(keyword => lowerText.includes(keyword))) {
             return false;
         }
 
-        // 3. 排除 "9:33:49" 這種時長格式 (檢查是否包含 :)
-        if (text.includes(':')) {
+        // 2. 排除 "觀看次數" 與時間長度 (含冒號)
+        if (lowerText.includes('觀看') || lowerText.includes('view') || lowerText.includes('visualizaç') || text.includes(':')) {
             return false;
         }
 
-        // 4. 檢查是否包含數字 (e.g., "12 天前")
-        const hasNumber = /\d/.test(text);
-        if (hasNumber) {
-            return true; // "12 天前", "2 個月前" 等會在這裡通過
-        }
-
-        // 5. 如果沒有數字，檢查是否為特殊單字 (e.g., "前天", "上個月")
-        const isSpecialWord = specialRelativeWords.some(word => lowerText.includes(word));
-
-        return isSpecialWord;
+        // 3. 包含數字 或 特殊單字
+        return /\d/.test(text) || specialRelativeWords.some(word => lowerText.includes(word));
     }
 
     /**
-     * 尋找頁面上所有尚未處理的卡片
+     * 核心替換邏輯
      */
     function replaceAllDates() {
+        // 僅選取尚未處理過的縮圖
         const thumbnails = document.querySelectorAll(
             'img[data-test-selector="preview-card-thumbnail__image-selector"]:not([data-thumbnail-processed])'
         );
 
-        thumbnails.forEach(img => {
-            img.dataset.thumbnailProcessed = 'true';
+        if (thumbnails.length === 0) return;
 
-            // 1. 獲取日期
+        thumbnails.forEach(img => {
+            img.dataset.thumbnailProcessed = 'true'; // 標記為已檢查
+
             const exactDate = img.title;
+            // 簡易驗證 title 是否像是一個日期 (包含數字且長度足夠)
             if (!exactDate || !/\d/.test(exactDate) || exactDate.length < 5) {
                 return;
             }
 
-            // 2. 找到共同的卡片祖先
+            // 尋找卡片容器
             const card = img.closest('article, [data-a-target^="video-tower-card-"], [data-a-target="video-list-card"]');
-            if (!card) {
-                return;
-            }
+            if (!card) return;
 
-            // 3. 在卡片內找到所有 stats
+            // 在卡片內尋找資訊欄位
             const stats = card.querySelectorAll('.tw-media-card-stat');
-            if (stats.length === 0) {
-                return;
-            }
-
-            // 4. 遍歷 stats 找到 "相對時間" 並替換
+            
             for (const statEl of stats) {
                 if (statEl.dataset.dateProcessed === 'true') continue;
 
-                const text = statEl.textContent;
-                if (isRelativeTime(text)) {
-                    statEl.textContent = exactDate;
-                    statEl.dataset.dateProcessed = 'true';
-
-                    // (可選) 樣式
-                    statEl.style.backgroundColor = 'rgba(0,0,0,0.8)';
-                    statEl.style.color = '#fff';
-                    statEl.style.padding = '0 0.2rem';
-
-                    break; 
+                if (isRelativeTime(statEl.textContent)) {
+                    // 使用 requestAnimationFrame 確保在下一次重繪前執行，減少畫面閃爍
+                    requestAnimationFrame(() => {
+                        statEl.textContent = exactDate;
+                        statEl.dataset.dateProcessed = 'true';
+                        
+                        // 樣式微調 (保留你原本的設定)
+                        statEl.style.backgroundColor = 'rgba(0,0,0,0.8)';
+                        statEl.style.color = '#fff';
+                        statEl.style.padding = '0 0.2rem';
+                        statEl.style.borderRadius = '2px'; // 加一點圓角比較好看
+                    });
+                    break; // 一張卡片通常只有一個時間，找到後就跳出
                 }
             }
         });
     }
 
-    // --- 啟動 ---
+    // --- 效能優化後的監聽器 ---
 
-    // MutationObserver 監聽 DOM 變化
+    let debounceTimer = null;
+
     const observer = new MutationObserver(mutations => {
-        replaceAllDates();
+        // 如果已經有計時器在跑，先清除它 (重置倒數)
+        if (debounceTimer) {
+            clearTimeout(debounceTimer);
+        }
+
+        // 設定一個新的計時器，DEBOUNCE_DELAY_MS 毫秒後才執行
+        debounceTimer = setTimeout(() => {
+            replaceAllDates();
+            debounceTimer = null;
+        }, DEBOUNCE_DELAY_MS);
     });
 
+    // 雖然 Twitch 結構複雜，但監聽 body 配合防抖是目前最穩定的解法
     observer.observe(document.body, {
         childList: true,
         subtree: true
     });
 
-    // 頁面初次載入時執行
-    setTimeout(replaceAllDates, 2000);
+    // 初次執行
+    setTimeout(replaceAllDates, 1000); // 等待一點時間讓初次渲染完成
+
 })();
