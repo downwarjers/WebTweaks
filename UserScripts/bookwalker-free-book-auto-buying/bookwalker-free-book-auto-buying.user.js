@@ -1,14 +1,12 @@
 // ==UserScript==
 // @name         BOOKWALKER 跨頁面批量加入購物車 (自動過濾已購/已在購物車) - 全自動靜默結帳版
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.33.1
+// @version      2.33.2
 // @description  【V2.33】導入結帳後導航邏輯 (handlePostCheckoutNavigation)，修復 V2.32 結帳後跳轉首頁導致流程中斷的問題。
 // @author       downwarjers
 // @license      MIT
 // @match        *://*.bookwalker.jp/*
-// @grant        GM_setValue
-// @grant        GM_getValue
-// @grant        GM_deleteValue
+// @grant        none
 // @require      https://code.jquery.com/jquery-3.6.0.min.js
 // @run-at       document-start
 // @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bookwalker-free-book-auto-buying/bookwalker-free-book-auto-buying.user.js
