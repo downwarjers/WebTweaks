@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      29.6
+// @version      29.7
 // @description  檢查當前YouTube影片存在於哪個播放清單
 // @author       downwarjers
 // @license      MIT
@@ -18,10 +18,13 @@
 
     // --- CSS 設定 ---
     function addStyle(css) {
+		const id = 'my-playlist-checker-style';
+        if (document.getElementById(id)) return; // 已經有了就跳過
         const style = document.createElement('style');
+        style.id = id; // 設定 ID
         style.textContent = css;
         (document.head || document.documentElement).appendChild(style);
-    }
+	}
 
     addStyle(`
         #my-playlist-status {
