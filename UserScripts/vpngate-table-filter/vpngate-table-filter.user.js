@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         VPN Gate Table Sort
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.1.1
+// @version      2.1.2
 // @description  Adds controls to switch between sorting by Speed (Mbps).
 // @author       downwarjers
 // @license      MIT
 // @match        *://www.vpngate.net/*
-// @grant        none
+// @grant        GM_setValue
+// @grant        GM_getValue
 // @run-at       document-idle
 // @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpn-gate-table-filter/vpn-gate-table-filter.user.js
 // @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpn-gate-table-filter/vpn-gate-table-filter.user.js
@@ -82,7 +83,7 @@
     searchInput.setAttribute('type', 'text');
     searchInput.setAttribute('placeholder', '【即時搜尋】輸入國家/IP/速度等...');
     searchInput.style.cssText = 'width: 100%; padding: 12px; margin: 15px 0 10px 0; border: 2px solid #007bff; font-size: 18px; box-sizing: border-box; border-radius: 5px;';
-    searchInput.value = 'Japan';
+    searchInput.value = GM_getValue('last_search_keyword', 'Japan');
 
     // 將所有控制項插入到表格上方
     targetTable.parentNode.insertBefore(controlsContainer, targetTable);
@@ -191,6 +192,7 @@
     // 設置事件監聽器
     searchInput.addEventListener('input', function() {
         filterTable(this.value);
+		GM_setValue('last_search_keyword', this.value);
     });
 
     // **關鍵：Radio Button 變動時觸發排序**
