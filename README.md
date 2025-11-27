@@ -52,7 +52,7 @@
 ### VPN Gate Table Sort
 * **資料夾名稱**: `vpngate-table-filter`
 * **說明**: 優化 VPNGate 列表頁面，增加排序控制面板。支援依據「連線速度 (Mbps)」或「總分」進行排序，並提供即時關鍵字搜尋過濾功能。
-* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpn-gate-table-filter/vpngate-table-filter.user.js)
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpngate-table-filter/vpngate-table-filter.user.js)
 
 ### YouTube 頻道通知批次設定
 * **資料夾名稱**: `youtube-notification-batch-setting`
