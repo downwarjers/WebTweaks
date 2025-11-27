@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VPN Gate Table Sort
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.1.2
+// @version      2.1.3
 // @description  Adds controls to switch between sorting by Speed (Mbps).
 // @author       downwarjers
 // @license      MIT
@@ -9,8 +9,8 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @run-at       document-idle
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpn-gate-table-filter/vpn-gate-table-filter.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpn-gate-table-filter/vpn-gate-table-filter.user.js
+// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpn-gate-table-filter/vpngate-table-filter.user.js
+// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpn-gate-table-filter/vpngate-table-filter.user.js
 // ==/UserScript==
 
 (function() {
