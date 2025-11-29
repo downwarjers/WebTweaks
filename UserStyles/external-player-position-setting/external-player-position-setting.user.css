@@ -31,3 +31,15 @@
         margin: 0 !important;
 	}
 }
+
+@-moz-document domain("youtube.com") {
+	#external-player-button-div {
+        position: fixed !important;
+        z-index: 2147483647 !important;
+        top: auto !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: auto !important;
+        margin: 0 !important;
+	}
+}
