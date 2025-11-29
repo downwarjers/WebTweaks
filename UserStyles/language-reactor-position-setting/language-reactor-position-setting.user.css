@@ -14,9 +14,9 @@
 
 @-moz-document domain("netflix.com"), domain("youtube.com") {
 /* 鎖定 LLN 的主面板 ID: lln-bottom-panel */
-#lln-bottom-panel {
-    /* 將面板底部定位 (bottom) 調整為 5% */
-    /* !important 確保此樣式能覆蓋擴充功能本身的設定 */
-    bottom: 5% !important;
-}
+	#lln-bottom-panel {
+		/* 將面板底部定位 (bottom) 調整為 5% */
+		/* !important 確保此樣式能覆蓋擴充功能本身的設定 */
+		bottom: 5% !important;
+	}
 }

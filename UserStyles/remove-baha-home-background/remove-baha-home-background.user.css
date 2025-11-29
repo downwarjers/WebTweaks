@@ -14,8 +14,8 @@
 
 @-moz-document domain("home.gamer.com.tw") {
 /* 鎖定 body 元素 */
-body {
-    /* 將背景設定為「無」，相當於 document.body.style.background = 'none' */
-    background: none !important;
-}
+	body {
+		/* 將背景設定為「無」，相當於 document.body.style.background = 'none' */
+		background: none !important;
+	}
 }

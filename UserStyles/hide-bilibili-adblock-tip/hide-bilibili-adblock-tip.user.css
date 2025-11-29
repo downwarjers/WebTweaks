@@ -14,8 +14,8 @@
 
 @-moz-document domain("bilibili.com") {
 /* 對應 B 站的 .adblock-tips */
-  .adblock-tips {
-    /* 隱藏元素，並使用 !important 確保最高優先級，覆蓋網站原有樣式 */
-    display: none !important;
-  }
+	.adblock-tips {
+		/* 隱藏元素，並使用 !important 確保最高優先級，覆蓋網站原有樣式 */
+		display: none !important;
+	}
 }
