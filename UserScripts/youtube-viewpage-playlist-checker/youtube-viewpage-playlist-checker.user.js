@@ -9,8 +9,8 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=youtube.com
 // @grant        none
 // @run-at       document-idle
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-playlist-checker/youtube-playlist-checker.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-playlist-checker/youtube-playlist-checker.user.js
+// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-viewpage-playlist-checker/youtube-viewpage-playlist-checker.user.js
+// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-viewpage-playlist-checker/youtube-viewpage-playlist-checker.user.js
 // ==/UserScript==
 
 (function() {
