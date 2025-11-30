@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         YouTube 影片卡片播放清單檢查器
+// @name         YouTube 影片卡片清單播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
 // @version      5.3
 // @description  利用 VideoID 直接查詢卡片播放清單

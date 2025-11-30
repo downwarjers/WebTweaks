@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         YouTube 播放清單檢查器
+// @name         YouTube 影片頁面播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
 // @version      29.7
 // @description  檢查當前YouTube影片存在於哪個播放清單
