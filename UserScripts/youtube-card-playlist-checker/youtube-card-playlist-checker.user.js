@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 影片卡片清單播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      5.3
+// @version      5.4
 // @description  利用 VideoID 直接查詢卡片播放清單
 // @author       downwarjers
 // @license      MIT
@@ -176,14 +176,16 @@
     // 5. 掃描與 UI 注入
     // ==========================================
     function scanAndTagCards() {
-        const cardSelectors = 'ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-rich-grid-media';
+        // 【修改點】在選擇器字串中加入 ytd-playlist-video-renderer
+        const cardSelectors = 'ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-rich-grid-media, ytd-playlist-video-renderer';
         const cards = document.querySelectorAll(cardSelectors);
 
         cards.forEach(card => {
-            // 1. 如果這張卡片已經有標籤了，就跳過 (避免重複插入)
+            // 1. 如果這張卡片已經有標籤了，就跳過
             if (card.querySelector('.my-playlist-tag')) return;
 
             // 2. 抓取 Video ID
+            // ytd-playlist-video-renderer 的結構中，a#thumbnail 也是存在的，且包含 href
             const link = card.querySelector('a#thumbnail') || card.querySelector('a[href*="/watch?v="]');
             if (!link) return;
             const href = link.getAttribute('href');
@@ -191,15 +193,17 @@
             const videoId = href.split('v=')[1].split('&')[0];
             if (!videoId) return;
 
-            // 3. 準備 UI 容器 (v0.4 邏輯)
+            // 3. 準備 UI 容器
             let targetContainer = null;
             let styleType = 'DEFAULT';
 
+            // 檢查是否為 Lockup (Shorts 等)
             const lockupMeta = card.querySelector('.yt-lockup-metadata-view-model__text-container');
             if (lockupMeta) {
                 targetContainer = lockupMeta;
                 styleType = 'TYPE_LOCKUP';
             } else {
+                // 一般影片與 Playlist 列表通常都有 #meta
                 const metaBlock = card.querySelector('#meta');
                 if (metaBlock) {
                     targetContainer = metaBlock;
@@ -221,22 +225,22 @@
                 if (styleType === 'TYPE_LOCKUP') {
                     labelDiv.style.marginBottom = '4px';
                 } else {
+                    // TYPE_GRID (包含 Playlist 列表)
                     labelDiv.style.display = 'flex';
                     labelDiv.style.alignItems = 'center';
                     labelDiv.style.height = '24px';
+                    // 針對 Playlist 列表，如果覺得 marginTop 太大可在此微調，目前維持原樣
                     labelDiv.style.marginTop = '8px';
                     labelDiv.style.marginBottom = '4px';
                 }
 
-                // 插入 UI
+                // 插入 UI (插在 meta 容器的最上方，即標題上方)
                 targetContainer.insertBefore(labelDiv, targetContainer.firstChild);
 
-                // 【關鍵修改】檢查緩存
+                // 檢查緩存
                 if (resultCache.has(videoId)) {
-                    // 命中緩存！直接顯示，不用排隊
                     updateLabel(labelDiv, resultCache.get(videoId));
                 } else {
-                    // 沒看過，顯示讀取中並加入排隊
                     labelDiv.textContent = '⏳ ...';
                     labelDiv.style.color = '#f1c40f';
                     
