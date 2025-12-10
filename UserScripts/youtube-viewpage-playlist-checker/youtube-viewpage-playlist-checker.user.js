@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 影片頁面播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      29.7
+// @version      29.8
 // @description  檢查當前YouTube影片存在於哪個播放清單
 // @author       downwarjers
 // @license      MIT
@@ -28,7 +28,7 @@
 
     addStyle(`
         #my-playlist-status {
-            margin-top: 8px;
+            margin-bottom: 20px;
             padding: 6px 12px;
             background-color: rgba(255, 255, 255, 0.05);
             border-radius: 6px;
@@ -37,7 +37,6 @@
             border-left: 3px solid #3ea6ff;
             width: fit-content;
             display: block !important;
-            margin-bottom: 10px;
             font-family: Roboto, Arial, sans-serif;
             transition: all 0.2s ease;
         }
@@ -65,22 +64,25 @@
     // ==========================================
     function showStatus(htmlContent, className = '') {
         let div = document.getElementById('my-playlist-status');
+        const targetContainer = document.querySelector('#secondary #secondary-inner');
+
+        if (!targetContainer) return;
+
         if (!div) {
-            div = document.createElement('div');
+             div = document.createElement('div');
             div.id = 'my-playlist-status';
-            const anchor = document.querySelector('#above-the-fold #top-row') || document.querySelector('#above-the-fold h1');
-            if (anchor) {
-                if (anchor.id === 'top-row') anchor.parentNode.insertBefore(div, anchor.nextSibling);
-                else anchor.parentNode.appendChild(div);
-            } else {
-                return;
+            targetContainer.prepend(div);
+        } else {
+            // 如果 div 已存在但因為頁面切換脫離了原本位置，將其抓回並重新置頂
+            if (div.parentNode !== targetContainer) {
+                 targetContainer.prepend(div);
             }
         }
         if (div.innerHTML !== htmlContent) {
             div.innerHTML = htmlContent;
         }
-        div.className = className;
-    }
+    div.className = className;
+}
 
     // ==========================================
     // 2. 核心工具：驗證與設定
