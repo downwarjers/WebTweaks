@@ -7,7 +7,7 @@ from google.genai import types
 
 # ================= 設定區 =================
 # 請再次確認這裡貼上的是你那個「新帳號」的 Key
-API_KEY = "AIzaSyAtW7WACqs7fJG3aWJZx509mZHvqWUEKMU" 
+API_KEY = "AIzaSyC7dQqNL2Szd8u9KL_15VmwgrD36Wzaefs" 
 
 # --- 關鍵修改：先改回 1.5-flash 試試看，因為 2.0 可能有額外限制 ---
 MODEL_NAME = 'gemini-2.5-flash' 
@@ -110,5 +110,5 @@ if __name__ == "__main__":
     else:
         print("⚠️ 無變更內容，跳過")
 
-    print("😴 休息 5 秒...")
-    time.sleep(5)
+    print("😴 休息 10 秒...")
+    time.sleep(10)
