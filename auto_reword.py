@@ -7,7 +7,7 @@ from google.genai import types
 
 # ================= 設定區 =================
 # 請再次確認這裡貼上的是你那個「新帳號」的 Key
-API_KEY = "AIzaSyC7dQqNL2Szd8u9KL_15VmwgrD36Wzaefs" 
+API_KEY = "AIzaSyDbp9ay6VjdIKha8cRnv7GnHqJvV_wwm_g" 
 
 # --- 關鍵修改：先改回 1.5-flash 試試看，因為 2.0 可能有額外限制 ---
 MODEL_NAME = 'gemini-2.5-flash' 
