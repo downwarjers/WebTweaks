@@ -9,8 +9,8 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @run-at       document-idle
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpn-gate-table-filter/vpngate-table-filter.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpn-gate-table-filter/vpngate-table-filter.user.js
+// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpngate-table-filter/vpngate-table-filter.user.js
+// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpngate-table-filter/vpngate-table-filter.user.js
 // ==/UserScript==
 
 (function() {
