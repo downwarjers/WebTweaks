@@ -46,7 +46,7 @@ def parse_file_header(filepath, is_css=False):
 
 def generate_section(title, folder_name, items):
     """生成 Markdown 區塊"""
-    content = [f"## 🎨 {title}\n"]
+    content = [f"## {title}\n"]
     
     # [修改處] 排序邏輯變更：
     # 先依據 'folder' (資料夾名稱) 排序，如果同資料夾，再依據 'name' (腳本名稱) 排序
@@ -111,11 +111,11 @@ def main():
     readme_content = README_HEADER
     
     if scripts:
-        readme_content += generate_section("UserScripts (腳本)", "UserScripts", scripts)
+        readme_content += generate_section("📂 UserScripts (腳本)", "UserScripts", scripts)
     
     if styles:
         readme_content += "---\n\n"
-        readme_content += generate_section("UserStyles (樣式)", "UserStyles", styles)
+        readme_content += generate_section("🎨 UserStyles (樣式)", "UserStyles", styles)
 
     # 寫入 README.md
     with open(README_FILE, 'w', encoding='utf-8') as f:
