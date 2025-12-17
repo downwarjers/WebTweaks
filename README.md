@@ -2,7 +2,7 @@
 
 這裡整理了 `WebTweaks` 專案中的所有 UserScripts (使用者腳本) 與 UserStyles (使用者樣式)，本列表由腳本自動生成。
 
-## 🎨 UserScripts (腳本)
+## 📂 UserScripts (腳本)
 
 ### ACGSecrets Bangumi 分類抓取
 * **資料夾名稱**: `acgsecrets-bangumi-copy`
