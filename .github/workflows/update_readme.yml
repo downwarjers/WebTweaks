@@ -5,8 +5,12 @@ on:
     paths:
       - '**.user.js'
       - '**.user.css'
-      - 'update_readme.py' # 當腳本本身變更時也觸發
-  workflow_dispatch: # 允許手動觸發
+      - 'update_readme.py'
+      - '.github/workflows/update_readme.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -14,12 +18,12 @@ jobs:
     
     steps:
     - name: Checkout repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.x'
 
@@ -27,7 +31,8 @@ jobs:
       run: python update_readme.py
 
     - name: Commit and push changes
-      uses: stefanzweifel/git-auto-commit-action@v4
+      uses: stefanzweifel/git-auto-commit-action@v5
       with:
         commit_message: "docs: auto update README.md"
         file_pattern: README.md
+        # commit_user_name 與 email 使用預設即可，無需特別指定
