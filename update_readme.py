@@ -8,9 +8,32 @@ README_FILE = 'README.md'
 REPO_RAW_URL_BASE = 'https://raw.githubusercontent.com/downwarjers/WebTweaks/main'
 
 # 定義 README 的標頭與結尾模板
-README_HEADER = """# WebTweaks
+# 修改 update_readme.py 中的 README_HEADER 變數
 
-這裡整理了 `WebTweaks` 專案中的所有 UserScripts (使用者腳本) 與 UserStyles (使用者樣式)，本列表由腳本自動生成。
+README_HEADER = """# WebTweaks 🌐
+
+![Update README](https://github.com/downwarjers/WebTweaks/actions/workflows/update_readme.yml/badge.svg)
+![License](https://img.shields.io/github/license/downwarjers/WebTweaks)
+
+這裡整理了 `WebTweaks` 專案中的所有 UserScripts (使用者腳本) 與 UserStyles (使用者樣式)。
+所有腳本皆開源，旨在提升特定網站的瀏覽體驗。本列表由 GitHub Actions 自動生成。
+
+## 🚀 如何使用 (Prerequisites)
+
+在使用這些腳本之前，請確保您的瀏覽器已安裝對應的擴充功能：
+
+| 類型 | 推薦擴充功能 |
+| :--- | :--- |
+| **UserScripts (腳本)** | [Tampermonkey](https://www.tampermonkey.net/) 或 [ScriptCat](https://scriptcat.org/) |
+| **UserStyles (樣式)** | [Stylus](https://add0n.com/stylus.html) |
+
+安裝擴充功能後，點擊下方列表中的 **[點此安裝]**連結，即可自動觸發安裝畫面。
+
+## ⚠️ 免責聲明
+
+本專案提供的腳本僅供學習與個人使用。使用自動化腳本可能違反部分網站的使用條款，請自行承擔使用風險。作者不對因使用本腳本而導致的任何帳號異常或損失負責。
+
+---
 
 """
 
