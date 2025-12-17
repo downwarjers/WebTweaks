@@ -1,0 +1,33 @@
+name: Update README
+
+on:
+  push:
+    paths:
+      - '**.user.js'
+      - '**.user.css'
+      - 'update_readme.py' # 當腳本本身變更時也觸發
+  workflow_dispatch: # 允許手動觸發
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Run script
+      run: python update_readme.py
+
+    - name: Commit and push changes
+      uses: stefanzweifel/git-auto-commit-action@v4
+      with:
+        commit_message: "docs: auto update README.md"
+        file_pattern: README.md
