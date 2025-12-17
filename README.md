@@ -34,10 +34,25 @@
 * **說明**: 瀏覽 Disp.cc 時，若文章來源顯示為 PTT (`ptt.cc`)，點擊該連結會自動轉址到 `pttweb.cc` (網頁版 PTT 備份站)，避免 PTT 原站的年齡驗證阻擋。精確比對「※ 文章網址:」文字，確保只針對文章底部的來源連結進行處理。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/disp-bbs-redirect-to-pttweb/disp-bbs-redirect-to-pttweb.user.js)
 
+### 電子發票平台 - 自動顯示100筆
+* **資料夾名稱**: `einvoice-auto-show-100`
+* **說明**: 自動查詢近 7 個月區間發票
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/einvoice-auto-show-100/einvoice-auto-show-100.user.js)
+
+### 電子發票平台 - 年度發票儀表板
+* **資料夾名稱**: `einvoice-dashboard-export`
+* **說明**: 自動將列表顯示筆數切換為 100 筆並執行
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/einvoice-dashboard-export/einvoice-dashboard-export.user.js)
+
 ### GameWith ウマ娘 選擇資料匯出
 * **資料夾名稱**: `gamewith-umamusume-data-copy`
 * **說明**: 在 GameWith 賽馬娘攻略網頁上，抓取使用者勾選的資料（如因子、支援卡），依據 H2 標題進行分類。提供「複製到剪貼簿」與「下載 txt」功能，方便整理攻略數據。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/gamewith-umamusume-data-copy/gamewith-umamusume-data-copy.user.js)
+
+### Manga-Zip Detail Page Follow Button
+* **資料夾名稱**: `manga-zip-detail-page-follow-btn`
+* **說明**: 在詳情頁新增追蹤按鈕，並自動同步「已追蹤/未追蹤」的原始狀態。
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/manga-zip-detail-page-follow-btn/manga-zip-detail-page-follow-btn.user.js)
 
 ### Niconico Danmaku Canvas Scaler
 * **資料夾名稱**: `niconico-danmaku-zoom-in`
@@ -54,29 +69,39 @@
 * **說明**: 優化 VPNGate 列表頁面，增加排序控制面板。支援依據「連線速度 (Mbps)」或「總分」進行排序，並提供即時關鍵字搜尋過濾功能。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpngate-table-filter/vpngate-table-filter.user.js)
 
+### YouTube: Append Handle
+* **資料夾名稱**: `youtube-append-handle`
+* **說明**: 搭配 "Restore YouTube Username" 使用。自動將 Handle 解碼並顯示在名稱後方
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-append-handle/youtube-append-handle.user.js)
+
+### YouTube 影片卡片清單播放清單檢查器
+* **資料夾名稱**: `youtube-card-playlist-checker`
+* **說明**: 在 YouTube 透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-card-playlist-checker/youtube-card-playlist-checker.user.js)
+
 ### YouTube 頻道通知批次設定
 * **資料夾名稱**: `youtube-notification-batch-setting`
 * **說明**: 在 YouTube 訂閱內容管理頁面新增控制面板，可批次將所有頻道的通知鈴鐺設定為「全部」、「個人化」或「無」。支援動態滾動載入 (Dynamic Scroll)，可自動處理長列表的訂閱頻道。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-notification-batch-setting/youtube-notification-batch-setting.user.js)
-
-### YouTube 影片頁面播放清單檢查器
-* **資料夾名稱**: `Youtube-viewpage-playlist-checker`
-* **說明**: 在 YouTube 影片頁面顯示當前影片是否已加入使用者的任何自訂播放清單。透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
-* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-viewpage-playlist-checker/youtube-viewpage-playlist-checker.user.js)
 
 ### YouTube 影片儲存按鈕強制顯示
 * **資料夾名稱**: `youtube-save-button-fixer`
 * **說明**: 強制在 YouTube 影片操作列顯示「儲存」（加入播放清單）按鈕。當視窗縮放導致按鈕被收入「...」選單時，自動複製並生成一個獨立的按鈕置於操作列上。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-save-button-fixer/youtube-save-button-fixer.user.js)
 
-### YouTube 影片卡片清單播放清單檢查器
-* **資料夾名稱**: `Youtube-card-playlist-checker`
-* **說明**: 在 YouTube 透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
-* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-card-playlist-checker/youtube-card-playlist-checker.user.js)
+### YouTube 影片頁面播放清單檢查器
+* **資料夾名稱**: `Youtube-viewpage-playlist-checker`
+* **說明**: 在 YouTube 影片頁面顯示當前影片是否已加入使用者的任何自訂播放清單。透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-viewpage-playlist-checker/youtube-viewpage-playlist-checker.user.js)
 
 ---
 
 ## 🎨 UserStyles (樣式)
+
+### External Player位置與大小調整
+* **資料夾名稱**: `external-player-position-setting`
+* **說明**: External Player位置與大小自動調整
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/external-player-position-setting/external-player-position-setting.user.css)
 
 ### 隱藏B站插件提示橫幅
 * **資料夾名稱**: `hide-bilibili-adblock-tip`
