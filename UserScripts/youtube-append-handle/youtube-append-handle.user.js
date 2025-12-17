@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         YouTube: Append Handle
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.2
-// @description  搭配 "Restore YouTube Username" 使用。自動將 Handle 解碼並顯示在名稱後方
+// @version      2.0
+// @description  搭配 "Restore YouTube Username" 使用。自動將 Handle 解碼並同步顯示在名稱後方，並支援點擊複製
 // @author       downwarjers
 // @license      MIT
 // @match        https://www.youtube.com/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=youtube.com
-// @grant        none
+// @grant        GM_addStyle
 // @run-at       document-idle
 // @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-append-handle/youtube-append-handle.user.js
 // @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-append-handle/youtube-append-handle.user.js
