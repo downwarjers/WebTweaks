@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Append Handle
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.0
+// @version      2.1
 // @description  搭配 "Restore YouTube Username" 使用。自動將 Handle 解碼並同步顯示在名稱後方，並支援點擊複製
 // @author       downwarjers
 // @license      MIT
@@ -11,35 +11,34 @@
 // @run-at       document-idle
 // @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-append-handle/youtube-append-handle.user.js
 // @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-append-handle/youtube-append-handle.user.js
+
 // ==/UserScript==
 
 (function() {
     'use strict';
 
     // 1. 注入 CSS
-    // 定義 Handle 的外觀、Hover 效果以及複製成功的樣式
     GM_addStyle(`
         .yt-handle-tag {
             font-size: 0.9em;
             color: #aaa;
             font-weight: normal;
             margin-left: 5px;
-            cursor: copy; /* 滑鼠游標變成複製圖示 */
+            cursor: copy;
             white-space: nowrap;
             display: inline-block;
             transition: all 0.2s;
             border-radius: 4px;
             padding: 0 4px;
+            vertical-align: middle; /* 微調對齊 */
         }
-        /* 滑鼠移上去的效果 */
         .yt-handle-tag:hover {
             color: #fff;
-            background-color: #3ea6ff; /* YouTube 藍 */
+            background-color: #3ea6ff;
             text-decoration: none;
         }
-        /* 複製成功時的效果 */
         .yt-handle-tag.copied {
-            background-color: #2ba640; /* 綠色 */
+            background-color: #2ba640;
             color: #fff;
         }
     `);
@@ -50,19 +49,24 @@
         const links = document.querySelectorAll('a[href*="/@"]:not([data-handle-appended])');
 
         links.forEach(link => {
-            // 過濾邏輯：確保是在 評論區、Shorts 評論、或影片擁有者欄位
-            const isComment = link.closest('ytd-comment-renderer') || link.closest('ytd-comment-view-model');
-            const isOwner = link.closest('#owner') || link.closest('#upload-info');
+            // ★ 修改點：只允許在留言區塊內
+            // ytd-comment-renderer = 傳統留言區塊
+            // ytd-comment-view-model = 新版留言/Shorts留言區塊
+            const commentContainer = link.closest('ytd-comment-renderer') || link.closest('ytd-comment-view-model');
 
-            if (!isComment && !isOwner) return;
+            // 如果不是在留言區內，直接跳過
+            if (!commentContainer) return;
 
+            // 確保是留言者的名稱連結 (過濾掉留言內容中提到的其他 @連結，如果需要的話)
+            // 通常留言者名稱會有 id="author-text" 或在特定標題標籤內
+            // 為了保險，這裡只要是在 commentContainer 內的 /@ 連結都視為目標 (通常只有作者名)
+            
             const rawHref = link.getAttribute('href');
             if (!rawHref) return;
 
             try {
                 let decoded = decodeURIComponent(rawHref);
 
-                // 解析 Handle
                 if (decoded.includes('/@')) {
                     decoded = decoded.split('/@')[1];
                     if (decoded.includes('?')) decoded = decoded.split('?')[0];
@@ -70,43 +74,33 @@
                     
                     const handleText = '@' + decoded;
 
-                    // 建立實體 span 標籤
+                    // 建立 span
                     const span = document.createElement('span');
                     span.className = 'yt-handle-tag';
                     span.textContent = `(${handleText})`;
-                    span.title = '點擊複製 Handle'; // Tooltip
+                    span.title = '點擊複製 Handle';
 
                     // 綁定點擊事件
                     span.addEventListener('click', function(e) {
-                        // ★ 關鍵：阻止事件冒泡，防止觸發外層 <a> 的跳轉
                         e.preventDefault();
                         e.stopImmediatePropagation();
 
-                        // 執行複製
                         navigator.clipboard.writeText(handleText).then(() => {
-                            // 視覺回饋：變更文字與顏色
                             const originalText = span.textContent;
                             span.textContent = '(已複製!)';
                             span.classList.add('copied');
-
-                            // 1.5秒後還原
                             setTimeout(() => {
                                 span.textContent = originalText;
                                 span.classList.remove('copied');
                             }, 1500);
-                        }).catch(err => {
-                            console.error('複製失敗:', err);
-                        });
+                        }).catch(err => console.error(err));
                     });
 
-                    // 將 span 加入到 link 內部最後方
                     link.appendChild(span);
-                    
-                    // 標記已處理，避免重複添加
                     link.setAttribute('data-handle-appended', 'true');
                 }
             } catch (e) {
-                // 忽略錯誤
+                // error
             }
         });
     }
