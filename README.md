@@ -1,8 +1,8 @@
 # WebTweaks
 
-這裡整理了 `WebTweaks` 專案中的所有 UserScripts (使用者腳本) 與 UserStyles (使用者樣式)，方便快速安裝與檢索。
+這裡整理了 `WebTweaks` 專案中的所有 UserScripts (使用者腳本) 與 UserStyles (使用者樣式)，本列表由腳本自動生成。
 
-## 📂 UserScripts (腳本)
+## 🎨 UserScripts (腳本)
 
 ### ACGSecrets Bangumi 分類抓取
 * **資料夾名稱**: `acgsecrets-bangumi-copy`
@@ -24,7 +24,7 @@
 * **說明**: 解決 Bilibili 影片顏色異常或提供負片效果。在播放器的「設定」選單（關燈模式旁）新增「反轉顏色」開關。透過注入 CSS `filter: invert(100%) hue-rotate(180deg)` 實現畫面反轉。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bilibili-video-negative-color/bilibili-video-negative-color.user.js)
 
-### BOOKWALKER 跨頁面批量加入購物車
+### BOOKWALKER 跨頁面批量加入購物車 (自動過濾已購/已在購物車) - 全自動靜默結帳版
 * **資料夾名稱**: `bookwalker-free-book-auto-buying`
 * **說明**: 自動化處理 BookWalker 免費書籍領取。支援跨頁面批量將書籍加入購物車，自動過濾已購買書籍。包含「全自動靜默結帳」功能，遇到購物車滿額（200本）時會自動觸發結帳流程，並在完成後返回原頁面繼續執行。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bookwalker-free-book-auto-buying/bookwalker-free-book-auto-buying.user.js)
@@ -36,12 +36,12 @@
 
 ### 電子發票平台 - 自動顯示100筆
 * **資料夾名稱**: `einvoice-auto-show-100`
-* **說明**: 自動查詢近 7 個月區間發票
+* **說明**: 自動將列表顯示筆數切換為 100 筆並執行
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/einvoice-auto-show-100/einvoice-auto-show-100.user.js)
 
 ### 電子發票平台 - 年度發票儀表板
 * **資料夾名稱**: `einvoice-dashboard-export`
-* **說明**: 自動將列表顯示筆數切換為 100 筆並執行
+* **說明**: 自動查詢近 7 個月區間發票
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/einvoice-dashboard-export/einvoice-dashboard-export.user.js)
 
 ### GameWith ウマ娘 選擇資料匯出
@@ -54,7 +54,7 @@
 * **說明**: 在詳情頁新增追蹤按鈕，並自動同步「已追蹤/未追蹤」的原始狀態。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/manga-zip-detail-page-follow-btn/manga-zip-detail-page-follow-btn.user.js)
 
-### Niconico Danmaku Canvas Scaler
+### Niconico Danmaku Canvas Scaler (with scaling context)
 * **資料夾名稱**: `niconico-danmaku-zoom-in`
 * **說明**: 調整 Niconico 動畫的彈幕大小。透過劫持 Canvas 的 `width`/`height` 屬性與 `getContext` 方法，提高渲染解析度，使彈幕字體相對變小/變清晰。支援快捷鍵調整縮放倍率（Shift + `+` / `-`）。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/niconico-danmaku-zoom-in/niconico-danmaku-zoom-in.user.js)
@@ -79,7 +79,7 @@
 * **說明**: 在 YouTube 透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-card-playlist-checker/youtube-card-playlist-checker.user.js)
 
-### YouTube 頻道通知批次設定
+### YouTube - Advanced Batch Channel Notifier (Dynamic Scroll)
 * **資料夾名稱**: `youtube-notification-batch-setting`
 * **說明**: 在 YouTube 訂閱內容管理頁面新增控制面板，可批次將所有頻道的通知鈴鐺設定為「全部」、「個人化」或「無」。支援動態滾動載入 (Dynamic Scroll)，可自動處理長列表的訂閱頻道。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-notification-batch-setting/youtube-notification-batch-setting.user.js)
@@ -90,7 +90,7 @@
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-save-button-fixer/youtube-save-button-fixer.user.js)
 
 ### YouTube 影片頁面播放清單檢查器
-* **資料夾名稱**: `Youtube-viewpage-playlist-checker`
+* **資料夾名稱**: `youtube-viewpage-playlist-checker`
 * **說明**: 在 YouTube 影片頁面顯示當前影片是否已加入使用者的任何自訂播放清單。透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-viewpage-playlist-checker/youtube-viewpage-playlist-checker.user.js)
 
@@ -117,3 +117,4 @@
 * **資料夾名稱**: `remove-baha-home-background`
 * **說明**: 強制移除巴哈姆特小屋（home.gamer.com.tw）的自訂背景圖片，將背景設為無。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/remove-baha-home-background/remove-baha-home-background.user.css)
+
