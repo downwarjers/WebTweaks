@@ -2,7 +2,7 @@
 // @name         Disp.cc PTT 網址自動跳轉
 // @namespace    https://github.com/downwarjers/WebTweaks
 // @version      1.4
-// @description  自動將 disp.cc 上的 PTT 連結 (精準比對 "※ 文章網址:" 文字) 從 www.ptt.cc 轉址到 www.pttweb.cc
+// @description  瀏覽 Disp.cc 時，若文章來源顯示為 PTT (`ptt.cc`)，點擊該連結會自動轉址到 `pttweb.cc` (網頁版 PTT 備份站)，避免 PTT 原站的年齡驗證阻擋。精確比對「※ 文章網址:」文字，確保只針對文章底部的來源連結進行處理。
 // @author       downwarjers
 // @license      MIT
 // @match        https://disp.cc/*

@@ -2,7 +2,7 @@
 // @name         GameWith ウマ娘 選擇資料匯出
 // @namespace    https://github.com/downwarjers/WebTweaks
 // @version      1.2.1
-// @description  抓取 Gamewith 賽馬娘頁面上選取的資料，依 H2 標題分類，並提供複製與下載功能。
+// @description  在 GameWith 賽馬娘攻略網頁上，抓取使用者勾選的資料（如因子、支援卡），依據 H2 標題進行分類。提供「複製到剪貼簿」與「下載 txt」功能，方便整理攻略數據。
 // @author       downwarjers
 // @license      MIT
 // @match        https://gamewith.jp/uma-musume/*

@@ -2,7 +2,7 @@
 // @name         VPN Gate Table Sort
 // @namespace    https://github.com/downwarjers/WebTweaks
 // @version      2.1.3
-// @description  Adds controls to switch between sorting by Speed (Mbps).
+// @description  優化 VPNGate 列表頁面，增加排序控制面板。支援依據「連線速度 (Mbps)」或「總分」進行排序，並提供即時關鍵字搜尋過濾功能。
 // @author       downwarjers
 // @license      MIT
 // @match        *://www.vpngate.net/*

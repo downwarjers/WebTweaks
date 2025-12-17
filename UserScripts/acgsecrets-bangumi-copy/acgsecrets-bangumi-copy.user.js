@@ -2,7 +2,7 @@
 // @name        ACGSecrets Bangumi 分類抓取
 // @namespace   https://github.com/downwarjers/WebTweaks
 // @version     2.3.1
-// @description 優先判斷跨季/家長指引與續作/新作的組合，再依據單一Tag和名稱判斷。分為八類。
+// @description 針對 ACGSecrets.hk 網站，依據作品標籤（如「續作」、「新作」、「家長指引」）與名稱規則（正則表達式判斷季數、篇章），將新番列表自動分類為八大類。在頁面右下角提供「複製分類結果」與「下載 txt」按鈕。
 // @author      downwarjers
 // @license     MIT
 // @match       https://acgsecrets.hk/bangumi/*

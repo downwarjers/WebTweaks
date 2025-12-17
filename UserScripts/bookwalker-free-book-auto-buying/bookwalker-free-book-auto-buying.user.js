@@ -2,7 +2,7 @@
 // @name         BOOKWALKER 跨頁面批量加入購物車 (自動過濾已購/已在購物車) - 全自動靜默結帳版
 // @namespace    https://github.com/downwarjers/WebTweaks
 // @version      2.33.2
-// @description  【V2.33】導入結帳後導航邏輯 (handlePostCheckoutNavigation)，修復 V2.32 結帳後跳轉首頁導致流程中斷的問題。
+// @description  自動化處理 BookWalker 免費書籍領取。支援跨頁面批量將書籍加入購物車，自動過濾已購買書籍。包含「全自動靜默結帳」功能，遇到購物車滿額（200本）時會自動觸發結帳流程，並在完成後返回原頁面繼續執行。
 // @author       downwarjers
 // @license      MIT
 // @match        *://*.bookwalker.jp/*

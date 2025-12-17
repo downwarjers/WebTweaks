@@ -2,7 +2,7 @@
 // @name         YouTube 影片頁面播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
 // @version      29.8
-// @description  檢查當前YouTube影片存在於哪個播放清單
+// @description  在 YouTube 影片頁面顯示當前影片是否已加入使用者的任何自訂播放清單。透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
 // @author       downwarjers
 // @license      MIT
 // @match        https://www.youtube.com/*
