@@ -2,7 +2,7 @@
 // @name        Niconico Danmaku Canvas Scaler (with scaling context)
 // @namespace    https://github.com/downwarjers/WebTweaks
 // @version     1.1.1
-// @description Adjust Niconico danmaku font size by scaling canvas resolution and context.
+// @description 調整 Niconico 動畫的彈幕大小。透過劫持 Canvas 的 `width`/`height` 屬性與 `getContext` 方法，提高渲染解析度，使彈幕字體相對變小/變清晰。支援快捷鍵調整縮放倍率（Shift + `+` / `-`）。
 // @author      downwarjers
 // @license     MIT
 // @match       https://www.nicovideo.jp/watch/*

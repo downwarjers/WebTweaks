@@ -2,7 +2,7 @@
 // @name         YouTube 影片儲存按鈕強制顯示
 // @namespace    https://github.com/downwarjers/WebTweaks
 // @version      2.1
-// @description  自動複製並生成「儲存」按鈕，置入於操作列中。透過複製現有按鈕樣式 (Clone & Modify) 達成 UI 自動適配
+// @description  強制在 YouTube 影片操作列顯示「儲存」（加入播放清單）按鈕。當視窗縮放導致按鈕被收入「...」選單時，自動複製並生成一個獨立的按鈕置於操作列上。
 // @author       downwarjers
 // @license      MIT
 // @match        https://www.youtube.com/*

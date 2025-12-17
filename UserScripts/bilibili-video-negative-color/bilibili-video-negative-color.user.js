@@ -2,7 +2,7 @@
 // @name         Bilibili Video Fix Negative Color
 // @namespace    https://github.com/downwarjers/WebTweaks
 // @version      1.3.1
-// @description  Bilibili影片負片反轉，並將開關整合到播放器「其他設置」中
+// @description  解決 Bilibili 影片顏色異常或提供負片效果。在播放器的「設定」選單（關燈模式旁）新增「反轉顏色」開關。透過注入 CSS `filter: invert(100%) hue-rotate(180deg)` 實現畫面反轉。
 // @author       downwarjers
 // @license      MIT
 // @match        *://www.bilibili.com/*

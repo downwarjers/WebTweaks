@@ -2,7 +2,7 @@
 // @name         巴哈姆特 - 自動關閉簽到視窗
 // @namespace    https://github.com/downwarjers/WebTweaks
 // @version      1.3
-// @description  偵測並自動關閉 gamer.com.tw 網站上的彈出視窗 (dialogify_1)
+// @description  自動偵測並關閉巴哈姆特（gamer.com.tw）進入時彈出的每日簽到視窗 (`dialogify_1`)。使用 `MutationObserver` 監聽 DOM 變化，發現關閉按鈕時自動觸發點擊。
 // @author       downwarjers
 // @license      MIT
 // @match        https://*.gamer.com.tw/*

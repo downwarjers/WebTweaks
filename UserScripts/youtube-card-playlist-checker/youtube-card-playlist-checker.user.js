@@ -2,7 +2,7 @@
 // @name         YouTube 影片卡片清單播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
 // @version      5.4
-// @description  利用 VideoID 直接查詢卡片播放清單
+// @description  在 YouTube 透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
 // @author       downwarjers
 // @license      MIT
 // @match        https://www.youtube.com/*
