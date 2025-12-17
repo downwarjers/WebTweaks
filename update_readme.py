@@ -5,14 +5,13 @@ import re
 ROOT_DIR = '.'
 README_FILE = 'README.md'
 # GitHub Raw 檔案的前綴 (如果你的 @downloadURL 是空的，腳本會嘗試用這個組合成連結)
-# 請修改為你的 repo 路徑，例如: https://raw.githubusercontent.com/你的帳號/你的Repo/main
+# repo 路徑，例如: https://raw.githubusercontent.com/你的帳號/你的Repo/main
 REPO_RAW_URL_BASE = 'https://raw.githubusercontent.com/downwarjers/WebTweaks/main'
 
 # 定義 README 的標頭與結尾模板
 README_HEADER = """# WebTweaks
 
-這裡整理了 `WebTweaks` 專案中的所有 UserScripts (使用者腳本) 與 UserStyles (使用者樣式)，方便快速安裝與檢索。
-本列表由腳本自動生成。
+這裡整理了 `WebTweaks` 專案中的所有 UserScripts (使用者腳本) 與 UserStyles (使用者樣式)，本列表由腳本自動生成。
 
 """
 
