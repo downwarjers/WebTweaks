@@ -92,7 +92,7 @@
 
 ### YouTube: Append Handle
 * **資料夾名稱**: `youtube-append-handle`
-* **說明**: 搭配 "Restore YouTube Username" 使用。自動將 Handle 解碼並顯示在名稱後方
+* **說明**: 搭配 "Restore YouTube Username" 使用。自動將 Handle 解碼並同步顯示在名稱後方，並支援點擊複製
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-append-handle/youtube-append-handle.user.js)
 
 ### YouTube 影片卡片清單播放清單檢查器
