@@ -1,11 +1,11 @@
 /* ==UserStyle==
 @name         External Player位置與大小調整
 @namespace    https://github.com/downwarjers/WebTweaks
-@version      1.0
+@version      1.2
 @description  External Player位置與大小自動調整
-@author       downWarJers
-@license      MI
-@updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/external-player-position-setting/external-player-position-setting.user.css
+@author       downwarjers
+@license      MIT
+@updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/external-player-position-setting/external-player-position-setting.user.css
 ==/UserStyle== */
 
 @-moz-document domain("ani.gamer.com.tw") {
