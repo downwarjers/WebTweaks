@@ -1,0 +1,60 @@
+/* ==UserStyle==
+@name         Immersive Translate 位置與大小調整
+@namespace    https://github.com/downwarjers/WebTweaks
+@version      1.3
+@description  Immersive Translate 字幕位置與遮擋問題
+@author       downwarjers
+@license      MIT
+@updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/immersive-translate-position-setting/immersive-translate-position-setting.user.css
+==/UserStyle== */
+
+@-moz-document domain("viki.com") {
+/* 1. 針對字幕外層容器 (#immersive-translate-caption-window) */
+    #immersive-translate-caption-window {
+        /* 相對於播放器定位 */
+        position: absolute !important;
+        
+        /* 強制重置外掛 JS 寫入的座標與位移 */
+        top: auto !important;
+        left: 0 !important;
+        right: 0 !important;
+        transform: none !important;
+        
+        /* 高度調整：設為 60px 避開控制列；若想貼底可自行改小數值 */
+        bottom: 60px !important; 
+        
+        /* 強制寬度滿版並置中對齊 */
+        width: 100% !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: flex-end !important;
+        
+        /* 關鍵：開啟滑鼠穿透 (確保字幕不會擋住後方按鈕點擊) */
+        pointer-events: none !important;
+        
+        /* 層級：設定在影片之上，但在控制列之下 */
+        z-index: 2000 !important;
+    }
+
+    /* 2. 針對字幕內部樣式重置 */
+    #immersive-translate-caption-window .imt-caption-window,
+    #immersive-translate-caption-window .imt-captions-text {
+        position: static !important;
+        transform: none !important;
+        margin-bottom: 0 !important;
+        
+        /* 加強文字陰影，確保在亮色背景也能看清 */
+        text-shadow: 0 0 4px rgba(0,0,0,0.8) !important;
+    }
+
+    /* 3. 針對 Viki 控制列 */
+    .vjs-control-bar,
+    .vmp-control-bar {
+        /* 確保控制列擁有最高層級，永遠在字幕上方 */
+        z-index: 2147483647 !important;
+        pointer-events: auto !important;
+    }
+}
