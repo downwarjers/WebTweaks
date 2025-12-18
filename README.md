@@ -129,6 +129,11 @@
 * **說明**: 自動隱藏 Bilibili 頂部偵測到廣告攔截插件的提示橫幅 (`.adblock-tips`)。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/hide-bilibili-adblock-tip/hide-bilibili-adblock-tip.user.css)
 
+### Immersive Translate 位置與大小調整
+* **資料夾名稱**: `immersive-translate-position-setting`
+* **說明**: Immersive Translate 字幕位置與遮擋問題
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/immersive-translate-position-setting/immersive-translate-position-setting.user.css)
+
 ### Language Reactor 字幕位置調整
 * **資料夾名稱**: `language-reactor-position-setting`
 * **說明**: 調整 Netflix/YouTube 上 Language Reactor (原 LLN) 插件的字幕面板位置，將其強制固定在螢幕底部 5% 的位置。
