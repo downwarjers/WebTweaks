@@ -1,21 +1,18 @@
 /* ==UserStyle==
 @name         隱藏B站插件提示橫幅
 @namespace    https://github.com/downwarjers/WebTweaks
-@version      1.0
+@version      1.1
 @description  自動隱藏 Bilibili 頂部偵測到廣告攔截插件的提示橫幅 (`.adblock-tips`)。
-@author       downWarJers
+@author       downwarjers
 @license      MIT
-<<<<<<< HEAD
-=======
 @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/hide-bilibili-adblock-tip/hide-bilibili-adblock-tip.user.css
->>>>>>> 2f0d931 (調整download路徑)
 @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/hide-bilibili-adblock-tip/hide-bilibili-adblock-tip.user.css
 ==/UserStyle== */
 
 @-moz-document domain("bilibili.com") {
-/* 對應 B 站的 .adblock-tips */
-	.adblock-tips {
-		/* 隱藏元素，並使用 !important 確保最高優先級，覆蓋網站原有樣式 */
-		display: none !important;
-	}
+  /* 對應 B 站的 .adblock-tips */
+  .adblock-tips {
+    /* 隱藏元素，並使用 !important 確保最高優先級，覆蓋網站原有樣式 */
+    display: none !important;
+  }
 }

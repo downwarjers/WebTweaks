@@ -2,20 +2,17 @@
 @name         移除巴哈小屋背景圖
 @namespace    https://github.com/downwarjers/WebTweaks
 @version      1.0
-@description  強制移除巴哈姆特小屋（home.gamer.com.tw）的自訂背景圖片，將背景設為無。
+@description  巴哈姆特-移除小屋背景圖
 @author       downWarJers
 @license      MIT
-<<<<<<< HEAD
-=======
 @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/remove-baha-home-background/remove-baha-home-background.user.css
->>>>>>> 2f0d931 (調整download路徑)
 @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/remove-baha-home-background/remove-baha-home-background.user.css
 ==/UserStyle== */
 
 @-moz-document domain("home.gamer.com.tw") {
-/* 鎖定 body 元素 */
-	body {
-		/* 將背景設定為「無」，相當於 document.body.style.background = 'none' */
-		background: none !important;
-	}
+  /* 鎖定 body 元素 */
+  body {
+    /* 將背景設定為「無」，相當於 document.body.style.background = 'none' */
+    background: none !important;
+  }
 }
