@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         YouTube 自動展開所有留言
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.7
-// @description  自動展開 YouTube 留言。功能：1. 持續檢測整個留言區總開關 2. 單點展開 
+// @version      3.8
+// @description  自動展開 YouTube 留言。已修復畫面亂跳及無限展開隱藏的迴圈問題。
 // @author       downwarjers
 // @license      MIT
 // @match        https://www.youtube.com/*
@@ -12,7 +12,6 @@
 // @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-auto-expand-comments/youtube-auto-expand-comments.user.js
 // @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-auto-expand-comments/youtube-auto-expand-comments.user.js
 // ==/UserScript==
-
 
 (function() {
     'use strict';
