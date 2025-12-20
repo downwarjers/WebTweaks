@@ -90,6 +90,11 @@
 * **說明**: 將 Twitch 影片/剪輯列表上的相對時間（如「2小時前」、「3天前」）替換為精確的日期格式（yyyy-MM-dd）。直接讀取縮圖元素中的 `title` 屬性（原始時間戳），確保日期準確。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/twitch-date-converter/twitch-date-converter.user.js)
 
+### YouTube 自動展開所有留言
+* **資料夾名稱**: `UserScripts`
+* **說明**: 自動展開 YouTube 留言。功能：1. 持續檢測整個留言區總開關 2. 單點展開
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youTube-auto-expand-comments/youTube-auto-expand-comments.user.js)
+
 ### VPN Gate Table Sort
 * **資料夾名稱**: `vpngate-table-filter`
 * **說明**: 優化 VPNGate 列表頁面，增加排序控制面板。支援依據「連線速度 (Mbps)」或「總分」進行排序，並提供即時關鍵字搜尋過濾功能。
