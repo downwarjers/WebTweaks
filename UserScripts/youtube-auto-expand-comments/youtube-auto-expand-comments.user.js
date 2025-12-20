@@ -9,8 +9,8 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=youtube.com
 // @grant        none
 // @run-at       document-end
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youTube-auto-expand-comments/youTube-auto-expand-comments.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youTube-auto-expand-comments/youTube-auto-expand-comments.user.js
+// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-auto-expand-comments/youtube-auto-expand-comments.user.js
+// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-auto-expand-comments/youtube-auto-expand-comments.user.js
 // ==/UserScript==
 
 (function() {
