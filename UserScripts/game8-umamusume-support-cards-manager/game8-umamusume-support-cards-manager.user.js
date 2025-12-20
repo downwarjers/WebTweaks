@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Game8 馬娘支援卡評價與持有整合面板
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/downwarjers/WebTweaks
 // @version      2.6.7
 // @description   整合Game8馬娘攻略網的支援卡評價顯示與持有率管理。核心功能包括：自動背景抓取評價資料、CSV匯入匯出、以及優化的「資料庫/畫面」同步邏輯
 // @author       downwarjers
