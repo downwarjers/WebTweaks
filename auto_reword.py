@@ -10,7 +10,7 @@ from google.genai import types
 API_KEY = "AIzaSyCXB45NZq049zsO_JrPUHh_DeDCaDF1EL8" 
 
 # --- 關鍵修改：先改回 1.5-flash 試試看，因為 2.0 可能有額外限制 ---
-MODEL_NAME = 'gemini-flash-latest' 
+MODEL_NAME = 'gemini-flash-lite-latest' 
 # MODEL_NAME = 'gemini-2.0-flash'
 
 client = genai.Client(api_key=API_KEY)

@@ -65,6 +65,11 @@
 * **說明**: 自動查詢近 7 個月區間發票
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/einvoice-dashboard-export/einvoice-dashboard-export.user.js)
 
+### Game8 馬娘支援卡評價與持有整合面板
+* **資料夾名稱**: `game8-umamusume-support-cards-manager`
+* **說明**: 整合Game8馬娘攻略網的支援卡評價顯示與持有率管理。核心功能包括：自動背景抓取評價資料、CSV匯入匯出、以及優化的「資料庫/畫面」同步邏輯
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/game8-umamusume-support-cards-manager/game8-umamusume-support-cards-manager.user.js)
+
 ### GameWith ウマ娘 選擇資料匯出
 * **資料夾名稱**: `gamewith-umamusume-data-copy`
 * **說明**: 在 GameWith 賽馬娘攻略網頁上，抓取使用者勾選的資料（如因子、支援卡），依據 H2 標題進行分類。提供「複製到剪貼簿」與「下載 txt」功能，方便整理攻略數據。
