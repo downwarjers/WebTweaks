@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 自動展開所有留言
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.3
+// @version      3.6
 // @description  自動展開 YouTube 留言。功能：1. 持續檢測整個留言區總開關 2. 單點展開 
 // @author       downwarjers
 // @license      MIT
@@ -47,6 +47,7 @@
         .yt-expand-active button {
             background-color: #def1ff !important;
             color: #065fd4 !important;
+            border-radius: 18px; /* 稍微修飾按鈕 */
         }
         .yt-expand-active svg {
             fill: #065fd4 !important;
@@ -58,7 +59,7 @@
     `;
     document.head.appendChild(style);
 
-    // --- 工具函式 ---
+    // --- 工具函式：判斷是否為展開回覆按鈕 ---
     function isExpandButton(btn) {
         if (!btn) return false;
         const text = (btn.innerText || btn.getAttribute('aria-label') || "").toLowerCase();
@@ -79,10 +80,14 @@
         );
     }
 
-    // --- 安全點擊邏輯 ---
+    // --- 安全點擊邏輯 (針對回覆區塊) ---
     function safeClick(btn) {
         const container = btn.closest('ytd-comment-replies-renderer');
-        if (!container) { btn.click(); return true; }
+        // 如果不是回覆區塊 (例如是 "顯示完整內容")，直接點擊
+        if (!container) { 
+            btn.click(); 
+            return true; 
+        }
 
         let count = parseInt(container.getAttribute('data-expand-retry') || '0');
 
@@ -101,16 +106,31 @@
         return true;
     }
 
-    // --- 功能 A：全域展開 ---
+    // --- [新增功能] 展開 "顯示完整內容" (Read More) ---
+    function expandReadMore() {
+        // 選擇所有處於 collapsed (摺疊) 狀態下的 more 按鈕
+        const readMoreButtons = document.querySelectorAll('ytd-expander#expander[collapsed] > #more, #more-replies');
+        readMoreButtons.forEach(btn => {
+             // 這些按鈕通常只是 CSS 變化，不會觸發網路請求，可以直接點擊
+             btn.click();
+        });
+    }
+
+    // --- 功能 A：全域展開 (核心迴圈) ---
     function expandAllComments() {
+        // 1. 處理回覆
         const buttons = document.querySelectorAll('ytd-comment-replies-renderer button');
         buttons.forEach(btn => {
             const thread = btn.closest('ytd-comment-thread-renderer');
             const isAbandoned = thread && thread.classList.contains('expand-abandoned');
+            // 確保按鈕可見且符合條件
             if (btn.offsetParent !== null && isExpandButton(btn) && !isAbandoned) {
                  safeClick(btn);
             }
         });
+
+        // 2. [修復] 處理過長的留言 (顯示完整內容)
+        expandReadMore();
     }
 
     // --- 停止所有活動 ---
@@ -127,35 +147,41 @@
             el.classList.remove('auto-expanding');
         });
 
-        console.log('[控制中心] 已強制停止所有展開任務');
+        console.log('[控制中心] 已停止所有展開任務');
     }
 
-    // --- 切換邏輯 (包含更換圖示) ---
-    function toggleGlobalExpansion() {
+    // --- UI 更新函式 (將 UI 狀態與邏輯分離) ---
+    function updateUIState(isActive) {
         const wrapper = document.getElementById('yt-expand-comments-wrapper');
         if (!wrapper) return;
 
         const textSpan = wrapper.querySelector('.yt-spec-button-shape-next__button-text-content');
-        const iconPath = wrapper.querySelector('path'); // 獲取 SVG 的 path 元素
+        const iconPath = wrapper.querySelector('path'); 
         
-        if (!isGlobalRunning) {
-            // 開啟狀態
-            isGlobalRunning = true;
-            
+        if (isActive) {
             if(textSpan) textSpan.innerText = '停止展開 (運作中)';
-            if(iconPath) iconPath.setAttribute('d', ICON_STOP); // 切換為正方形圖示
-            
+            if(iconPath) iconPath.setAttribute('d', ICON_STOP);
             wrapper.classList.add('yt-expand-active');
-            expandAllComments();
-            globalInterval = setInterval(expandAllComments, 2000);
         } else {
-            // 關閉狀態
-            isGlobalRunning = false;
-            
             if(textSpan) textSpan.innerText = '展開所有留言';
-            if(iconPath) iconPath.setAttribute('d', ICON_EXPAND); // 切換回雙箭頭圖示
-
+            if(iconPath) iconPath.setAttribute('d', ICON_EXPAND);
             wrapper.classList.remove('yt-expand-active');
+        }
+    }
+
+    // --- 切換邏輯 (按鈕觸發) ---
+    function toggleGlobalExpansion() {
+        if (!isGlobalRunning) {
+            // 開啟
+            isGlobalRunning = true;
+            updateUIState(true);
+            
+            expandAllComments(); // 立即執行一次
+            globalInterval = setInterval(expandAllComments, 2000); // 之後每2秒檢查一次
+        } else {
+            // 關閉
+            isGlobalRunning = false;
+            updateUIState(false);
             stopAllActivity();
         }
     }
@@ -166,6 +192,10 @@
         if (threadElement.classList.contains('auto-expanding')) return;
 
         threadElement.classList.add('auto-expanding');
+
+        // [修復] 單一展開時，也要順便展開該串的 "顯示完整內容"
+        const localReadMore = threadElement.querySelectorAll('ytd-expander#expander[collapsed] > #more');
+        localReadMore.forEach(b => b.click());
 
         const threadInterval = setInterval(() => {
             if (!document.body.contains(threadElement)) {
@@ -193,12 +223,17 @@
                     }
                 }
             });
+            
+            // 檢查該串是否還有被折疊的長文
+            const currentReadMores = threadElement.querySelectorAll('ytd-expander#expander[collapsed] > #more');
+            currentReadMores.forEach(b => { b.click(); foundExpandBtn = true; });
 
             const hideBtns = Array.from(buttons).filter(b => {
                 const t = (b.innerText || "").toLowerCase();
                 return (t.includes('隱藏') || t.includes('hide')) && b.offsetParent !== null;
             });
 
+            // 如果已經沒有展開按鈕，且出現了隱藏按鈕，或者原本就沒有展開按鈕
             if (hideBtns.length > 0 && !foundExpandBtn) {
                 clearInterval(threadInterval);
                 activeThreadIntervals.delete(threadInterval);
@@ -218,7 +253,7 @@
         }, 60000);
     }
 
-    // 監聽點擊
+    // --- 監聽點擊 (委派) ---
     document.addEventListener('click', (e) => {
         const target = e.target;
         if (target.closest('#yt-expand-comments-wrapper')) return;
@@ -233,10 +268,11 @@
         }
     }, true);
 
-    // --- 初始化：注入原生樣式按鈕 ---
+    // --- 初始化：注入按鈕 ---
     function tryInjectButton() {
         if (document.getElementById('yt-expand-comments-wrapper')) return;
         
+        // 嘗試抓取各種可能的 Header 位置 (Youtube 改版頻繁)
         const targetContainer = document.querySelector('ytd-comments-header-renderer #title') || 
                                 document.querySelector('ytd-comments-header-renderer #additional-section');
 
@@ -244,7 +280,6 @@
             const wrapper = document.createElement('div');
             wrapper.id = 'yt-expand-comments-wrapper';
             
-            // 這裡將 SVG 的 path 設定為 ICON_EXPAND 變數
             wrapper.innerHTML = `
             <yt-button-view-model class="ytd-menu-renderer">
                 <button-view-model class="ytSpecButtonViewModelHost style-scope ytd-menu-renderer">
@@ -279,6 +314,21 @@
         }
     }
 
+    // --- [新增功能] 頁面切換重置邏輯 ---
+    // yt-navigate-finish 是 YouTube 在 SPA 切換頁面完成時觸發的事件
+    document.addEventListener('yt-navigate-finish', () => {
+        // 無論之前狀態如何，切換影片後一律重置為停止狀態
+        isGlobalRunning = false; 
+        stopAllActivity();
+        
+        // 由於切換頁面後 DOM 會重建，按鈕會消失，需要依靠 Observer 再次注入
+        // 這裡不需要手動移除舊按鈕，因為舊的 DOM 已經被 Youtube 移除了
+        
+        // 這裡只需要確保記憶體中的狀態是 Reset 的即可
+        console.log('[控制中心] 偵測到頁面切換，已重置狀態');
+    });
+
+    // --- DOM 監測 (負責注入按鈕) ---
     const observer = new MutationObserver((mutations) => {
         tryInjectButton();
     });
