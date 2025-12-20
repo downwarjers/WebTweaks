@@ -53,7 +53,7 @@ def generate_commit_message(diff_content):
     {truncated_diff}
     """
 
-    max_retries = 3
+    max_retries = 1000000000
     for attempt in range(max_retries):
         try:
             print(f"🚀 (第 {attempt+1} 次嘗試) 正在呼叫 Google API ({MODEL_NAME})...")
