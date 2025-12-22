@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 自動展開所有留言
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.8
+// @version      3.9
 // @description  自動展開 YouTube 留言。已修復畫面亂跳及無限展開隱藏的迴圈問題。
 // @author       downwarjers
 // @license      MIT
@@ -17,7 +17,10 @@
     'use strict';
 
     // --- 設定 ---
-    const MAX_RETRY_COUNT = 15; // 防卡死重試上限
+    const MAX_RETRY_COUNT = 15; // 防卡死重試上限次數
+    const MAX_THREAD_EXPAND_TIME = 60; // 每則留言的監測秒數
+	const GLOBAL_CHECK_INTERVAL = 4;   // 全域展開的檢查頻率秒數
+    const SINGLE_CHECK_INTERVAL = 2;   // 單一留言串的檢查頻率秒數
 
     // --- 全域變數 ---
     let globalInterval = null;
@@ -200,8 +203,8 @@
             isGlobalRunning = true;
             updateUIState(true);
             expandAllComments();
-            // 放慢檢查頻率至 2.5 秒，減緩畫面跳動感
-            globalInterval = setInterval(expandAllComments, 2500); 
+            // 放慢檢查頻率，減緩畫面跳動感
+            globalInterval = setInterval(expandAllComments, GLOBAL_CHECK_INTERVAL*1000); 
         } else {
             isGlobalRunning = false;
             updateUIState(false);
@@ -269,8 +272,8 @@
             if (!foundExpandableBtn) {
                 // 稍微等待一下確認不是網路延遲 (利用 retry 機制，這裡直接計數如果連續幾次都沒按鈕才停會更好，但在這簡化處理)
                 // 這裡的邏輯改為：本次檢查沒發現按鈕，就假設該串處理完畢
-                // 但為了保險（可能有 loading），我們不立即殺死，而是依賴下面的 setTimeout 60秒強制結束
-                // 或者我們可以檢查是否有 loading spinner，如果沒有 spinner 也沒有按鈕，那就是結束了
+                // 但為了保險（可能有 loading），不立即殺死，而是依賴下面的 setTimeout 60秒強制結束
+                // 檢查是否有 loading spinner，如果沒有 spinner 也沒有按鈕，那就是結束了
                 const spinner = replyContainer.querySelector('ytd-continuation-item-renderer');
                 if (!spinner) {
                      clearInterval(threadInterval);
@@ -279,18 +282,18 @@
                 }
             }
 
-        }, 2000); // 放慢單一檢查頻率
+        }, SINGLE_CHECK_INTERVAL*1000); // 放慢單一檢查頻率
         
         activeThreadIntervals.add(threadInterval);
         
-        // 60秒後強制停止該串偵測 (防止無限卡住)
+        // 超過設定秒數秒後強制停止該串偵測 (防止無限卡住)
         setTimeout(() => {
             if (activeThreadIntervals.has(threadInterval)) {
                 clearInterval(threadInterval);
                 activeThreadIntervals.delete(threadInterval);
                 if(threadElement) threadElement.classList.remove('auto-expanding');
             }
-        }, 60000);
+        }, MAX_THREAD_EXPAND_TIME*1000);
     }
 
     // --- 監聽點擊 ---
