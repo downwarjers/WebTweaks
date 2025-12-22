@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         巴哈姆特 - 自動關閉簽到視窗
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.3
+// @version      1.4
 // @description  自動偵測並關閉巴哈姆特（gamer.com.tw）進入時彈出的每日簽到視窗 (`dialogify_1`)。使用 `MutationObserver` 監聽 DOM 變化，發現關閉按鈕時自動觸發點擊。
 // @author       downwarjers
 // @license      MIT
@@ -42,5 +42,10 @@
         childList: true,
         subtree: true
     });
+	
+	setTimeout(() => {
+        observer.disconnect();
+        // console.log('Baha Sign: 監聽逾時 (可能已簽到)，停止監控以節省資源。'); 
+    }, 30000); // 30000 毫秒 = 30 秒
 
 })();
