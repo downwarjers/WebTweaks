@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Append Handle
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.1
+// @version      2.2
 // @description  搭配 "Restore YouTube Username" 使用。自動將 Handle 解碼並同步顯示在名稱後方，並支援點擊複製
 // @author       downwarjers
 // @license      MIT
@@ -105,28 +105,62 @@
     }
 
     // 3. 啟動監聽器
+	let throttleTimer = null; // 用來控制執行頻率的計時器
+
     const observer = new MutationObserver((mutations) => {
-        let shouldRun = false;
+        // 1. 先快速檢查是否有新增節點 (過濾掉單純屬性變化的雜訊)
+        let hasAddedNodes = false;
         for (const mutation of mutations) {
             if (mutation.addedNodes.length > 0) {
-                shouldRun = true;
+                hasAddedNodes = true;
                 break;
             }
         }
-        if (shouldRun) {
-            processHandles();
+
+        // 2. 只有在真的有新東西載入時，才準備執行
+        if (hasAddedNodes) {
+            // 如果計時器已經在跑，代表「待會就會執行一次」，這次直接忽略 (節省資源)
+            if (throttleTimer) return;
+
+            // 設定 1.5 秒後執行一次 (1500ms)
+            // 這能讓瀏覽器先專心處理 YouTube 的載入，等稍閒時再補上 Handle
+            throttleTimer = setTimeout(() => {
+                processHandles();
+                throttleTimer = null; // 執行完畢，重置計時器
+            }, 1500); 
         }
     });
 
     const startObserver = () => {
-        const targetNode = document.querySelector('ytd-app') || document.body;
-        if (targetNode) {
-            observer.observe(targetNode, { childList: true, subtree: true });
-            processHandles();
+        // 1. 先停止舊的監聽 (避免重複綁定)
+        observer.disconnect();
+
+        // 2. 嘗試尋找留言區的容器
+        // 根據您提供的 HTML，這個 ID 是最穩定的目標
+        const commentsSection = document.querySelector('ytd-comments#comments');
+
+        if (commentsSection) {
+            // A. 如果找到了，就只監聽這個區域
+            console.log('[WebTweaks] 已鎖定留言區，開始監控。');
+            observer.observe(commentsSection, {
+                childList: true,
+                subtree: true // 必須開啟 subtree，因為留言內容是在更深層的 div 裡
+            });
+            
+            // 立即執行一次處理，確保既有的留言被加上 Handle
+            processHandles(); 
         } else {
-            setTimeout(startObserver, 500);
+            // B. 如果還沒出現 (例如剛開網頁)，就每 1 秒檢查一次，直到出現為止
+            setTimeout(startObserver, 1000);
         }
     };
+
+    // 3. 監聽 YouTube 的頁面切換事件 (SPA 跳轉)
+    // 當使用者點擊下一部影片時，DOM 可能會重置，需要重新鎖定目標
+    window.addEventListener('yt-navigate-finish', () => {
+        // 給予一點緩衝時間讓 DOM 載入
+        setTimeout(startObserver, 1500); 
+    });
 
     startObserver();
 
