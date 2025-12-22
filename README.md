@@ -75,6 +75,11 @@
 * **說明**: 在 GameWith 賽馬娘攻略網頁上，抓取使用者勾選的資料（如因子、支援卡），依據 H2 標題進行分類。提供「複製到剪貼簿」與「下載 txt」功能，方便整理攻略數據。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/gamewith-umamusume-data-copy/gamewith-umamusume-data-copy.user.js)
 
+### Gemini 網址提示詞
+* **資料夾名稱**: `gemini-url-prompt`
+* **說明**: 自動化 Gemini 輸入與發送工具。支援透過 URL 參數自動填入指令、強制切換至新對話視窗、自動切換模型（如 Pro）、開啟臨時對話模式。內建 UI 遮罩以防止誤觸
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/gemini-url-prompt/gemini-url-prompt.user.js)
+
 ### Manga-Zip Detail Page Follow Button
 * **資料夾名稱**: `manga-zip-detail-page-follow-btn`
 * **說明**: 在詳情頁新增追蹤按鈕，並自動同步「已追蹤/未追蹤」的原始狀態。
