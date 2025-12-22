@@ -102,7 +102,7 @@
 
 ### YouTube 自動展開所有留言
 * **資料夾名稱**: `youtube-auto-expand-comments`
-* **說明**: 自動展開 YouTube 留言。功能：1. 持續檢測整個留言區總開關 2. 單點展開
+* **說明**: 自動展開 YouTube 留言。已修復畫面亂跳及無限展開隱藏的迴圈問題。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-auto-expand-comments/youtube-auto-expand-comments.user.js)
 
 ### YouTube 影片卡片清單播放清單檢查器
