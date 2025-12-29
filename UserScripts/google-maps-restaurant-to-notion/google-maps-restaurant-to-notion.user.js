@@ -23,7 +23,7 @@
     // --- 1. 設定區 ---
     const CONFIG = {
         CATEGORIES: ["烘焙甜品咖啡廳", "飲料冰品", "餐廳", "早餐", "小吃", "市場"],
-        DEFAULT_CATEGORY: "餐廳",
+        DEFAULT_CATEGORY: "",
         ICON: "🍴"
     };
 
