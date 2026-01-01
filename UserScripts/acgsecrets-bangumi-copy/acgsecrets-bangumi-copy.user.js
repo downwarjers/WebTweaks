@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        ACGSecrets Bangumi 分類抓取
 // @namespace   https://github.com/downwarjers/WebTweaks
-// @version     2.3.1
+// @version     2.3.2
 // @description 針對 ACGSecrets.hk 網站，依據作品標籤（如「續作」、「新作」、「家長指引」）與名稱規則（正則表達式判斷季數、篇章），將新番列表自動分類為八大類。在頁面右下角提供「複製分類結果」與「下載 txt」按鈕。
 // @author      downwarjers
 // @license     MIT
@@ -177,16 +177,25 @@
     }
 
     function copyToClipboard(text) {
+        if (!text) {
+            alert('沒有內容可複製');
+            return;
+        }
         try {
             GM_setClipboard(text);
             const workCount = text.split('\n').filter(line => !line.startsWith('---') && !line.startsWith('(') && line.trim() !== '').length;
             alert(`已複製結果，共 ${workCount} 個作品名稱`);
         } catch (e) {
+            console.log(e);
             alert('複製失敗，請確認權限設定。');
         }
     }
 
     function downloadAsTxt(text) {
+        if (!text) {
+            alert('沒有內容可下載');
+            return;
+        }
         const blob = new Blob([text], { type: 'text/plain; charset=utf-8' });
         const fn = `${location.pathname.split('/').pop()}_titles.txt`;
         if (typeof GM_download === 'function') {
@@ -197,6 +206,12 @@
             a.download = fn;
             a.click();
         }
+    }
+
+    // 核心修正：將資料抓取與文字產生邏輯整合進按鈕事件
+    function getCategorizedText() {
+        const data = extractNames();
+        return buildText(data);
     }
 
     function injectUI() {
@@ -215,8 +230,17 @@
         p.style.cssText=buttonStyle;
         p.innerHTML = `<button id="copyBtn">📋 複製分類結果</button><button id="downloadBtn">📥 下載分類 txt</button>`;
         document.body.appendChild(p);
-        p.querySelector('#copyBtn').onclick = () => copyToClipboard();
-        p.querySelector('#downloadBtn').onclick = () => downloadAsTxt();
+
+        // 修正點：點擊時才執行抓取與產生文字，並傳入函式中
+        p.querySelector('#copyBtn').onclick = () => {
+            const text = getCategorizedText();
+            copyToClipboard(text);
+        };
+        
+        p.querySelector('#downloadBtn').onclick = () => {
+            const text = getCategorizedText();
+            downloadAsTxt(text);
+        };
     }
 
     window.addEventListener('load', () => setTimeout(injectUI, 500));
