@@ -40,6 +40,11 @@
 * **說明**: 當訪問手機版網頁（如 `m.`, `mobile.` 開頭或包含 `/mobile/` 路徑）時，自動嘗試跳轉回桌面版網址。內建防無限迴圈機制（檢查 Referrer 與 SessionStorage 計數），避免在只有手機版的網站上卡死。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-redirect-to-desktop-web/auto-redirect-to-desktop-web.user.js)
 
+### Bahamut Anime to AniList Sync
+* **資料夾名稱**: `bahamut-anime-to-anilist-sync.user.js`
+* **說明**: 巴哈姆特動畫瘋同步到 AniList。支援系列設定(一鍵啟用/取消)、自動計算集數、自動日期匹配綁定
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js)
+
 ### Bilibili Video Fix Negative Color
 * **資料夾名稱**: `bilibili-video-negative-color`
 * **說明**: 解決 Bilibili 影片顏色異常或提供負片效果。在播放器的「設定」選單（關燈模式旁）新增「反轉顏色」開關。透過注入 CSS `filter: invert(100%) hue-rotate(180deg)` 實現畫面反轉。
