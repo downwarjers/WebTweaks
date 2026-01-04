@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bahamut Anime to AniList Sync
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      4.1
+// @version      4.3
 // @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定(一鍵啟用/取消)、自動計算集數、自動日期匹配綁定
 // @author       downwarjers
 // @license      MIT
@@ -22,6 +22,7 @@
     'use strict';
 
     const $ = window.jQuery;
+
 
     // --- 狀態變數 ---
     let state = {
@@ -67,6 +68,8 @@
         .al-nav-link:hover { color: #fff; }
         #al-text { white-space: nowrap; font-weight: bold; }
         .al-user-status { color: #4caf50; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; white-space: nowrap; display: none; }
+        
+        /* 導覽列標題：純文字樣式 */
         .al-nav-title { color: #888; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; display: inline-block; max-width: 300px; min-width: 50px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
         @media (max-width: 1200px) { .al-nav-title { max-width: 150px; } }
         @media (max-width: 768px) { .al-nav-title { display: none; } }
@@ -82,6 +85,7 @@
         .al-result-item { padding:12px 15px; border-bottom:1px solid #eee; display:flex; gap:12px; align-items:center; transition: background 0.2s; }
         .al-result-item:hover { background:#eef7ff; }
         .al-current-info { background: #e3f2fd; border: 1px solid #90caf9; border-radius: 5px; margin-bottom: 15px; }
+        /* Toggle Action Button */
         .al-bind-btn { background:#3db4f2; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:13px; }
         .al-bind-btn:hover { background:#2a9bd6; }
         .al-btn-grey { background:#d32f2f; color:white; border:none; padding:10px; border-radius:4px; cursor:pointer; width: 100%; margin-top: 15px; }
@@ -99,29 +103,25 @@
         .al-map-input { width: 70px; padding: 6px; border: 1px solid #ccc; border-radius: 4px; text-align: center; font-weight: bold; }
         .al-map-input:focus { border-color: #3db4f2; outline: none; background: #e3f2fd; }
         
+        /* Links in tables/lists (Modal only) */
+        .al-link { color: #333; text-decoration: none; font-weight: bold; }
+        .al-link:hover { color: #3db4f2; text-decoration: underline; }
         /* Toggle Action Button */
         .al-btn-toggle { padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; font-size: 12px; width: 100%; transition: 0.2s; }
         .al-btn-toggle.enable { background-color: #e0e0e0; color: #333; }
         .al-btn-toggle.enable:hover { background-color: #4caf50; color: white; }
         .al-btn-toggle.disable { background-color: #ffebee; color: #d32f2f; }
         .al-btn-toggle.disable:hover { background-color: #d32f2f; color: white; }
-
         /* Row Status */
         .al-map-row.active { background-color: #e8f5e9; }
         .al-map-row.active .status-text { color: #2e7d32; font-weight: bold; }
         .al-map-row .status-text { color: #999; }
-        .al-checkbox { display: none; } /* 完全隱藏 checkbox，改用按鈕控制 */
+        .al-checkbox { display: none; }
+        /* Row Status */
         .al-toast {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(50, 50, 50, 0.9);
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: 20px;
-            z-index: 100000;
-            font-size: 14px;
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: rgba(50, 50, 50, 0.9); color: #fff; padding: 10px 20px;
+            border-radius: 20px; z-index: 100000; font-size: 14px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             animation: al-fadein 0.3s, al-fadeout 0.3s 2.7s forwards;
         }
@@ -154,7 +154,7 @@
             state.currentUrlSn = newSn;
             state.hasSynced = false;
             state.userStatus = null;
-            state.isAutoBinding = false; // 重置自動綁定狀態
+            state.isAutoBinding = false;
             initEpisodeData();
             triggerVideoHunt();
         }
@@ -218,7 +218,6 @@
             }
             determineActiveRule();
         } else {
-            // 無綁定資料：嘗試自動綁定
             state.rules = [];
             state.activeRule = null;
             tryAutoBind();
@@ -247,24 +246,19 @@
         }
 
         try {
-            // 1. 抓取巴哈頁面資料
             const html = await gmGet(acgLink);
             const $doc = $(new DOMParser().parseFromString(html, "text/html"));
 
-            // 解析名稱
             const h2s = $doc.find(SELECTORS.infoTitle);
             const nameJp = h2s.eq(0).text().trim();
             const nameEn = h2s.eq(1).text().trim();
             
-            // 解析日期 (當地 & 台灣) - 格式抓取參考
-            // 抓取格式如："當地首播：2024-01-04" 或 "台灣首播：2024-01-04"
             const dateJpText = $doc.find(SELECTORS.infoList + ':contains("當地")').text();
             const dateTwText = $doc.find(SELECTORS.infoList + ':contains("台灣")').text();
             
             const dateJpStr = dateJpText ? dateJpText.split('：')[1] : '';
             const dateTwStr = dateTwText ? dateTwText.split('：')[1] : '';
 
-            // 輔助函式：解析 "YYYY-MM-DD" 到 Date 物件結構
             const parseDate = (str) => {
                 if (!str) return null;
                 const match = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
@@ -277,19 +271,15 @@
             const bahaDateJP = parseDate(dateJpStr);
             const bahaDateTW = parseDate(dateTwStr);
 
-            // 輔助函式：比較日期是否在誤差範圍內 (+/- x 天)
             const isDateCloseEnough = (target, check) => {
                 if (!target || !check || !check.year || !check.month || !check.day) return false;
-                // JS Month is 0-indexed
                 const t = new Date(target.year, target.month - 1, target.day);
                 const c = new Date(check.year, check.month - 1, check.day);
                 const diffTime = Math.abs(c - t);
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-                // 允許差x天
                 return diffDays <= state.diffDays; 
             };
 
-            // 2. 搜尋 AniList (優先搜英文，沒有再搜日文)
             let searchTerms = [nameEn, nameJp].filter(t => t);
             let matchFound = null;
 
@@ -298,11 +288,8 @@
                     const result = await searchAniList(term);
                     const candidates = result.data.Page.media || [];
 
-                    // 3. 比對日期 (支援 +/- 1天誤差)
                     for (let media of candidates) {
                         const anilistDate = media.startDate;
-                        
-                        // 略過沒有完整日期的資料
                         if (!anilistDate.year || !anilistDate.month || !anilistDate.day) continue;
 
                         const isMatchJP = isDateCloseEnough(bahaDateJP, anilistDate);
@@ -313,19 +300,16 @@
                             break;
                         }
                     }
-                } catch (e) { console.error('Auto bind search error:', e); }
-
+                } catch (e) { console.error('[Auto-Bind] Error:', e); }
                 if (matchFound) break;
             }
 
-            // 4. 處理結果
             if (matchFound) {
                 const title = matchFound.title.native || matchFound.title.romaji;
                 console.log(`[Auto-Bind] Match found: ${title} (ID: ${matchFound.id})`);
                 await performBinding(matchFound.id, title);
             } else {
-                console.log('[Auto-Bind] No date match found (checked +/- 1 day).');
-                updateNavStatus('unbound'); // 維持未綁定狀態
+                updateNavStatus('unbound');
             }
 
         } catch (e) {
@@ -351,15 +335,11 @@
 
    function getCurrentEpisode() {
         const seasonList = $(SELECTORS.seasonList);
-
         if (seasonList.length > 0) {
             const currentEpLi = seasonList.filter(SELECTORS.playing);
             if (currentEpLi.length === 0) return null;
             return seasonList.index(currentEpLi) + 1;
         }
-
-        // 3. 完全找不到列表 (seasonList.length === 0)
-        // 這時直接回傳 1
         return 1;
     }
 
@@ -383,7 +363,8 @@
             state.userStatus = result.data.SaveMediaListEntry; 
             updateNavStatus('done', `已同步第 ${episode} 集`);
         } catch (e) {
-            updateNavStatus('error', '同步失敗');
+            console.error('[Auto-Bind] Error:', e);
+            updateNavStatus('error', '同步失敗：'+e);
             state.hasSynced = false;
         }
     }
@@ -391,7 +372,6 @@
     // ================= UI Helper =================
     function refreshUIState() {
         if (state.rules.length === 0) {
-             // 如果正在自動綁定中，不要馬上顯示「連結 AniList」
             if(!state.isAutoBinding) updateNavStatus('unbound');
         }
         else updateNavStatus('bound');
@@ -399,26 +379,29 @@
     
     function showToast(msg) {
         const t = $(`<div class="al-toast">${msg}</div>`).appendTo('body');
-        setTimeout(() => t.remove(), 3000); // 3秒後移除
+        setTimeout(() => t.remove(), 3000);
     }
 
     function updateNavStatus(type, msg) {
         const icon = $('#al-icon');
         const text = $('#al-text');
-        const titleSpan = $('#al-title');
+        const titleSpan = $('#al-title'); // 改回 span
         if (!icon.length) return;
         if (state.statusTimeout) { clearTimeout(state.statusTimeout); state.statusTimeout = null; }
         
         const showTitle = state.activeRule && (type === 'bound' || type === 'syncing' || type === 'done' || type === 'info');
-        if (showTitle) titleSpan.text(state.activeRule.title).css('display', 'inline-block');
-        else titleSpan.hide();
+        
+        if (showTitle) {
+            titleSpan.text(state.activeRule.title).css('display', 'inline-block');
+        } else {
+            titleSpan.hide();
+        }
 
         if (showTitle && state.userStatus) {
             let statusText = '';
             const s = state.userStatus.status;
             const p = state.userStatus.progress;
-            console.log("userStatus---------------------"+state.userStatus);
-            if (s === 'CURRENTLY_WATCHING') statusText = `📺 看到 ${p} 集`;
+            if (s === 'CURRENT') statusText = `📺 看到 ${p} 集`;
             else if (s === 'COMPLETED') statusText = `🎉 已看完`;
             else if (s === 'PLANNING') statusText = `📅 計畫中`;
             else if (s === 'DROPPED') statusText = `🗑️ 棄番`;
@@ -469,27 +452,59 @@
         if (!rule) return startSearch();
         showModal('讀取中...', '', false);
         try {
-            const extBtns = await getExtSearchHtml();
+            // [修改點] 移除這裡的 getExtSearchHtml 呼叫和 append
+            // 只有在未綁定 (startSearch) 時才需要顯示外部搜尋按鈕
+            
             const info = await fetchAnimeInfo(rule.id);
             const userStat = await fetchUserStatus(rule.id);
             state.userStatus = userStat;
             const body = $('#al-modal-body');
             body.empty();
-            body.append(extBtns);
-            let statusBadge = userStat ? `<div style="margin-top:5px;font-size:12px;color:#4caf50;">你的進度: ${userStat.status} (Ep.${userStat.progress})</div>` : '';
+            // body.append(extBtns); // [修改點] 移除此行
+            
+            // 下拉選單預設值
+            const currentStatus = userStat ? userStat.status : 'PLANNING';
+            const statusMap = {
+                'CURRENTLY_WATCHING': 'Watching (觀看中)',
+                'PLANNING': 'Plan to Watch (計畫中)',
+                'COMPLETED': 'Completed (已看完)',
+                'REPEATING': 'Rewatching (重看中)',
+                'PAUSED': 'Paused (暫停)',
+                'DROPPED': 'Dropped (棄番)'
+            };
+
+            let statusOptions = '';
+            for (let key in statusMap) {
+                statusOptions += `<option value="${key}" ${currentStatus === key ? 'selected' : ''}>${statusMap[key]}</option>`;
+            }
+
+            let statusBadge = userStat ? `<div style="margin-top:5px;font-size:12px;color:#4caf50;">進度: Ep.${userStat.progress || 0}</div>` : '';
+            const aniLink = `https://anilist.co/anime/${rule.id}`;
+
             body.append(`
                 <div style="padding:20px;">
                     <div style="margin-bottom:10px; font-weight:bold; color:#555;">目前對應：(第 ${rule.start} 集起)</div>
                     <div class="al-result-item al-current-info">
-                        <img src="${info.coverImage.medium}" style="width:60px;height:90px;object-fit:cover;border-radius:4px;">
+                        <a href="${aniLink}" target="_blank" style="display:block;cursor:pointer;">
+                            <img src="${info.coverImage.medium}" style="width:60px;height:90px;object-fit:cover;border-radius:4px;">
+                        </a>
                         <div style="flex:1">
-                            <div style="font-weight:bold; font-size:15px; color:#000;">${rule.title}</div>
+                            <a href="${aniLink}" target="_blank" class="al-link" style="font-size:15px; display:block;">${rule.title}</a>
                             <div style="font-size:13px;color:#555; margin-top:3px;">ID: ${rule.id}</div>
                             <div style="font-size:12px;color:#777; margin-top:3px;">開播: ${formatDate(info.startDate)}</div>
                             ${statusBadge}
                         </div>
                     </div>
+
+                    <div style="margin-bottom:15px;">
+                        <label style="font-weight:bold; font-size:13px; color:#555;">切換狀態 (Status):</label>
+                        <select id="al-status-select" class="al-input" style="width:100%; margin-top:5px; cursor:pointer;">
+                            ${statusOptions}
+                        </select>
+                    </div>
+
                     <button id="al-open-mapper" class="al-btn-green">📺 設定多季/系列同步 (Series Mapping)</button>
+                    
                     <div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px;">
                         <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:13px;">單獨修正此區段 ID:</label>
                         <div class="al-input-group">
@@ -500,6 +515,24 @@
                     <button id="al-unbind" class="al-btn-grey">解除所有綁定</button>
                 </div>
             `);
+            
+            // 綁定狀態切換事件
+            $('#al-status-select').change(async function() {
+                const newStatus = $(this).val();
+                $(this).prop('disabled', true);
+                updateNavStatus('syncing', '更新狀態...');
+                try {
+                    const res = await updateAnimeStatus(rule.id, newStatus);
+                    state.userStatus = res;
+                    showToast(`狀態已更新為 ${statusMap[newStatus]}`);
+                } catch(e) {
+                    alert('狀態更新失敗');
+                } finally {
+                    $(this).prop('disabled', false);
+                    refreshUIState();
+                }
+            });
+
             $('#al-save-id').click(async () => { 
                 const nid = parseInt($('#al-edit-id').val()); 
                 if(nid) { 
@@ -512,7 +545,10 @@
                         state.userStatus = await fetchUserStatus(nid);
                         refreshUIState();
                         showManager(); 
-                    } catch (e) { alert('更新失敗'); $('#al-save-id').text('更新').prop('disabled', false); }
+                    } catch (e) { 
+                        console.error('[Auto-Bind] Error:', e);
+                        alert('更新失敗：'+e); $('#al-save-id').text('更新').prop('disabled', false); 
+                    }
                 }
             });
             $('#al-unbind').click(function(e) {
@@ -530,7 +566,10 @@
             });
             $('#al-open-mapper').click(() => showSeriesMapper());
             $('#al-modal-footer').empty();
-        } catch (e) { showModal(`Error: ${e.message}`, 'error', true); }
+        } catch (e) { 
+            console.error('[Auto-Bind] Error:', e);
+            showModal(`Error: ${e}`, 'error', true); 
+        }
     }
 
     const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -541,9 +580,7 @@
         let visited = new Set();
         for (let i = 0; i < 10; i++) {
             if (!nextId || visited.has(nextId)) break;
-
             if (i > 5) await sleep(300); 
-
             visited.add(nextId);
             const data = await fetchAnimeInfoWithRelations(nextId);
             chain.push(data);
@@ -559,8 +596,10 @@
     async function showSeriesMapper() {
         const body = $('#al-modal-body');
         body.html('<div style="padding:20px;text-align:center;">正在遞迴分析續作關聯...<br>這可能需要一點時間</div>');
-        const baseId = state.activeRule ? state.activeRule.id : (state.rules[0] ? state.rules[0].id : null);
-        if (!baseId) return body.html('錯誤：無基礎 ID');
+        let baseId = null;
+        if (state.rules.length > 0) {
+            baseId = state.rules[state.rules.length - 1].id;
+        }
 
         try {
             const chain = await fetchSequelChain(baseId);
@@ -583,7 +622,6 @@
                         <tbody id="al-map-tbody">
             `;
 
-            // 用來計算自動帶入的集數
             let runningEpisodes = 0;
 
             chain.forEach((media, index) => {
@@ -593,16 +631,17 @@
                 const statusText = isActive ? '✅ 使用中' : '⚪ 未設定';
                 const inputValue = existingRule ? existingRule.start : '';
                 const dateStr = formatDate(media.startDate);
-                
-                // 計算下一部的建議起始集數 (上一部結束 + 1)
                 const suggestedStart = runningEpisodes + 1;
-                // 累加目前這部的集數 (如果有)，供下一部使用
                 if (media.episodes) runningEpisodes += media.episodes;
+                const aniLink = `https://anilist.co/anime/${media.id}`;
 
                 html += `
                     <tr class="al-map-row ${rowClass}" data-id="${media.id}" data-title="${media.title.native || media.title.romaji}">
                         <td class="status-cell"><span class="status-text">${statusText}</span><input type="checkbox" class="al-checkbox" ${isActive ? 'checked' : ''}></td>
-                        <td><div style="font-weight:bold;font-size:13px;">${media.title.native || media.title.romaji}</div><div style="color:#888;font-size:11px;">(${dateStr}) | ${media.title.romaji}</div></td>
+                        <td>
+                            <a href="${aniLink}" target="_blank" class="al-link" style="font-size:13px;">${media.title.native || media.title.romaji}</a>
+                            <div style="color:#888;font-size:11px;">(${dateStr}) | ${media.title.romaji}</div>
+                        </td>
                         <td>${media.episodes || '?'}</td>
                         <td><input type="number" class="al-map-input" placeholder="-" value="${inputValue}"></td>
                         <td>
@@ -617,22 +656,18 @@
             html += `</tbody></table></div>`;
             body.html(html);
             
-            // Binding Input Events
             $('.al-map-input').on('input', function() {
                 updateRowStatus($(this).closest('tr'), $(this).val());
             });
 
-            // Binding Toggle Buttons (Auto Fill / Clear)
             $('.al-btn-toggle').click(function() {
                 const row = $(this).closest('tr');
                 const input = row.find('.al-map-input');
                 const isEnableAction = $(this).hasClass('enable');
 
                 if (isEnableAction) {
-                    // One-click Enable: Fill with calculated suggestion
                     input.val($(this).data('suggested')).trigger('input');
                 } else {
-                    // One-click Disable: Clear input
                     input.val('').trigger('input');
                 }
             });
@@ -640,7 +675,7 @@
             $('#al-modal-footer').html(`<button id="al-save-map" class="al-bind-btn" style="width:100%;padding:10px;font-size:14px;">儲存系列設定</button>`);
             $('#al-save-map').click(() => saveSeriesMapping());
 
-        } catch (e) { body.html(`<div style="padding:20px;color:red;">載入失敗: ${e.message}</div>`); }
+        } catch (e) { body.html(`<div style="padding:20px;color:red;">載入失敗: ${e}</div>`); }
     }
 
     function updateRowStatus(row, val) {
@@ -699,6 +734,7 @@
             const nameEn = h2s.eq(1).text().trim();
             const nameCh = $('.anime_name > h1').text().trim().split('[')[0].trim();
             let terms = [nameEn, nameJp, nameCh].filter(t => t);
+            // 這裡保留外部搜尋按鈕，因為是「未綁定」狀態
             const extBtns = `<div class="al-ext-search-group"><a href="https://anilist.co/search/anime?search=${encodeURIComponent(nameEn)}" target="_blank" class="al-btn-ext">🔍 搜 EN</a><a href="https://anilist.co/search/anime?search=${encodeURIComponent(nameJp)}" target="_blank" class="al-btn-ext">🔍 搜 JP</a></div>`;
             let results = [];
             for (let t of terms) {
@@ -713,7 +749,7 @@
                 } catch(e){}
             }
             renderResults(results, terms.join(', '), extBtns);
-        } catch (e) { showModal(`錯誤: ${e.message}`, 'error', true); }
+        } catch (e) { showModal(`錯誤: ${e}`, 'error', true); }
     }
 
     function renderResults(list, terms, extBtns) {
@@ -738,7 +774,9 @@
             try {
                 const info = await fetchAnimeInfo(id);
                 title = info.title.native || info.title.romaji;
-            } catch (e) { console.error(e); }
+            } catch (e) { 
+                console.error('[Auto-Bind] Error:', e); 
+            }
         }
         const newRule = { start: 1, id: id, title: title };
         state.rules = [newRule];
@@ -752,6 +790,7 @@
         if(!state.isHunting) syncProgress();
     }
 
+    // 這個函式只剩 startSearch 會用到，所以沒關係
     async function getExtSearchHtml() {
         const acgLink = getAcgLink();
         if(!acgLink) return '';
@@ -773,7 +812,15 @@
         m.css('display','flex');
     }
     function waitForNavbar() { const t = setInterval(() => { const nav = $('ul:has(a[href="index.php"])').first(); if (nav.length) { clearInterval(t); initNavbar(nav); refreshUIState(); } }, 500); }
-    function initNavbar(nav) { if ($('#al-trigger').length) return; nav.append(`<li class="al-nav-item"><a class="al-nav-link" id="al-trigger" title="點擊設定"><span id="al-icon">⚪</span><span id="al-text">AniList</span><span id="al-title" class="al-nav-title" style="display:none;"></span></a></li>`); $('#al-trigger').click(handleNavClick); $('body').append(`<div id="al-modal" class="al-modal-overlay"><div class="al-modal-content"><div class="al-modal-header"><strong style="font-size:16px;">AniList 設定</strong><button onclick="$('#al-modal').fadeOut(200)" style="border:none;background:none;font-size:24px;cursor:pointer;line-height:1;">&times;</button></div><div class="al-modal-body" id="al-modal-body"></div><div class="al-modal-footer" id="al-modal-footer"></div></div></div>`); }
+    
+    // [修改點] 將 Title 改回 <span>，避免作為連結
+    function initNavbar(nav) { 
+        if ($('#al-trigger').length) return; 
+        nav.append(`<li class="al-nav-item"><a class="al-nav-link" id="al-trigger" title="點擊設定"><span id="al-icon">⚪</span><span id="al-text">AniList</span><span id="al-title" class="al-nav-title" style="display:none;"></span></a></li>`); 
+        $('#al-trigger').click(handleNavClick); 
+        // 移除 click stopPropagation，因為現在裡面只是純文字
+        $('body').append(`<div id="al-modal" class="al-modal-overlay"><div class="al-modal-content"><div class="al-modal-header"><strong style="font-size:16px;">AniList 設定</strong><button onclick="$('#al-modal').fadeOut(200)" style="border:none;background:none;font-size:24px;cursor:pointer;line-height:1;">&times;</button></div><div class="al-modal-body" id="al-modal-body"></div><div class="al-modal-footer" id="al-modal-footer"></div></div></div>`); 
+    }
 
     function gmGet(url) { return new Promise((r, j) => GM_xmlhttpRequest({ method:"GET", url, onload:x=>r(x.responseText), onerror:j })); }
     
@@ -787,6 +834,13 @@
     function fetchAnimeInfo(id) { const query = `query ($id: Int) { Media(id: $id) { id title { romaji native } coverImage { medium } seasonYear startDate { year month day } } }`; return aniListRequest(query, { id }).then(d => d.data.Media); }
     function fetchUserStatus(id) { const query = `query ($id: Int) { Media(id: $id) { mediaListEntry { status progress } } }`; return aniListRequest(query, { id }).then(d => d.data.Media.mediaListEntry); }
     function searchAniList(search) { return aniListRequest(`query($s:String){Page(page:1,perPage:10){media(search:$s,type:ANIME,sort:SEARCH_MATCH){id title{romaji english native}coverImage{medium}seasonYear startDate { year month day } format}}}`, {s:search}); }
+    
+    // API: 更新狀態
+    function updateAnimeStatus(id, status) {
+        const mutation = `mutation ($id: Int, $status: MediaListStatus) { SaveMediaListEntry (mediaId: $id, status: $status) { id progress status } }`;
+        return aniListRequest(mutation, { id: id, status: status }).then(d => d.data.SaveMediaListEntry);
+    }
+
     function aniListRequest(query, variables) { return new Promise((resolve, reject) => { GM_xmlhttpRequest({ method: "POST", url: "https://graphql.anilist.co", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + state.token }, data: JSON.stringify({ query, variables }), onload: r => { const d=JSON.parse(r.responseText); d.errors?reject(d.errors[0].message):resolve(d); }, onerror: reject }); }); }
 
     setTimeout(main, 500);
