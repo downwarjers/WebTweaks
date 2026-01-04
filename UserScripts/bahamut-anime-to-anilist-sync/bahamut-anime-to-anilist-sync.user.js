@@ -465,7 +465,7 @@
             // 下拉選單預設值
             const currentStatus = userStat ? userStat.status : 'PLANNING';
             const statusMap = {
-                'CURRENTLY_WATCHING': 'Watching (觀看中)',
+                'CURRENT': 'Watching (觀看中)',
                 'PLANNING': 'Plan to Watch (計畫中)',
                 'COMPLETED': 'Completed (已看完)',
                 'REPEATING': 'Rewatching (重看中)',
