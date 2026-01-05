@@ -23,12 +23,16 @@
 
     const $ = window.jQuery;
 
+    // --- 靜態設定 ---
+    const CONFIG = {
+        UPDATE_THRESHOLD: 1, // 同步觸發時間：當影片播放超過「1秒」時觸發
+        DATE_TOLERANCE: 2, // 日期容錯天數
+    };
+
     // --- 狀態變數 ---
     let state = {
         // [身分與設定]
         token: GM_getValue("ANILIST_TOKEN"), // AniList 的授權金鑰
-        updateTime: 1, // 同步觸發時間：當影片播放超過「1秒」時觸發
-        diffDays: 2, // 日期容錯天數
 
         // [綁定規則與數據]
         rules: [], 
@@ -41,6 +45,10 @@
         currentUrlSn: null, 
         hasSynced: false, 
         isHunting: false, 
+
+        // [錯誤控制]
+        tokenErrorCount: 0, // Token 錯誤計數器
+        stopSync: false,    // 是否停止同步 (遇到嚴重錯誤時設為 true)
 
         // [計時器]
         huntTimer: null, 
@@ -60,27 +68,29 @@
 
     // --- CSS (深色模式 Dark Mode) ---
     GM_addStyle(`
-        /* 基礎樣式 */
+        /* ================= 基礎框架 ================= */
+        /* 導航欄按鈕 */
         .al-nav-item { margin-left: 10px; padding-left: 10px; border-left: 1px solid #555; display: inline-flex; align-items: center; height: 100%; vertical-align: middle; }
         .al-nav-link { color: #ccc; cursor: pointer; display: flex; align-items: center; justify-content: flex-start; gap: 6px; transition: 0.2s; font-size: 13px; text-decoration: none !important; height: 40px; width: auto; }
         .al-nav-link:hover { color: #fff; }
         #al-text { white-space: nowrap; font-weight: bold; }
-        .al-user-status { color: #4caf50; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; white-space: nowrap; display: none; }
         .al-nav-title { color: #888; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; display: inline-block; max-width: 300px; min-width: 50px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+        .al-user-status { color: #4caf50; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; white-space: nowrap; display: none; }
+        
+        /* RWD */
         @media (max-width: 1200px) { .al-nav-title { max-width: 150px; } }
         @media (max-width: 768px) { .al-nav-title { display: none; } }
-        
-        /* Modal (深色視窗) */
+
+        /* Modal (視窗主體) */
         .al-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.85); z-index: 99999; display: none; justify-content: center; align-items: center; }
         .al-modal-content { background: #1b1b1b; color: #eee; width: 750px; max-height: 90vh; border-radius: 8px; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.8); overflow: hidden; border: 1px solid #333; }
         .al-modal-header { padding: 15px; background: #222; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
         .al-modal-body { overflow-y: auto; padding: 0; flex: 1; min-height: 300px; background: #1b1b1b; }
-        
-        /* 紅色關閉按鈕 */
         .al-close-btn { color: #ff5252 !important; font-weight: bold; font-size: 28px; background: none; border: none; cursor: pointer; line-height: 1; transition: 0.2s; }
         .al-close-btn:hover { color: #ff0000 !important; transform: scale(1.1); }
+        .al-footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #333; font-size: 12px; color: #666; }
 
-        /* Tabs UI (深色) */
+        /* Tabs 頁籤 */
         .al-tabs-header { display: flex; border-bottom: 1px solid #333; background: #222; }
         .al-tab-btn { flex: 1; padding: 12px; text-align: center; cursor: pointer; border: none; background: #222; font-weight: bold; color: #888; border-bottom: 3px solid transparent; transition: 0.2s; }
         .al-tab-btn:hover { background: #333; color: #3db4f2; }
@@ -88,47 +98,79 @@
         .al-tab-content { display: none; padding: 15px; animation: al-fadein 0.2s; }
         .al-tab-content.active { display: block; }
 
-        /* Candidate / Result Box (深色適配) */
-        .al-candidate-box { background: #2e2818; border: 1px solid #5a4b18; padding: 15px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; gap: 15px; }
-        .al-result-item { padding: 12px 15px; border-bottom: 1px solid #333; display: flex; gap: 12px; align-items: center; transition: background 0.2s; }
-        .al-result-item:hover { background: #2a2a2a; }
-        .al-current-info { background: #1a2633; border: 1px solid #1e3a5f; border-radius: 5px; margin-bottom: 15px; }
-
-        /* Buttons & Inputs (深色適配) */
+        /* ================= 通用元件 (按鈕/輸入框) ================= */
+        /* 按鈕類 */
         .al-bind-btn { background: #3db4f2; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
         .al-bind-btn:hover { background: #2a9bd6; }
         .al-btn-grey { background: #d32f2f; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 15px; }
         .al-btn-green { background: #388e3c; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 14px; margin-bottom: 10px; }
+        
+        /* 外部連結按鈕 (搜尋用) */
         .al-btn-ext { text-decoration: none; padding: 6px 16px; border-radius: 20px; font-size: 12px; background: transparent; border: 1px solid #3db4f2; color: #3db4f2; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 5px; font-weight: bold; margin-left: 8px; }
         .al-btn-ext:hover { background: #3db4f2; color: #fff; transform: translateY(-1px); }
+        
+        /* 眼睛開關按鈕 */
+        .al-icon-btn { background: #333; border: 1px solid #555; width: 40px; padding: 0; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .al-icon-btn:hover { background: #444; }
+
+        /* 輸入框 */
         .al-input-group { display: flex; gap: 10px; margin-top: 5px; }
         .al-input { flex: 1; padding: 8px; border: 1px solid #555; border-radius: 4px; background: #333; color: #eee; }
         .al-input:focus { border-color: #3db4f2; outline: none; }
-        .al-ext-search-group {display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .al-link { color: #81d4fa; text-decoration: none; font-weight: bold; }
+        .al-link:hover { color: #4fc3f7; text-decoration: underline; }
+
+        /* ================= 設定頁面 (Settings Tab) ================= */
+        .al-settings-box { padding: 20px; }
+        .al-settings-label { display: block; margin-bottom: 5px; font-weight: bold; }
         
-        /* Tables & Lists (深色適配) */
+        /* 步驟卡片容器 */
+        .al-step-card { font-size: 13px; color: #aaa; margin-top: 15px; background: #222; padding: 12px 15px; border-radius: 6px; border: 1px solid #333; }
+        .al-step-title { margin: 0 0 10px 0; font-weight: bold; color: #eee; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 6px; }
+        
+        /* 步驟列表項目 (左數字 右內容) */
+        .al-step-item { display: flex; align-items: flex-start; margin-bottom: 8px; line-height: 1.6; }
+        .al-step-num { flex-shrink: 0; width: 20px; font-weight: bold; color: #3db4f2; }
+        .al-step-content { flex: 1; }
+        
+        /* 步驟內的動作列 (輸入框+按鈕) */
+        .al-step-action-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+        .al-id-input { width: 55px !important; padding: 4px; text-align: center; height: 30px; }
+
+        /* 授權連結按鈕狀態 */
+        .al-auth-btn { text-decoration: none; height: 30px; line-height: 18px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 4px; transition: all 0.2s; color: white; font-weight: bold; font-size: 12px; }
+        .al-auth-btn.disabled { background: #555; cursor: not-allowed; opacity: 0.6; pointer-events: none; }
+        .al-auth-btn.active { background: #3db4f2; cursor: pointer; opacity: 1; pointer-events: auto; }
+        .al-auth-btn.active:hover { background: #2a9bd6; }
+
+        /* ================= 首頁與搜尋 (Home Tab) ================= */
+        .al-candidate-box { background: #2e2818; border: 1px solid #5a4b18; padding: 15px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; gap: 15px; }
+        .al-result-item { padding: 12px 15px; border-bottom: 1px solid #333; display: flex; gap: 12px; align-items: center; transition: background 0.2s; }
+        .al-result-item:hover { background: #2a2a2a; }
+        .al-current-info { background: #1a2633; border: 1px solid #1e3a5f; border-radius: 5px; margin-bottom: 15px; }
+        .al-ext-search-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+
+        /* ================= 系列對應 (Series Tab) ================= */
         .al-map-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .al-map-table th { background: #2a2a2a; padding: 10px; text-align: left; border-bottom: 2px solid #444; color: #ccc; font-weight: bold; }
         .al-map-table td { padding: 10px; border-bottom: 1px solid #333; vertical-align: middle; }
         .al-map-input { width: 70px; padding: 6px; border: 1px solid #555; border-radius: 4px; text-align: center; font-weight: bold; background: #333; color: #eee; }
         .al-map-input:focus { border-color: #3db4f2; outline: none; background: #1a2633; }
-        .al-link { color: #81d4fa; text-decoration: none; font-weight: bold; }
-        .al-link:hover { color: #4fc3f7; text-decoration: underline; }
         
-        /* Series Mapper Status */
         .al-btn-toggle { padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; font-size: 12px; width: 100%; transition: 0.2s; }
         .al-btn-toggle.enable { background-color: #444; color: #ccc; }
         .al-btn-toggle.enable:hover { background-color: #388e3c; color: white; }
         .al-btn-toggle.disable { background-color: #3e2723; color: #ff5252; }
         .al-btn-toggle.disable:hover { background-color: #d32f2f; color: white; }
-        .al-map-row.active { background-color: #1b2e1b; } /* 深綠背景 */
+        
+        .al-map-row.active { background-color: #1b2e1b; }
         .al-map-row.active .status-text { color: #66bb6a; font-weight: bold; }
-        .al-map-row.suggestion { background-color: #3e3315; } /* 深黃背景 */
+        .al-map-row.suggestion { background-color: #3e3315; }
         .al-map-row.suggestion .status-text { color: #ffca28; font-weight: bold; }
         .al-map-row .status-text { color: #777; }
         .al-checkbox { display: none; }
 
-        /* Toast */
+        /* ================= Toast 通知 ================= */
         .al-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(20, 20, 20, 0.95); border: 1px solid #444; color: #fff; padding: 10px 20px; border-radius: 20px; z-index: 100000; font-size: 14px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5); animation: al-fadein 0.3s, al-fadeout 0.3s 2.7s forwards; }
         @keyframes al-fadein { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
         @keyframes al-fadeout { from { opacity: 1; } to { opacity: 0; } }
@@ -153,14 +195,42 @@
         if (!location.href.includes("animeVideo.php")) return;
         const urlParams = new URLSearchParams(location.search);
         const newSn = urlParams.get("sn");
+
+        // 偵測到 SN 不同，代表換集數了
         if (newSn !== state.currentUrlSn) {
-            state.currentUrlSn = newSn;
-            state.hasSynced = false;
-            state.userStatus = null;
-            state.isAutoBinding = false;
+            state.currentUrlSn = newSn; // 更新目前的 SN
+            
+            resetStateForNewEpisode();  // <--- 呼叫重置函式，清空上一集的髒資料
+            
             initEpisodeData();
             triggerVideoHunt();
         }
+    }
+
+    // 重置狀態的 Helper (給換集數時用)
+    function resetStateForNewEpisode() {
+        // 清除舊的計時器
+        if (state.huntTimer) clearInterval(state.huntTimer);
+        if (state.statusTimeout) clearTimeout(state.statusTimeout);
+        
+        // 重置數據
+        state.rules = [];
+        state.activeRule = null;
+        state.userStatus = null;
+        state.bahaSn = null;
+        state.candidate = null;
+        
+        // 重置旗標
+        state.hasSynced = false;
+        state.isHunting = false;
+        state.stopSync = false;       // 換新的一集，給它新的機會嘗試同步
+        state.tokenErrorCount = 0;    // 重置錯誤計數
+        
+        state.huntTimer = null;
+        state.statusTimeout = null;
+        state.isAutoBinding = false;
+        
+        console.log("狀態已重置，準備載入新集數...");
     }
 
     function triggerVideoHunt() {
@@ -186,7 +256,8 @@
     }
 
     function handleTimeUpdate(e) {
-        if (!state.hasSynced && e.target.currentTime > state.updateTime) {
+        // 增加 !state.stopSync 判斷，如果發生嚴重錯誤就停止嘗試
+        if (!state.hasSynced && !state.stopSync && e.target.currentTime > CONFIG.UPDATE_THRESHOLD) {
             if (state.rules.length > 0) {
                 state.hasSynced = true;
                 syncProgress();
@@ -280,7 +351,7 @@
                 const c = new Date(check.year, check.month - 1, check.day);
                 const diffTime = Math.abs(c - t);
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                return diffDays <= state.diffDays;
+                return diffDays <= CONFIG.DATE_TOLERANCE;
             };
 
             let searchTerms = [nameEn, nameJp].filter((t) => t);
@@ -381,7 +452,25 @@
         } catch (e) {
             console.error("[Sync] Error:", e);
             updateNavStatus("error", "同步失敗");
-            state.hasSynced = false;
+            const errStr = String(e); // 確保是字串方便比對
+
+            if (errStr.includes("Too Many Requests")) {
+                state.stopSync = true; 
+                showToast("⚠️ 請求過於頻繁 (429)，已停止本頁面同步");
+            } 
+            else if (errStr.includes("Invalid token") || errStr.includes("Invalid access token")) {
+                state.tokenErrorCount++;
+                if (state.tokenErrorCount >= 3) {
+                    state.stopSync = true; // 錯誤超過 3 次，停止
+                    showToast("⚠️ Token 無效，已停止嘗試。請檢查設定。");
+                    updateNavStatus("token_error"); 
+                } else {
+                    state.hasSynced = false;
+                }
+            } 
+            else {
+                state.hasSynced = false; 
+            }
         }
     }
 
@@ -540,27 +629,96 @@
 
     // --- Tab: Settings (Token) ---
     function renderTabSettings(container) {
+        let savedClientId = GM_getValue("ANILIST_CLIENT_ID", "22337");
+
+        const iconEye = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="#ccc" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+        const iconEyeOff = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="#ccc" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07-2.3 2.3"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+
         container.html(`
-            <div style="padding:20px;">
-                 <label style="display:block; margin-bottom:5px; font-weight:bold;">AniList Access Token</label>
-                 <input type="password" id="al-setting-token" class="al-input" style="width:100%;" placeholder="請貼上 Token" value="${state.token || ''}">
-                 <button id="al-save-token" class="al-btn-green" style="margin-top:10px;">儲存設定</button>
-                 <p style="font-size:12px; color:#888; margin-top:10px;">
-                    如何取得 Token?<br>
-                    1. 登入 AniList<br>
-                    2. 前往 <a href="https://anilist.co/api/v2/oauth/authorize?client_id=22337&response_type=token" target="_blank" style="color:#3db4f2;">授權頁面</a><br>
-                    3. 點擊 Authorize，複製網址列中的 access_token
-                 </p>
-                 <div style="margin-top:20px; padding-top:20px; border-top:1px solid #333;">
-                    <div style="font-size:12px;color:#666;">Version: 4.8 | Author: downwarjers</div>
-                 </div>
+            <div class="al-settings-box">
+                <label class="al-settings-label">AniList Access Token</label>
+                
+                <div class="al-input-group">
+                    <input type="password" id="al-setting-token" class="al-input" style="flex:1;" placeholder="請貼上 Token" value="${state.token || ''}">
+                    <button id="al-toggle-token" class="al-bind-btn al-icon-btn" title="顯示/隱藏 Token">
+                        ${iconEye}
+                    </button>
+                </div>
+                <button id="al-save-token" class="al-btn-green" style="margin-top:10px;">儲存設定</button>
+                <div class="al-step-card">
+                    <p class="al-step-title">如何取得 Token?</p>
+
+                    <div class="al-step-item">
+                        <span class="al-step-num">1.</span>
+                        <div class="al-step-content">
+                            前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">AniList 開發者功能</a> 登入後，新增 API Client
+                        </div>
+                    </div>
+
+                    <div class="al-step-item">
+                        <span class="al-step-num">2.</span>
+                        <div class="al-step-content">
+                            <div>輸入 Client ID，並點擊授權：</div>
+                            <div class="al-step-action-row">
+                                <input type="text" id="al-client-id" class="al-input al-id-input" value="${savedClientId}" placeholder="ID" maxlength="10">
+                                <a id="al-auth-link" href="#" target="_blank" class="al-auth-btn disabled">
+                                    前往授權頁面 ↗
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="al-step-item">
+                        <span class="al-step-num">3.</span>
+                        <div class="al-step-content">
+                            點擊 Authorize，將 Access Token 複製貼回上方
+                        </div>
+                    </div>
+                </div>
             </div>
         `);
+
+        // --- 邏輯處理 ---
+
+        function updateAuthLink() {
+            const input = $("#al-client-id");
+            const btn = $("#al-auth-link");
+            
+            let val = input.val().replace(/\D/g, ''); 
+            if (val !== input.val()) input.val(val);
+
+            if (val.length > 0) {
+                // [修改點] 使用 class 切換樣式，而非直接操作 css
+                const url = `https://anilist.co/api/v2/oauth/authorize?client_id=${val}&response_type=token`;
+                btn.attr("href", url);
+                btn.removeClass("disabled").addClass("active");
+                GM_setValue("ANILIST_CLIENT_ID", val);
+            } else {
+                btn.attr("href", "javascript:void(0)");
+                btn.removeClass("active").addClass("disabled");
+            }
+        }
+
+        $("#al-client-id").on("input", updateAuthLink);
+        updateAuthLink();
+
+        $("#al-toggle-token").click(function() {
+            const input = $("#al-setting-token");
+            const isPassword = input.attr("type") === "password";
+            if (isPassword) {
+                input.attr("type", "text");
+                $(this).html(iconEyeOff);
+            } else {
+                input.attr("type", "password");
+                $(this).html(iconEye);
+            }
+        });
+
         $("#al-save-token").click(() => {
             const t = $("#al-setting-token").val().trim();
             if(t) {
                 GM_setValue("ANILIST_TOKEN", (state.token = t));
-                showToast("Token 已儲存！請重新整理頁面");
+                showToast("Token 已儲存！將重新整理頁面");
                 setTimeout(() => location.reload(), 1000);
             }
         });
