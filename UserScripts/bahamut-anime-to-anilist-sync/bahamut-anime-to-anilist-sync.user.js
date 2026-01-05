@@ -25,7 +25,6 @@
 
     // --- 靜態設定 ---
     const CONFIG = {
-        UPDATE_THRESHOLD: 1, // 同步觸發時間：當影片播放超過「1秒」時觸發
         DATE_TOLERANCE: 2, // 日期容錯天數
     };
 
@@ -256,8 +255,36 @@
     }
 
     function handleTimeUpdate(e) {
-        // 增加 !state.stopSync 判斷，如果發生嚴重錯誤就停止嘗試
-        if (!state.hasSynced && !state.stopSync && e.target.currentTime > CONFIG.UPDATE_THRESHOLD) {
+        // 如果已經同步過、或停止同步，就直接返回
+        if (state.hasSynced || state.stopSync) return;
+
+        const video = e.target;
+        const currentTime = video.currentTime;
+        const duration = video.duration;
+
+        // 取得使用者設定的模式
+        const syncMode = GM_getValue("SYNC_MODE", "instant");
+        
+        let shouldSync = false;
+
+        if (syncMode === "instant") {
+            // 即時模式：播放超過 5 秒
+            shouldSync = currentTime > 5;
+        } else if (syncMode === "2min") {
+            // 2分鐘模式
+            shouldSync = currentTime > 120; 
+        } else if (syncMode === "80pct") {
+            // 80% 模式
+            if (duration > 0) {
+                shouldSync = (currentTime / duration) > 0.8;
+            }
+        } else if (syncMode === "custom") {
+            // 自訂模式：讀取使用者設定的秒數，預設 60 秒
+            const customThreshold = GM_getValue("SYNC_CUSTOM_SECONDS", 60);
+            shouldSync = currentTime > customThreshold;
+        }
+
+        if (shouldSync) {
             if (state.rules.length > 0) {
                 state.hasSynced = true;
                 syncProgress();
@@ -627,9 +654,13 @@
         }
     }
 
-    // --- Tab: Settings (Token) ---
+    // --- Tab: Settings (Token & Preferences) ---
     function renderTabSettings(container) {
         let savedClientId = GM_getValue("ANILIST_CLIENT_ID", "22337");
+        
+        // 讀取目前的設定
+        let currentSyncMode = GM_getValue("SYNC_MODE", "instant");
+        let savedCustomSeconds = GM_getValue("SYNC_CUSTOM_SECONDS", 60); // 預設自訂為 60 秒
 
         const iconEye = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="#ccc" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
         const iconEyeOff = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="#ccc" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07-2.3 2.3"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
@@ -637,28 +668,45 @@
         container.html(`
             <div class="al-settings-box">
                 <label class="al-settings-label">AniList Access Token</label>
-                
                 <div class="al-input-group">
                     <input type="password" id="al-setting-token" class="al-input" style="flex:1;" placeholder="請貼上 Token" value="${state.token || ''}">
                     <button id="al-toggle-token" class="al-bind-btn al-icon-btn" title="顯示/隱藏 Token">
                         ${iconEye}
                     </button>
                 </div>
-                <button id="al-save-token" class="al-btn-green" style="margin-top:10px;">儲存設定</button>
+                
+                <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #333;">
+                    <label class="al-settings-label">同步觸發時機</label>
+                    <div style="font-size: 12px; color: #aaa; margin-bottom: 8px;">決定在影片播放多久後，自動將進度同步到 AniList。</div>
+                    
+                    <select id="al-sync-mode" class="al-input" style="width: 100%; cursor: pointer;">
+                        <option value="instant" ${currentSyncMode === 'instant' ? 'selected' : ''}>🚀 即時同步 (播放 5 秒後)</option>
+                        <option value="2min" ${currentSyncMode === '2min' ? 'selected' : ''}>⏳ 觀看確認 (播放 2 分鐘後)</option>
+                        <option value="80pct" ${currentSyncMode === '80pct' ? 'selected' : ''}>🏁 快看完時 (進度超過 80%)</option>
+                        <option value="custom" ${currentSyncMode === 'custom' ? 'selected' : ''}>⚙️ 自訂時間</option>
+                    </select>
+
+                    <div id="al-custom-sync-group" style="margin-top: 10px; display: none; align-items: center; gap: 10px;">
+                        <span style="font-size: 13px; color: #ccc;">播放超過：</span>
+                        <input type="number" id="al-custom-seconds" class="al-input" style="width: 80px; text-align: center;" value="${savedCustomSeconds}" min="1">
+                        <span style="font-size: 13px; color: #ccc;">秒後同步</span>
+                    </div>
+                </div>
+
+                <button id="al-save-settings" class="al-btn-green" style="margin-top:20px;">儲存設定</button>
+
                 <div class="al-step-card">
                     <p class="al-step-title">如何取得 Token?</p>
-
                     <div class="al-step-item">
                         <span class="al-step-num">1.</span>
                         <div class="al-step-content">
-                            前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">AniList 開發者功能</a> 登入後，新增 API Client
+                            登入 <a href="https://anilist.co/" target="_blank" class="al-link">AniList</a> 後，前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">AniList 開發者功能</a>，新增 API Client
                         </div>
                     </div>
-
                     <div class="al-step-item">
                         <span class="al-step-num">2.</span>
                         <div class="al-step-content">
-                            <div>輸入 Client ID，並點擊授權：</div>
+                            <div>輸入取得的 Client ID，並點擊授權：</div>
                             <div class="al-step-action-row">
                                 <input type="text" id="al-client-id" class="al-input al-id-input" value="${savedClientId}" placeholder="ID" maxlength="10">
                                 <a id="al-auth-link" href="#" target="_blank" class="al-auth-btn disabled">
@@ -667,7 +715,6 @@
                             </div>
                         </div>
                     </div>
-                    
                     <div class="al-step-item">
                         <span class="al-step-num">3.</span>
                         <div class="al-step-content">
@@ -679,16 +726,30 @@
         `);
 
         // --- 邏輯處理 ---
+        
+        // 1. 下拉選單切換顯示邏輯
+        function toggleCustomInput() {
+            const mode = $("#al-sync-mode").val();
+            if (mode === "custom") {
+                $("#al-custom-sync-group").css("display", "flex");
+            } else {
+                $("#al-custom-sync-group").hide();
+            }
+        }
+        
+        // 初始化與綁定事件
+        toggleCustomInput(); 
+        $("#al-sync-mode").change(toggleCustomInput);
 
+
+        // 2. Token 授權連結邏輯
         function updateAuthLink() {
             const input = $("#al-client-id");
             const btn = $("#al-auth-link");
-            
             let val = input.val().replace(/\D/g, ''); 
             if (val !== input.val()) input.val(val);
 
             if (val.length > 0) {
-                // [修改點] 使用 class 切換樣式，而非直接操作 css
                 const url = `https://anilist.co/api/v2/oauth/authorize?client_id=${val}&response_type=token`;
                 btn.attr("href", url);
                 btn.removeClass("disabled").addClass("active");
@@ -698,10 +759,10 @@
                 btn.removeClass("active").addClass("disabled");
             }
         }
-
         $("#al-client-id").on("input", updateAuthLink);
         updateAuthLink();
 
+        // 3. 顯示/隱藏 Token 密碼
         $("#al-toggle-token").click(function() {
             const input = $("#al-setting-token");
             const isPassword = input.attr("type") === "password";
@@ -714,13 +775,33 @@
             }
         });
 
-        $("#al-save-token").click(() => {
+        // 4. 儲存設定
+        $("#al-save-settings").click(() => {
             const t = $("#al-setting-token").val().trim();
-            if(t) {
-                GM_setValue("ANILIST_TOKEN", (state.token = t));
-                showToast("Token 已儲存！將重新整理頁面");
-                setTimeout(() => location.reload(), 1000);
+            const mode = $("#al-sync-mode").val();
+            const customSec = parseInt($("#al-custom-seconds").val());
+
+            if (!t) {
+                alert("請輸入 Token");
+                return;
             }
+
+            // 驗證自訂秒數
+            if (mode === "custom" && (isNaN(customSec) || customSec < 1)) {
+                alert("請輸入有效的秒數 (至少 1 秒)");
+                return;
+            }
+
+            GM_setValue("ANILIST_TOKEN", (state.token = t));
+            GM_setValue("SYNC_MODE", mode);
+            
+            // 只有在 custom 模式下，或使用者有輸入數字時才儲存，避免存入無效值
+            if (!isNaN(customSec) && customSec > 0) {
+                GM_setValue("SYNC_CUSTOM_SECONDS", customSec);
+            }
+            
+            showToast("設定已儲存！將重新整理頁面");
+            setTimeout(() => location.reload(), 700);
         });
     }
 
