@@ -876,7 +876,6 @@
     }
 
     // ================= API & Core Actions =================
-    // [修正] 簡化 GraphQL 查詢結構，避免語法錯誤
     async function fetchSequelChain(startId) {
         const mediaFields = `id title { romaji native } coverImage { medium } format episodes startDate { year month day }`;
         const query = `
@@ -912,6 +911,10 @@
         `;
         const response = await aniListRequest(query, { id: startId });
         const root = response.data.Media;
+
+        const isMovie = root.format === 'MOVIE';
+        const targetFormats = isMovie ? ['MOVIE'] : ['TV', 'ONA', 'OVA'];
+        
         let chain = [];
         let current = root;
         const visited = new Set();
@@ -920,7 +923,7 @@
             visited.add(current.id);
             chain.push(current);
             if (current.relations && current.relations.edges) {
-                const sequelEdge = current.relations.edges.find((e) => e.relationType === "SEQUEL" && ["TV", "ONA", "OVA"].includes(e.node.format));
+                const sequelEdge = current.relations.edges.find((e) => e.relationType === "SEQUEL" && targetFormats.includes(e.node.format));
                 current = sequelEdge ? sequelEdge.node : null;
             } else current = null;
         }
