@@ -39,6 +39,7 @@
         userStatus: null, 
         bahaSn: null, 
         candidate: null, 
+        bahaData: null, // 儲存作品資料物件
 
         // [執行時期的監控]
         currentUrlSn: null, 
@@ -218,6 +219,7 @@
         state.userStatus = null;
         state.bahaSn = null;
         state.candidate = null;
+        state.bahaData = null;
         
         // 重置旗標
         state.hasSynced = false;
@@ -303,6 +305,12 @@
         const acgLink = getAcgLink();
         if (!acgLink) return;
         state.bahaSn = new URLSearchParams(acgLink.split("?")[1]).get("s");
+
+        if (!state.bahaData) {
+            state.bahaData = await getBahaData(acgLink);
+        }
+
+
         const savedData = GM_getValue(`baha_acg_${state.bahaSn}`);
 
         if (savedData) {
@@ -335,33 +343,65 @@
         refreshUIState();
     }
 
-    // ================= 自動綁定邏輯 =================
-    async function tryAutoBind() {
-        if (state.isAutoBinding) return;
-        state.isAutoBinding = true;
-        state.candidate = null;
-        updateNavStatus("syncing", "嘗試自動匹配...");
+    function getAniListSeason(month) {
+        if (month >= 1 && month <= 3) return "WINTER";
+        if (month >= 4 && month <= 6) return "SPRING";
+        if (month >= 7 && month <= 9) return "SUMMER";
+        if (month >= 10 && month <= 12) return "FALL";
+        return null;
+    }
 
-        const acgLink = getAcgLink();
-        if (!acgLink) {
-            updateNavStatus("unbound");
-            state.isAutoBinding = false;
-            return;
+    // 從 URL 提取域名
+    function extractDomain(url) {
+        try {
+            const hostname = new URL(url).hostname;
+            return hostname.replace(/^www\./, '');
+        } catch (e) {
+            console.error(e);
+            return null;
         }
+    }
+    
+    // 處理作品資料的函式
+    async function getBahaData(acgUrl) {
+        if (!acgUrl) return null;
+        console.log("正在擷取巴哈作品資料...");
 
         try {
-            const html = await gmGet(acgLink);
+            const html = await gmGet(acgUrl);
             const $doc = $(new DOMParser().parseFromString(html, "text/html"));
 
+            // 擷取標題
             const h2s = $doc.find(SELECTORS.infoTitle);
             const nameJp = h2s.eq(0).text().trim();
             const nameEn = h2s.eq(1).text().trim();
 
+            // 擷取列表資訊
+            const broadcast = $doc.find(SELECTORS.infoList + ':contains("播映方式")').text().replace("播映方式：", "").trim();
             const dateJpText = $doc.find(SELECTORS.infoList + ':contains("當地")').text();
             const dateTwText = $doc.find(SELECTORS.infoList + ':contains("台灣")').text();
+
+            
+            
+            // 處理官網連結 (巴哈通常會用 redirect，需解析 url 參數)
+            let fullUrl = "";
+            let siteDomain = "";
+            const officialLink = $doc.find('.ACG-box1listB > li:contains("官方網站") > a').attr("href");
+            if (officialLink) {
+                try {
+                    const urlObj = new URL(officialLink, "https://acg.gamer.com.tw"); // 確保相對路徑也能解析
+                    fullUrl = urlObj.searchParams.get('url') || officialLink; // 嘗試取得真實連結
+                    if (fullUrl) {
+                        siteDomain = new URL(fullUrl).hostname.replace('www.', '');
+                    }
+                } catch (e) { console.warn("官網連結解析失敗", e); }
+            }
+
+            // 日期字串處理
             const dateJpStr = dateJpText ? dateJpText.split("：")[1] : "";
             const dateTwStr = dateTwText ? dateTwText.split("：")[1] : "";
 
+            // 解析日期物件 (沿用原本的 parseDate 邏輯)
             const parseDate = (str) => {
                 if (!str) return null;
                 const match = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
@@ -369,9 +409,46 @@
                 return null;
             };
 
-            const bahaDateJP = parseDate(dateJpStr);
-            const bahaDateTW = parseDate(dateTwStr);
+            return {
+                nameJp: nameJp,
+                nameEn: nameEn,
+                site: siteDomain,
+                fullUrl: fullUrl,
+                broadcast: broadcast,
+                dateJP: {
+                    str: dateJpStr,
+                    obj: parseDate(dateJpStr)
+                },
+                dateTW: {
+                    str: dateTwStr,
+                    obj: parseDate(dateTwStr)
+                }
+            };
+        } catch (e) {
+            console.error("擷取作品資料失敗:", e);
+            return null;
+        }
+    }
 
+    // ================= 自動綁定邏輯 =================
+    async function tryAutoBind() {
+        if (state.isAutoBinding) return;
+        state.isAutoBinding = true;
+        state.candidate = null;
+        updateNavStatus("syncing", "嘗試自動匹配...");
+
+        if (!state.bahaData) {
+            console.warn("無作品資料，無法自動綁定");
+            updateNavStatus("unbound");
+            state.isAutoBinding = false;
+            return;
+        }
+
+        // 解構取得 site (官網域名)
+        const { nameJp, nameEn, dateJP, dateTW, site } = state.bahaData;
+
+        try {
+            // 日期比對工具
             const isDateCloseEnough = (target, check) => {
                 if (!target || !check || !check.year || !check.month || !check.day) return false;
                 const t = new Date(target.year, target.month - 1, target.day);
@@ -381,27 +458,32 @@
                 return diffDays <= CONFIG.DATE_TOLERANCE;
             };
 
-            let searchTerms = [nameEn, nameJp].filter((t) => t);
             let matchFound = null;
 
+            // --- Step 1 & 2: 既有的名稱搜尋 (英文 -> 日文) ---
+            // 這些搜尋通常很準確，因為是針對標題搜尋，並輔以日期驗證
+            let searchTerms = [nameEn, nameJp].filter((t) => t);
+            
             for (let term of searchTerms) {
                 try {
                     const result = await searchAniList(term);
                     const candidates = result.data.Page.media || [];
 
                     if (candidates.length > 0 && !state.candidate) {
-                        state.candidate = candidates[0];
+                        state.candidate = candidates[0]; // 暫存第一個結果供手動參考
                     }
 
                     for (let media of candidates) {
                         const anilistDate = media.startDate;
                         if (!anilistDate.year || !anilistDate.month || !anilistDate.day) continue;
-
-                        const isMatchJP = isDateCloseEnough(bahaDateJP, anilistDate);
-                        const isMatchTW = isDateCloseEnough(bahaDateTW, anilistDate);
+                        
+                        // 這裡維持原本邏輯：名稱搜得到 + 日期對得上 = 視為正確
+                        const isMatchJP = isDateCloseEnough(dateJP.obj, anilistDate);
+                        const isMatchTW = isDateCloseEnough(dateTW.obj, anilistDate);
 
                         if (isMatchJP || isMatchTW) {
                             matchFound = media;
+                            console.log(`[Auto-Bind] Name Match: ${term}`);
                             break;
                         }
                     }
@@ -411,6 +493,59 @@
                 if (matchFound) break;
             }
 
+            // --- Step 3: 季節 + 官網 + 日期 嚴格比對 (Strict Mode) ---
+            // 只有當 Step 1 & 2 失敗，且巴哈資料具備「開播日期」與「官網域名」時才執行
+            if (!matchFound && dateJP.obj && site) {
+                console.log("[Auto-Bind] 名稱搜尋失敗，進入嚴格比對模式...");
+                
+                const seasonYear = dateJP.obj.year;
+                const seasonName = getAniListSeason(dateJP.obj.month);
+                const bahaDomain = site.toLowerCase(); // 確保小寫比對
+
+                if (seasonYear && seasonName) {
+                    try {
+                        const seasonResult = await fetchSeasonAnime(seasonYear, seasonName);
+                        const seasonList = seasonResult.data.Page.media || [];
+
+                        for (let media of seasonList) {
+                            // 條件 A: 官網網域必須吻合
+                            let isDomainMatch = false;
+                            if (media.externalLinks) {
+                                for (let link of media.externalLinks) {
+                                    const linkDomain = extractDomain(link.url);
+                                    // 比對：AniList 的連結網域 是否包含 巴哈的網域
+                                    // 例如: 巴哈抓到 "frieren-anime.jp"，AniList 連結是 "https://frieren-anime.jp/special/"
+                                    if (linkDomain && linkDomain.includes(bahaDomain)) {
+                                        isDomainMatch = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            // 條件 B: 日期必須吻合 (使用日本首播日期)
+                            const anilistDate = media.startDate;
+                            const isDateMatch = isDateCloseEnough(dateJP.obj, anilistDate);
+
+                            // 嚴格判定：必須同時符合 A 與 B
+                            if (isDomainMatch && isDateMatch) {
+                                matchFound = media;
+                                console.log(`[Auto-Bind] Strict Match (Season+Site+Date): ${media.title.romaji}`);
+                                break; // 找到唯一真愛，跳出迴圈
+                            }
+                        }
+                        
+                        if (!matchFound) {
+                            console.log(`[Auto-Bind] 嚴格比對失敗：找不到同時符合網域 (${bahaDomain}) 與日期的作品`);
+                        }
+                    } catch (e) {
+                        console.error("[Auto-Bind] Season Search Error:", e);
+                    }
+                }
+            } else if (!matchFound && (!dateJP.obj || !site)) {
+                console.log("[Auto-Bind] 跳過嚴格比對：資料不足 (缺少日期或官網資訊)");
+            }
+
+            // --- 執行綁定或提示 ---
             if (matchFound) {
                 const title = matchFound.title.native || matchFound.title.romaji;
                 console.log(`[Auto-Bind] Match found: ${title} (ID: ${matchFound.id})`);
@@ -420,7 +555,7 @@
                 if (state.candidate) {
                     showToast('🧐 找到可能的作品，請點擊上方按鈕確認');
                 } else {
-                    showToast('⚠️ 找不到自動匹配結果，請手動綁定');
+                    showToast('⚠️ 自動匹配失敗，請手動綁定 (避免錯誤綁定)');
                 }
             }
         } catch (e) {
@@ -446,7 +581,13 @@
 
     function getCurrentEpisode() {
         const seasonList = $(SELECTORS.seasonList);
-        if (seasonList.length === 0) return null;
+        if (seasonList.length === 0) {
+            if (location.href.includes("animeVideo.php")) {
+                console.log("無集數列表，判定為單集作品 (Movie)，預設為第 1 集");
+                return 1; 
+            }
+            return null;
+        }
 
         // 1. 建立有效集數清單，遍歷所有按鈕，把符合條件的存起來
         let validEpisodes = [];
@@ -961,11 +1102,7 @@
         const acgLink = getAcgLink();
         if(acgLink) {
              try {
-                const html = await gmGet(acgLink);
-                const $doc = $(new DOMParser().parseFromString(html, "text/html"));
-                const h2s = $doc.find(SELECTORS.infoTitle);
-                const nameJp = h2s.eq(0).text().trim();
-                const nameEn = h2s.eq(1).text().trim();
+                const { nameJp, nameEn } = state.bahaData;
                 
                 container.append(`
                     <div style="padding:15px;">
@@ -1259,6 +1396,21 @@
     function fetchUserStatus(id) {
         const query = `query ($id: Int) { Media(id: $id) { mediaListEntry { status progress } } }`;
         return aniListRequest(query, { id }).then((d) => d.data.Media.mediaListEntry);
+    }
+
+    function fetchSeasonAnime(year, season) {
+        const query = `
+        query ($year: Int, $season: MediaSeason) {
+            Page(page: 1, perPage: 100) {
+                media(seasonYear: $year, season: $season, type: ANIME, format_in: [TV, ONA, OVA, MOVIE]) {
+                    id
+                    title { romaji native }
+                    startDate { year month day }
+                    externalLinks { url site }
+                }
+            }
+        }`;
+        return aniListRequest(query, { year, season });
     }
 
     function searchAniList(search) {
