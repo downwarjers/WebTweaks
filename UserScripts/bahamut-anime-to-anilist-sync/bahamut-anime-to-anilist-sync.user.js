@@ -446,12 +446,55 @@
 
     function getCurrentEpisode() {
         const seasonList = $(SELECTORS.seasonList);
-        if (seasonList.length > 0) {
-            const currentEpLi = seasonList.filter(SELECTORS.playing);
-            if (currentEpLi.length === 0) return null;
-            return seasonList.index(currentEpLi) + 1;
-        }
-        return 1;
+        if (seasonList.length === 0) return null;
+
+        // 1. 建立有效集數清單，遍歷所有按鈕，把符合條件的存起來
+        let validEpisodes = [];
+        let currentEpIndex = -1; // 用來記錄目前播放的是第幾個有效集數
+
+        seasonList.each(function() {
+            const li = $(this);
+            const text = li.text().trim();
+            
+            // --- 過濾規則 ---
+            
+            // 規則 A: 忽略 "0"
+            if (text === "0") return; 
+            
+            // 規則 B: 忽略小數點
+            if (text.includes(".")) return;
+
+            // 規則 C: 必須包含數字
+            const match = text.match(/(\d+)/);
+            if (!match) return;
+            
+            const num = parseInt(match[1], 10);
+            
+            // 加入有效清單
+            validEpisodes.push({
+                element: li,
+                number: num
+            });
+
+            // 記錄正在播放的按鈕位置 (Index)
+            if (li.hasClass("playing")) {
+                currentEpIndex = validEpisodes.length - 1;
+            }
+        });
+
+        // 如果找不到目前播放的集數，或是沒有有效集數，就回傳 null
+        if (currentEpIndex === -1 || validEpisodes.length === 0) return null;
+
+        // --- 計算邏輯 ---
+
+        // 步驟 1: 取得這個列表「第一個有效集數」的數字
+        const firstEpNum = validEpisodes[0].number;
+        
+        // 步驟 2: 計算偏移量 (Offset)
+        const offset = currentEpIndex;
+        
+        // 步驟 3: 最終計算
+        return firstEpNum + offset;
     }
 
     async function syncProgress() {
