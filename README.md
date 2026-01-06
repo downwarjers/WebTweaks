@@ -30,6 +30,11 @@
 * **說明**: 針對 ACGSecrets.hk 網站，依據作品標籤（如「續作」、「新作」、「家長指引」）與名稱規則（正則表達式判斷季數、篇章），將新番列表自動分類為八大類。在頁面右下角提供「複製分類結果」與「下載 txt」按鈕。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/acgsecrets-bangumi-copy/acgsecrets-bangumi-copy.user.js)
 
+### AniList to OTT Sites
+* **資料夾名稱**: `anilist-external-ott-services`
+* **說明**: AniList 清單新增外部OTT按鈕，直接跳轉搜尋作品，支援巴哈自動跳轉集數
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/anilist-external-ott-services/anilist-external-ott-services.user.js)
+
 ### 巴哈姆特 - 自動關閉簽到視窗
 * **資料夾名稱**: `auto-close-baha-sign-window`
 * **說明**: 自動偵測並關閉巴哈姆特（gamer.com.tw）進入時彈出的每日簽到視窗 (`dialogify_1`)。使用 `MutationObserver` 監聽 DOM 變化，發現關閉按鈕時自動觸發點擊。
