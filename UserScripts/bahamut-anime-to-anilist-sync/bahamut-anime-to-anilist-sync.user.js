@@ -25,7 +25,8 @@
 
     // --- 靜態設定 ---
     const CONFIG = {
-        DATE_TOLERANCE: 2, // 日期容錯天數
+        MATCH_TOLERANCE_DAYS: 2, // 日期容錯天數
+        SEARCH_RANGE_DAYS: 10
     };
 
     // --- 狀態變數 ---
@@ -343,12 +344,28 @@
         refreshUIState();
     }
 
-    function getAniListSeason(month) {
-        if (month >= 1 && month <= 3) return "WINTER";
-        if (month >= 4 && month <= 6) return "SPRING";
-        if (month >= 7 && month <= 9) return "SUMMER";
-        if (month >= 10 && month <= 12) return "FALL";
-        return null;
+   function getFuzzyDateRange(dateObj, toleranceDays = CONFIG.SEARCH_RANGE_DAYS) {
+        // 如果沒有日期物件，直接回傳 null
+        if (!dateObj || !dateObj.year || !dateObj.month || !dateObj.day) return null;
+
+        // 建立基準日期 (JavaScript 的月份是 0-11)
+        const target = new Date(dateObj.year, dateObj.month - 1, dateObj.day);
+
+        // 計算起始日期
+        const minDate = new Date(target);
+        minDate.setDate(minDate.getDate() - toleranceDays);
+
+        // 計算結束日期
+        const maxDate = new Date(target);
+        maxDate.setDate(maxDate.getDate() + toleranceDays);
+
+        // 轉為 AniList 接受的 FuzzyDateInt 格式 (例如 20240101)
+        const toFuzzy = (d) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+
+        return {
+            start: toFuzzy(minDate),
+            end: toFuzzy(maxDate)
+        };
     }
 
     // 從 URL 提取域名
@@ -383,7 +400,7 @@
 
             
             
-            // 處理官網連結 (巴哈通常會用 redirect，需解析 url 參數)
+            // 處理官網連結
             let fullUrl = "";
             let siteDomain = "";
             const officialLink = $doc.find('.ACG-box1listB > li:contains("官方網站") > a').attr("href");
@@ -401,7 +418,7 @@
             const dateJpStr = dateJpText ? dateJpText.split("：")[1] : "";
             const dateTwStr = dateTwText ? dateTwText.split("：")[1] : "";
 
-            // 解析日期物件 (沿用原本的 parseDate 邏輯)
+            // 解析日期物件
             const parseDate = (str) => {
                 if (!str) return null;
                 const match = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
@@ -455,13 +472,13 @@
                 const c = new Date(check.year, check.month - 1, check.day);
                 const diffTime = Math.abs(c - t);
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                return diffDays <= CONFIG.DATE_TOLERANCE;
+                return diffDays <= CONFIG.MATCH_TOLERANCE_DAYS;
             };
 
             let matchFound = null;
 
             // --- Step 1 & 2: 既有的名稱搜尋 (英文 -> 日文) ---
-            // 這些搜尋通常很準確，因為是針對標題搜尋，並輔以日期驗證
+            // 針對標題搜尋，並輔以日期驗證
             let searchTerms = [nameEn, nameJp].filter((t) => t);
             
             for (let term of searchTerms) {
@@ -493,28 +510,30 @@
                 if (matchFound) break;
             }
 
-            // --- Step 3: 季節 + 官網 + 日期 嚴格比對 (Strict Mode) ---
-            // 只有當 Step 1 & 2 失敗，且巴哈資料具備「開播日期」與「官網域名」時才執行
-            if (!matchFound && dateJP.obj && site) {
-                console.log("[Auto-Bind] 名稱搜尋失敗，進入嚴格比對模式...");
+            // --- Step 3: 日期範圍 + 官網 嚴格日期區間搜尋比對---
+            if (!matchFound && site) {
+                console.log("[Auto-Bind] 名稱搜尋失敗，進入日期範圍嚴格比對模式...");
                 
-                const seasonYear = dateJP.obj.year;
-                const seasonName = getAniListSeason(dateJP.obj.month);
+                // 1. 決定用哪個日期來當基準 (優先用日本日期，沒有則用台灣日期)
+                let range = getFuzzyDateRange(dateJP.obj, CONFIG.SEARCH_RANGE_DAYS); 
+                if (!range) {
+                    range = getFuzzyDateRange(dateTW.obj, CONFIG.SEARCH_RANGE_DAYS);
+                }
+
                 const bahaDomain = site.toLowerCase(); // 確保小寫比對
 
-                if (seasonYear && seasonName) {
+                if (range) {
                     try {
-                        const seasonResult = await fetchSeasonAnime(seasonYear, seasonName);
-                        const seasonList = seasonResult.data.Page.media || [];
+                        // 使用新的 API 函式
+                        const rangeResult = await fetchAnimeByDateRange(range.start, range.end);
+                        const candidatesList = rangeResult.data.Page.media || [];
 
-                        for (let media of seasonList) {
+                        for (let media of candidatesList) {
                             // 條件 A: 官網網域必須吻合
                             let isDomainMatch = false;
                             if (media.externalLinks) {
                                 for (let link of media.externalLinks) {
                                     const linkDomain = extractDomain(link.url);
-                                    // 比對：AniList 的連結網域 是否包含 巴哈的網域
-                                    // 例如: 巴哈抓到 "frieren-anime.jp"，AniList 連結是 "https://frieren-anime.jp/special/"
                                     if (linkDomain && linkDomain.includes(bahaDomain)) {
                                         isDomainMatch = true;
                                         break;
@@ -522,27 +541,28 @@
                                 }
                             }
 
-                            // 條件 B: 日期必須吻合 (使用日本首播日期)
+                            // 條件 B: 日期再次驗證
                             const anilistDate = media.startDate;
-                            const isDateMatch = isDateCloseEnough(dateJP.obj, anilistDate);
+                            const isDateMatchJP = isDateCloseEnough(dateJP.obj, anilistDate);
+                            const isDateMatchTW = isDateCloseEnough(dateTW.obj, anilistDate);
 
-                            // 嚴格判定：必須同時符合 A 與 B
-                            if (isDomainMatch && isDateMatch) {
+                            // 嚴格判定：必須同時符合 (網域) AND (日本日期吻合 OR 台灣日期吻合)
+                            if (isDomainMatch && (isDateMatchJP || isDateMatchTW)) {
                                 matchFound = media;
-                                console.log(`[Auto-Bind] Strict Match (Season+Site+Date): ${media.title.romaji}`);
-                                break; // 找到唯一真愛，跳出迴圈
+                                console.log(`[Auto-Bind] Strict Match (DateRange+Site): ${media.title.romaji}`);
+                                break; 
                             }
                         }
                         
                         if (!matchFound) {
-                            console.log(`[Auto-Bind] 嚴格比對失敗：找不到同時符合網域 (${bahaDomain}) 與日期的作品`);
+                            console.log(`[Auto-Bind] 嚴格比對失敗：在日期範圍內找不到網域 (${bahaDomain}) 吻合的作品`);
                         }
                     } catch (e) {
-                        console.error("[Auto-Bind] Season Search Error:", e);
+                        console.error("[Auto-Bind] Date Range Search Error:", e);
                     }
+                } else {
+                    console.log("[Auto-Bind] 跳過嚴格比對：無有效日期可供計算範圍");
                 }
-            } else if (!matchFound && (!dateJP.obj || !site)) {
-                console.log("[Auto-Bind] 跳過嚴格比對：資料不足 (缺少日期或官網資訊)");
             }
 
             // --- 執行綁定或提示 ---
@@ -1398,11 +1418,11 @@
         return aniListRequest(query, { id }).then((d) => d.data.Media.mediaListEntry);
     }
 
-    function fetchSeasonAnime(year, season) {
+    function fetchAnimeByDateRange(fuzzyStart, fuzzyEnd) {
         const query = `
-        query ($year: Int, $season: MediaSeason) {
+        query ($start: FuzzyDateInt, $end: FuzzyDateInt) {
             Page(page: 1, perPage: 100) {
-                media(seasonYear: $year, season: $season, type: ANIME, format_in: [TV, ONA, OVA, MOVIE]) {
+                media(startDate_greater: $start, startDate_lesser: $end, type: ANIME, format_in: [ MOVIE]) {
                     id
                     title { romaji native }
                     startDate { year month day }
@@ -1410,7 +1430,7 @@
                 }
             }
         }`;
-        return aniListRequest(query, { year, season });
+        return aniListRequest(query, { start: fuzzyStart, end: fuzzyEnd });
     }
 
     function searchAniList(search) {
