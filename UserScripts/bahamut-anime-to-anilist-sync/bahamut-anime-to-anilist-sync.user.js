@@ -734,8 +734,9 @@
             if (s === "CURRENT") statusText = `📺 目前觀看`;
             else if (s === "COMPLETED") statusText = `🎉 已看完`;
             else if (s === "PLANNING") statusText = `📅 計畫中`;
-            else if (s === "DROPPED") statusText = `🗑️ 棄番`;
+            else if (s === "REPEATING") statusText = `🔁 重看中`;
             else if (s === "PAUSED") statusText = `⏸️ 暫停`;
+            else if (s === "DROPPED") statusText = `🗑️ 棄番`;
             if (p > 0) statusText += `【Ep.${p}】`;
             if (statusText) {
                 if ($("#al-user-status").length === 0) $("#al-text").after('<span id="al-user-status" class="al-user-status"></span>');
@@ -976,13 +977,13 @@
             const customSec = parseInt($("#al-custom-seconds").val());
 
             if (!t) {
-                alert("請輸入 Token");
+                showToast("請輸入 Token");
                 return;
             }
 
             // 驗證自訂秒數
             if (mode === "custom" && (isNaN(customSec) || customSec < 1)) {
-                alert("請輸入有效的秒數 (至少 1 秒)");
+                showToast("請輸入有效的秒數 (至少 1 秒)");
                 return;
             }
 
@@ -1008,20 +1009,30 @@
             const info = await fetchAnimeInfo(rule.id);
             const userStat = await fetchUserStatus(rule.id);
             const aniLink = `https://anilist.co/anime/${rule.id}`;
+
+            state.userStatus = userStat; 
+            refreshUIState();
             
-            const currentStatus = userStat ? userStat.status : "PLANNING";
+            const isInList = !!userStat;
+            const currentStatus = isInList ? userStat.status : "NOT_IN_LIST";
             const statusMap = {
                 CURRENT: "Watching (觀看中)",
-                PLANNING: "Plan to Watch (計畫中)",
                 COMPLETED: "Completed (已看完)",
+                PLANNING: "Plan to Watch (計畫中)",
                 REPEATING: "Rewatching (重看中)",
                 PAUSED: "Paused (暫停)",
                 DROPPED: "Dropped (棄番)",
             };
+
             let statusOptions = "";
-            for (let key in statusMap) {
-                statusOptions += `<option value="${key}" ${currentStatus === key ? "selected" : ""}>${statusMap[key]}</option>`;
+            if (!isInList) {
+                statusOptions += `<option value="NOT_IN_LIST" selected>⚪ Not in List (未加入清單)</option>`;
             }
+            for (let key in statusMap) {
+                const isSelected = (isInList && currentStatus === key) ? "selected" : "";
+                statusOptions += `<option value="${key}" ${isSelected}>${statusMap[key]}</option>`;}
+
+            const progressText = isInList ? `Ep.${userStat.progress}` : "-";
 
             container.html(`
                 <div style="padding:15px;">
@@ -1032,13 +1043,16 @@
                         <div style="flex:1">
                             <a href="${aniLink}" target="_blank" class="al-link" style="font-size:15px; display:block;">${rule.title}</a>
                             <div style="font-size:12px;color:#aaa; margin-top:3px;">ID: ${rule.id} | 開播: ${formatDate(info.startDate)}</div>
-                            <div style="margin-top:5px;font-size:12px;color:#4caf50;">AniList 進度: Ep.${userStat?.progress || 0}</div>
+                            <div style="margin-top:5px;font-size:12px;color:#4caf50;">AniList 進度: ${progressText}</div>
                         </div>
                     </div>
 
                     <div style="margin-bottom:15px;">
                         <label style="font-weight:bold; font-size:13px; color:#ccc;">切換狀態:</label>
-                        <select id="al-status-select" class="al-input" style="width:100%; margin-top:5px; cursor:pointer;">${statusOptions}</select>
+                        <select id="al-status-select" class="al-input" style="width:100%; margin-top:5px; cursor:pointer;">
+                            ${statusOptions}
+                        </select>
+                        ${!isInList ? '<div style="font-size:11px; color:#e6a23c; margin-top:5px;">* 此作品尚未加入你的 AniList，選擇上方狀態即可加入。</div>' : ''}
                     </div>
 
                     <div style="margin-top:15px; border-top:1px solid #333; padding-top:10px;">
@@ -1054,12 +1068,19 @@
 
             $("#al-status-select").change(async function () {
                 const newStatus = $(this).val();
+                if (newStatus === "NOT_IN_LIST") return;
+
                 $(this).prop("disabled", true);
                 try {
-                    await updateAnimeStatus(rule.id, newStatus);
+                    const newData = await updateAnimeStatus(rule.id, newStatus);
+                    state.userStatus = newData;
+                    refreshUIState(); 
                     showToast(`狀態已更新`);
-                } catch (e) { alert("更新失敗：" + e); }
-                $(this).prop("disabled", false);
+                    await renderTabHomeBound(container); 
+                } catch (e) { 
+                    showToast("更新失敗：" + e); 
+                    $(this).prop("disabled", false);
+                }
             });
 
             $("#al-save-id").click(async () => {
@@ -1289,7 +1310,7 @@
                 }
             }
         });
-        if (newRules.length === 0) return alert("請至少設定一部作品的起始集數");
+        if (newRules.length === 0) return showToast("請至少設定一部作品的起始集數");
         newRules.sort((a, b) => b.start - a.start);
         state.rules = newRules;
         GM_setValue(`baha_acg_${state.bahaSn}`, newRules);
