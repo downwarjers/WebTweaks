@@ -25,8 +25,8 @@
 
     // --- 靜態設定 ---
     const CONFIG = {
-        MATCH_TOLERANCE_DAYS: 2, // 日期容錯天數
-        SEARCH_RANGE_DAYS: 10
+        MATCH_TOLERANCE_DAYS: 2, // 比對日期容錯天數
+        SEARCH_RANGE_DAYS: 10  // 作品搜尋日期容錯天數
     };
 
     // --- 狀態變數 ---
@@ -601,6 +601,8 @@
 
     function getCurrentEpisode() {
         const seasonList = $(SELECTORS.seasonList);
+        
+        // 處理無列表的情況 (例如劇場版)
         if (seasonList.length === 0) {
             if (location.href.includes("animeVideo.php")) {
                 console.log("無集數列表，判定為單集作品 (Movie)，預設為第 1 集");
@@ -609,9 +611,8 @@
             return null;
         }
 
-        // 1. 建立有效集數清單，遍歷所有按鈕，把符合條件的存起來
-        let validEpisodes = [];
-        let currentEpIndex = -1; // 用來記錄目前播放的是第幾個有效集數
+        let validCount = 0;     // 用來計算是第幾集 (重新編號)
+        let currentEpNum = null; // 儲存最終結果
 
         seasonList.each(function() {
             const li = $(this);
@@ -626,36 +627,23 @@
             if (text.includes(".")) return;
 
             // 規則 C: 必須包含數字
-            const match = text.match(/(\d+)/);
-            if (!match) return;
+            if (!/\d/.test(text)) return;
             
-            const num = parseInt(match[1], 10);
+            // --- 重新計數邏輯 ---
             
-            // 加入有效清單
-            validEpisodes.push({
-                element: li,
-                number: num
-            });
+            // 只要通過過濾，計數器就 +1
+            validCount++;
 
-            // 記錄正在播放的按鈕位置 (Index)
+            // 檢查這個按鈕是否正在播放
             if (li.hasClass("playing")) {
-                currentEpIndex = validEpisodes.length - 1;
+                currentEpNum = validCount;
+                return false; // break loop
             }
         });
 
-        // 如果找不到目前播放的集數，或是沒有有效集數，就回傳 null
-        if (currentEpIndex === -1 || validEpisodes.length === 0) return null;
-
-        // --- 計算邏輯 ---
-
-        // 步驟 1: 取得這個列表「第一個有效集數」的數字
-        const firstEpNum = validEpisodes[0].number;
-        
-        // 步驟 2: 計算偏移量 (Offset)
-        const offset = currentEpIndex;
-        
-        // 步驟 3: 最終計算
-        return firstEpNum + offset;
+        // 如果跑完迴圈還是 null，代表目前播放的可能是不在規則內的集數 (例如剛好在看 5.5 集)
+        // 這種情況下通常不建議同步，回傳 null 即可
+        return currentEpNum;
     }
 
     async function syncProgress() {
