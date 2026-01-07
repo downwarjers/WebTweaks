@@ -7,10 +7,10 @@ from google.genai import types
 
 # ================= 設定區 =================
 # 請再次確認這裡貼上的是你那個「新帳號」的 Key
-API_KEY = "AIzaSyCXB45NZq049zsO_JrPUHh_DeDCaDF1EL8" 
+API_KEY = "AIzaSyDbp9ay6VjdIKha8cRnv7GnHqJvV_wwm_g" 
 
 # --- 關鍵修改：先改回 1.5-flash 試試看，因為 2.0 可能有額外限制 ---
-MODEL_NAME = 'gemini-3-flash-preview' 
+MODEL_NAME = 'gemini-flash-lite-latest' 
 # MODEL_NAME = 'gemini-2.0-flash'
 
 client = genai.Client(api_key=API_KEY)
@@ -53,7 +53,7 @@ def generate_commit_message(diff_content):
     {truncated_diff}
     """
 
-    max_retries = 1000000000
+    max_retries = 2
     for attempt in range(max_retries):
         try:
             print(f"🚀 (第 {attempt+1} 次嘗試) 正在呼叫 Google API ({MODEL_NAME})...")
