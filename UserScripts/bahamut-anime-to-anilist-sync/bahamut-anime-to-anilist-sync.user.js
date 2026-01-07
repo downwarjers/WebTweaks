@@ -1,13 +1,14 @@
 // ==UserScript==
 // @name         Bahamut Anime to AniList Sync
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      4.8
+// @version      5.1
 // @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @author       downwarjers
 // @license      MIT
 // @match        https://ani.gamer.com.tw/*
 // @connect      acg.gamer.com.tw
 // @connect      graphql.anilist.co
+// @icon         https://ani.gamer.com.tw/apple-touch-icon-144.jpg
 // @grant        GM_xmlhttpRequest
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -26,7 +27,8 @@
     // --- 靜態設定 ---
     const CONFIG = {
         MATCH_TOLERANCE_DAYS: 2, // 比對日期容錯天數
-        SEARCH_RANGE_DAYS: 10  // 作品搜尋日期容錯天數
+        SEARCH_RANGE_DAYS: 10,  // 作品搜尋日期容錯天數
+        SYNC_ON_BIND: false  //綁定時是否立即同步
     };
 
     // --- 狀態變數 ---
@@ -720,7 +722,7 @@
         const showTitle = state.activeRule && (type === "bound" || type === "syncing" || type === "done" || type === "info");
 
         if (showTitle) {
-            titleSpan.text(state.activeRule.title).css("display", "inline-block");
+            titleSpan.html(state.activeRule.title).css("display", "inline-block");
         } else {
             titleSpan.hide();
         }
@@ -1371,7 +1373,10 @@
         $("#al-modal").fadeOut(200);
         state.hasSynced = false;
         showToast("綁定成功！");
-        if (!state.isHunting) syncProgress();
+
+       if (CONFIG.SYNC_ON_BIND && !state.isHunting) {
+            syncProgress();
+        }
     }
 
     function waitForNavbar() {
