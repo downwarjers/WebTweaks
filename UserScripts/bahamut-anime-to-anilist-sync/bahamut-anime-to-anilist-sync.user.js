@@ -602,50 +602,117 @@
     }
 
     function getCurrentEpisode() {
-        const seasonList = $(SELECTORS.seasonList);
-        
+        const playingLi = $(SELECTORS.seasonList + ".playing");
+
         // 處理無列表的情況 (例如劇場版)
-        if (seasonList.length === 0) {
+        if (playingLi.length === 0) {
             if (location.href.includes("animeVideo.php")) {
-                console.log("無集數列表，判定為單集作品 (Movie)，預設為第 1 集");
+                console.log("無集數列表或未偵測到播放中，判定為單集作品 (Movie)，預設為第 1 集");
                 return 1; 
             }
             return null;
         }
 
-        let validCount = 0;     // 用來計算是第幾集 (重新編號)
-        let currentEpNum = null; // 儲存最終結果
+        const currentList = playingLi.closest("ul");
 
-        seasonList.each(function() {
+        let calculatedEp = 0;   // 這是我們最終要回傳的「計算後集數」
+        let lastEpNum = null;   // 用來記錄上一個按鈕的「文字數字」
+
+        let foundPlaying = false; // 標記是否找到目前播放的集數
+
+        // 只遍歷「當前列表」內的 li
+        currentList.find("li").each(function() {
             const li = $(this);
             const text = li.text().trim();
             
-            // --- 過濾規則 ---
-            
-            // 規則 A: 忽略 "0"
+            // --- 過濾規則 (保持你原本的設定) ---
             if (text === "0") return; 
-            
-            // 規則 B: 忽略小數點
             if (text.includes(".")) return;
-
-            // 規則 C: 必須包含數字
             if (!/\d/.test(text)) return;
             
-            // --- 重新計數邏輯 ---
+            // 嘗試解析按鈕上的數字
+            const currentTextNum = parseInt(text, 10);
             
-            // 只要通過過濾，計數器就 +1
-            validCount++;
+            // --- 核心演算法 ---
+            if (lastEpNum === null || isNaN(currentTextNum)) {
+                calculatedEp++; 
+            } else {
+                const gap = currentTextNum - lastEpNum;
+                if (gap > 1) {
+                    calculatedEp += gap;
+                } else {
+                    calculatedEp++;
+                }
+            }
 
-            // 檢查這個按鈕是否正在播放
+            // 更新上一個數字，供下一次比對用
+            if (!isNaN(currentTextNum)) {
+                lastEpNum = currentTextNum;
+            }
+
+            // 如果這個 li 是正在播放的，就停止迴圈並回傳結果
             if (li.hasClass("playing")) {
-                currentEpNum = validCount;
+                foundPlaying = true;
                 return false; // break loop
             }
         });
 
-        // 如果跑完迴圈還是 null，代表目前播放的可能是不在規則內的集數 (例如剛好在看 5.5 集)
-        // 這種情況下通常不建議同步，回傳 null 即可
-        return currentEpNum;
+        return foundPlaying ? calculatedEp : null;
+    }
+
+    // --- 取得頁面上最大的有效集數 ---
+    function getMaxEpisodeOnPage() {
+        const seasonUls = $(".season ul");
+        
+        if (seasonUls.length === 0) {
+            return location.href.includes("animeVideo.php") ? 1 : 0;
+        }
+
+        let maxCalculatedEp = 0;
+
+        // 分別計算每個 ul (季度/列表)
+        seasonUls.each(function() {
+            let currentListEp = 0; // 這個列表計算到的集數
+            let lastEpNum = null;  // 上一個按鈕的數字
+
+            $(this).find("li").each(function() {
+                const text = $(this).text().trim();
+                
+                // 過濾規則
+                if (text === "0") return;
+                if (text.includes(".")) return;
+                if (!/\d/.test(text)) return;
+                
+                const currentTextNum = parseInt(text, 10);
+
+                // --- 核心演算法 (與 getCurrentEpisode 同步) ---
+                if (lastEpNum === null || isNaN(currentTextNum)) {
+                    // 列表的第一個，強制從 +1 開始 (規避多季度連續數字)
+                    currentListEp++;
+                } else {
+                    const gap = currentTextNum - lastEpNum;
+                    if (gap > 1) {
+                        // 偵測到跳號，補上差額
+                        currentListEp += gap;
+                    } else {
+                        // 正常連號或亂號，+1
+                        currentListEp++;
+                    }
+                }
+
+                // 更新上一個數字
+                if (!isNaN(currentTextNum)) {
+                    lastEpNum = currentTextNum;
+                }
+            });
+
+            // 取所有列表中，計算結果最大的那個
+            if (currentListEp > maxCalculatedEp) {
+                maxCalculatedEp = currentListEp;
+            }
+        });
+
+        return maxCalculatedEp;
     }
 
     async function syncProgress() {
@@ -1033,6 +1100,7 @@
                 statusOptions += `<option value="${key}" ${isSelected}>${statusMap[key]}</option>`;}
 
             const progressText = isInList ? `Ep.${userStat.progress}` : "-";
+            const totalEpisodes = info.episodes ? info.episodes : "?";
 
             container.html(`
                 <div style="padding:15px;">
@@ -1043,7 +1111,7 @@
                         <div style="flex:1">
                             <a href="${aniLink}" target="_blank" class="al-link" style="font-size:15px; display:block;">${rule.title}</a>
                             <div style="font-size:12px;color:#aaa; margin-top:3px;">ID: ${rule.id} | 開播: ${formatDate(info.startDate)}</div>
-                            <div style="margin-top:5px;font-size:12px;color:#4caf50;">AniList 進度: ${progressText}</div>
+                            <div style="margin-top:5px;font-size:12px;color:#4caf50;">AniList 進度: ${progressText} / ${totalEpisodes}</div>
                         </div>
                     </div>
 
@@ -1213,6 +1281,7 @@
 
         try {
             const chain = await fetchSequelChain(baseId);
+            // 計算「AniList 理論上的集數接續」
             chain.forEach((media, index) => {
                 if (index === 0) media.suggestedStart = 1;
                 else {
@@ -1225,25 +1294,55 @@
             let html = `
                 <div style="padding:15px;">
                     <div style="margin-bottom:10px;color:#aaa;font-size:12px;">
-                        <strong>橘色底為系統自動推算的集數，請確認後按「套用」。</strong>
+                        <strong>系統會自動偵測系列作做集數整合</strong>
                     </div>
                     <table class="al-map-table">
                         <thead><tr><th>狀態</th><th>作品名稱 (AniList)</th><th style="width:40px;">集數</th><th style="width:60px;">起始集</th><th style="width:70px;">操作</th></tr></thead>
                         <tbody>
             `;
 
+            // 取得頁面實際的最大集數
+            const maxPageEp = getMaxEpisodeOnPage();
+
             chain.forEach((media) => {
                 const existingRule = state.rules.find((r) => r.id === media.id);
-                const isActive = !!existingRule;
-                const isNewButAutoCalculated = !isActive && media.suggestedStart > 1;
+                
+                // 是否超出範圍：建議起始集數 > 頁面現有總集數
+                const isOutOfBounds = media.suggestedStart > maxPageEp;
+
+                // 自動啟用邏輯
+                let isActive = false;
+                if (existingRule) {
+                    isActive = true; 
+                } else if (!isOutOfBounds) {
+                    // 只有在範圍內才自動啟用
+                    isActive = true; 
+                }
+
+                // 橘色建議邏輯
+                const isNewButAutoCalculated = !isActive && !isOutOfBounds && media.suggestedStart > 1;
+                
                 const rowClass = isActive ? "active" : (isNewButAutoCalculated ? "suggestion" : "");
-                const statusText = isActive ? "✅ 使用中" : (isNewButAutoCalculated ? "💡 建議" : "⚪ 未設定");
-                const inputValue = existingRule ? existingRule.start : media.suggestedStart;
+                
+                // 狀態文字顯示
+                let statusText = "⚪ 未設定";
+                if (isActive) statusText = "✅ 使用中";
+                else if (isNewButAutoCalculated) statusText = "💡 建議";
+                else if (isOutOfBounds) statusText = "🚫 非本頁";
+
+                // 輸入框預填值：
+                // 如果是「超出範圍」且「未啟用」，就不預填，保持乾淨
+                let inputValue = "";
+                if (existingRule) inputValue = existingRule.start;
+                else if (!isOutOfBounds) inputValue = media.suggestedStart;
+                
                 const dateStr = formatDate(media.startDate);
                 const aniLink = `https://anilist.co/anime/${media.id}`;
+                
+                // 按鈕邏輯
                 const btnLabel = isActive ? "✖️ 取消" : (isNewButAutoCalculated ? "➕ 套用" : "➕ 啟用");
                 const btnClass = isActive ? "disable" : "enable";
-
+                
                 html += `
                     <tr class="al-map-row ${rowClass}" data-id="${media.id}" data-title="${media.title.native || media.title.romaji}">
                         <td class="status-cell"><span class="status-text">${statusText}</span><input type="checkbox" class="al-checkbox" ${isActive ? "checked" : ""}></td>
@@ -1423,7 +1522,7 @@
     }
 
     function fetchAnimeInfo(id) {
-        const query = `query ($id: Int) { Media(id: $id) { id title { romaji native } coverImage { medium } seasonYear startDate { year month day } } }`;
+        const query = `query ($id: Int) { Media(id: $id) { id title { romaji native } coverImage { medium } seasonYear episodes startDate { year month day } } }`;
         return aniListRequest(query, { id }).then((d) => d.data.Media);
     }
 
