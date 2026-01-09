@@ -64,6 +64,11 @@
 		},
 	};
 
+	const ICONS = {
+		EYE_OPEN: `<svg class="al-icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`,
+		EYE_OFF: `<svg class="al-icon" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07-2.3 2.3"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`,
+	};
+
 	// ================= DOM 輔助函式庫 =================
 	const _ = {
 		$: (s, p = document) => p.querySelector(s),
@@ -110,12 +115,14 @@
 	const Utils = {
 		deepSanitize(input) {
 			if (typeof input === "string") {
-				return input
-					.replace(/&/g, "&amp;")
-					.replace(/</g, "&lt;")
-					.replace(/>/g, "&gt;")
-					.replace(/"/g, "&quot;")
-					.replace(/'/g, "&#039;");
+				const map = {
+					"&": "&amp;",
+					"<": "&lt;",
+					">": "&gt;",
+					'"': "&quot;",
+					"'": "&#039;",
+				};
+				return input.replace(/[&<>"']/g, (m) => map[m]);
 			}
 			if (Array.isArray(input)) return input.map(Utils.deepSanitize);
 			if (typeof input === "object" && input !== null) {
@@ -247,6 +254,14 @@
         .al-step-item { display: flex; align-items: flex-start; margin-bottom: 8px; line-height: 1.6; }
         .al-step-num { flex-shrink: 0; width: 20px; font-weight: bold; color: #3db4f2; }
         .al-step-content { flex: 1; }
+		.al-settings-container { padding: 20px; }
+		.al-label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: #eee; }
+		.al-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #333; }
+		.al-input-group { display: flex; gap: 10px; align-items: center; }
+		.al-input-group-wrap { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+		.al-text-muted { font-size: 13px; color: #ccc; }
+		.al-input-sm { width: 80px; text-align: center; }
+		.al-icon { width: 20px; height: 20px; stroke: #ccc; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
         .al-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(20,20,20,0.95); border: 1px solid #444; color: #fff; padding: 10px 20px; border-radius: 20px; z-index: 100000; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; opacity: 0; transition: opacity 0.2s; }
         @keyframes al-fadein { from { opacity: 0; } to { opacity: 1; } }
     `);
@@ -420,38 +435,59 @@
             <div id="tab-series" class="al-tab-content ${activeTab === "series" ? "active" : ""}"></div>
             <div id="tab-settings" class="al-tab-content ${activeTab === "settings" ? "active" : ""}"></div>
         `,
-		settings: (token, mode, clientId, customSec) => {
-			const eyeOpen = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="#ccc" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
-			return `
-            <div style="padding:20px;">
-                <label style="display:block;margin-bottom:5px;font-weight:bold;">AniList Access Token</label>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <input type="password" id="set-token" class="al-input" value="${token}" placeholder="請貼上 Token" style="flex:1;">
-                    <button id="toggle-token-btn" class="al-bind-btn" style="background:#333; border:1px solid #555; padding:4px 10px; height:35px; display:flex; align-items:center;">${eyeOpen}</button>
-                </div>
-                <div style="margin-top:20px; padding-top:20px; border-top:1px solid #333;">
-                    <label style="margin-bottom:8px; display:block; font-weight:bold;">同步觸發時機</label>
-                    <select id="set-mode" class="al-input">
-                        <option value="instant" ${mode === "instant" ? "selected" : ""}>🚀 即時同步 (播放 5 秒後)</option>
-                        <option value="2min" ${mode === "2min" ? "selected" : ""}>⏳ 觀看確認 (播放 2 分鐘後)</option>
-                        <option value="80pct" ${mode === "80pct" ? "selected" : ""}>🏁 快看完時 (進度 80%)</option>
-                        <option value="custom" ${mode === "custom" ? "selected" : ""}>⚙️ 自訂時間</option>
-                    </select>
-                    <div id="custom-sec-group" style="margin-top:10px; display:none; align-items:center; gap:10px;">
-                        <span style="font-size:13px; color:#ccc;">播放超過：</span>
-                        <input type="number" id="set-custom-sec" class="al-input" style="width:80px;text-align:center;" value="${customSec}" min="1">
-                        <span style="font-size:13px; color:#ccc;">秒後同步</span>
-                    </div>
-                </div>
-                <button id="save-set" class="al-bind-btn" style="width:100%; margin-top:20px; background:#388e3c;">儲存設定</button>
-                <div class="al-step-card">
-                    <p class="al-step-title">如何取得 Token?</p>
-                    <div class="al-step-item"><span class="al-step-num">1.</span><div class="al-step-content">登入 <a href="https://anilist.co/" target="_blank" class="al-link">AniList</a> 後，前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">開發者設定</a>，新增 API Client。</div></div>
-                    <div class="al-step-item" style="align-items:center;"><span class="al-step-num">2.</span><div class="al-step-content" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;"><span>輸入 Client ID：</span><input id="client-id" class="al-input" style="width:100px; text-align:center;" value="${clientId}" placeholder="ID"><a id="auth-link" href="#" target="_blank" class="al-bind-btn">前往授權</a></div></div>
-                    <div class="al-step-item"><span class="al-step-num">3.</span><div class="al-step-content">點擊 Authorize，將網址列或頁面上的 Access Token 複製貼回上方。</div></div>
-                </div>
-            </div>`;
-		},
+		settings: (token, mode, clientId, customSec) => `
+			<div class="al-settings-container">
+				<div>
+					<label class="al-label">AniList Access Token</label>
+					<div class="al-input-group">
+						<input type="password" id="set-token" class="al-input" value="${token}" placeholder="請貼上 Token" style="flex:1;">
+						<button id="toggle-token-btn" class="al-bind-btn" style="background:#333; border:1px solid #555; padding:4px 10px; height:35px; display:flex; align-items:center;">
+							${ICONS.EYE_OPEN}
+						</button>
+					</div>
+				</div>
+
+				<div class="al-section">
+					<label class="al-label">同步觸發時機</label>
+					<select id="set-mode" class="al-input">
+						<option value="instant" ${mode === "instant" ? "selected" : ""}>🚀 即時同步 (播放 5 秒後)</option>
+						<option value="2min" ${mode === "2min" ? "selected" : ""}>⏳ 觀看確認 (播放 2 分鐘後)</option>
+						<option value="80pct" ${mode === "80pct" ? "selected" : ""}>🏁 快看完時 (進度 80%)</option>
+						<option value="custom" ${mode === "custom" ? "selected" : ""}>⚙️ 自訂時間</option>
+					</select>
+					
+					<div id="custom-sec-group" class="al-input-group" style="margin-top:10px; display:none;">
+						<span class="al-text-muted">播放超過：</span>
+						<input type="number" id="set-custom-sec" class="al-input al-input-sm" value="${customSec}" min="1">
+						<span class="al-text-muted">秒後同步</span>
+					</div>
+				</div>
+
+				<button id="save-set" class="al-bind-btn" style="width:100%; margin-top:20px; background:#388e3c;">儲存設定</button>
+
+				<div class="al-step-card">
+					<p class="al-step-title">如何取得 Token?</p>
+					<div class="al-step-item">
+						<span class="al-step-num">1.</span>
+						<div class="al-step-content">
+							登入 <a href="https://anilist.co/" target="_blank" class="al-link">AniList</a> 後，前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">開發者設定</a>，新增 API Client。
+						</div>
+					</div>
+					<div class="al-step-item" style="align-items:center;">
+						<span class="al-step-num">2.</span>
+						<div class="al-step-content al-input-group-wrap">
+							<span>輸入 Client ID：</span>
+							<input id="client-id" class="al-input" style="width:100px; text-align:center;" value="${clientId}" placeholder="ID">
+							<a id="auth-link" href="#" target="_blank" class="al-bind-btn">前往授權</a>
+						</div>
+					</div>
+					<div class="al-step-item">
+						<span class="al-step-num">3.</span>
+						<div class="al-step-content">點擊 Authorize，將網址列或頁面上的 Access Token 複製貼回上方。</div>
+					</div>
+				</div>
+			</div>
+    `,
 		homeBound: (rule, info, statusData, statusOptions) => `
             <div style="padding:15px;">
                 <div class="al-result-item" style="background:#1a2633; border:1px solid #1e3a5f; border-radius:5px; align-items:flex-start;">
@@ -706,8 +742,6 @@
 			const mode = GM_getValue(CONSTANTS.KEYS.SYNC_MODE, "instant");
 			const savedClientId = GM_getValue(CONSTANTS.KEYS.CLIENT_ID, "");
 			const savedCustomSeconds = GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, 60);
-			const eyeOpen = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="#ccc" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
-			const eyeOff = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="#ccc" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07-2.3 2.3"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
 
 			container.innerHTML = Templates.settings(
 				token,
@@ -722,10 +756,10 @@
 					const inp = _.$("#set-token", container);
 					if (inp.type === "password") {
 						inp.type = "text";
-						this.innerHTML = eyeOff;
+						this.innerHTML = ICONS.EYE_OFF;
 					} else {
 						inp.type = "password";
-						this.innerHTML = eyeOpen;
+						this.innerHTML = ICONS.EYE_OPEN;
 					}
 				},
 			);
@@ -1359,15 +1393,16 @@
 				const titles = doc.querySelectorAll(CONSTANTS.SELECTORS.infoTitle);
 				const titleEn = titles.length > 1 ? titles[1].textContent.trim() : "";
 
+				const getTextFromList = (items, keyword) => {
+					const found = items.find((el) => el.textContent.includes(keyword));
+					return found ? found.textContent.split("：")[1].trim() : null;
+				};
+
 				const listItems = [
 					...doc.querySelectorAll(CONSTANTS.SELECTORS.infoList),
 				];
-				const dateJpStr = listItems
-					.find((el) => el.textContent.includes("當地"))
-					?.textContent.split("：")[1];
-				const dateTwStr = listItems
-					.find((el) => el.textContent.includes("台灣"))
-					?.textContent.split("：")[1];
+				const dateJpStr = getTextFromList(listItems, "當地");
+				const dateTwStr = getTextFromList(listItems, "台灣");
 
 				let siteDomain = "";
 				const offLinkEl = [...doc.querySelectorAll(".ACG-box1listB > li")]
