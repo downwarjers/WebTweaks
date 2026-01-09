@@ -25,7 +25,7 @@
 
 	// ================= [Constants] 常數管理 =================
 	const CONSTANTS = {
-		DEBUG: false, // 🛠️ 除錯模式開關 (true: 顯示詳細 Log)
+		DEBUG: false, // 除錯模式開關
 		API_URL: "https://graphql.anilist.co",
 		SYNC_DEBOUNCE_MS: 2000,
 		MATCH_TOLERANCE_DAYS: 2,
@@ -165,7 +165,7 @@
 			return checkInt >= range.start && checkInt <= range.end;
 		},
 		parseDateStr(str) {
-			if (!str) return null;
+			if (!str || typeof str !== "string") return null;
 			const match = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
 			if (match)
 				return {
@@ -266,7 +266,7 @@
         @keyframes al-fadein { from { opacity: 0; } to { opacity: 1; } }
     `);
 
-	// ================= [Logic] 集數計算核心 (Native JS) =================
+	// ================= [Logic] 集數計算核心 =================
 	const EpisodeCalculator = {
 		calculateFromList(listUl, targetLi = null) {
 			let currentListEp = 0;
@@ -304,7 +304,7 @@
 			const urlParams = new URLSearchParams(location.search);
 			const currentSn = urlParams.get("sn");
 
-			// 1. 透過 SN 尋找 LI (原 jQuery .closest 替換)
+			// 1. 透過 SN 尋找 LI
 			let anchor = _.$(`.season ul li a[href*="sn=${currentSn}"]`);
 			let targetLi = anchor ? anchor.closest("li") : null;
 
@@ -642,6 +642,9 @@
 				$text = _.$("#al-text"),
 				$title = _.$("#al-title"),
 				$uStatus = _.$("#al-user-status");
+
+			if (!$icon || !$text || !$title || !$uStatus) return;
+
 			if (this.statusTimer) {
 				clearTimeout(this.statusTimer);
 				this.statusTimer = null;
@@ -1386,6 +1389,8 @@
 					}),
 				);
 				const doc = new DOMParser().parseFromString(html, "text/html");
+
+				// 1. 標題擷取
 				const titleJp =
 					doc
 						.querySelector(CONSTANTS.SELECTORS.infoTitle)
@@ -1393,9 +1398,13 @@
 				const titles = doc.querySelectorAll(CONSTANTS.SELECTORS.infoTitle);
 				const titleEn = titles.length > 1 ? titles[1].textContent.trim() : "";
 
+				// 2. 列表資訊擷取
 				const getTextFromList = (items, keyword) => {
 					const found = items.find((el) => el.textContent.includes(keyword));
-					return found ? found.textContent.split("：")[1].trim() : null;
+					if (!found) return null;
+					const parts = found.textContent.split("：");
+					// 確保有切分出東西才 trim，否則回傳 null
+					return parts.length > 1 ? parts[1].trim() : null;
 				};
 
 				const listItems = [
@@ -1404,20 +1413,27 @@
 				const dateJpStr = getTextFromList(listItems, "當地");
 				const dateTwStr = getTextFromList(listItems, "台灣");
 
+				// 3. 官網網域擷取
 				let siteDomain = "";
 				const offLinkEl = [...doc.querySelectorAll(".ACG-box1listB > li")]
 					.find((el) => el.textContent.includes("官方網站"))
 					?.querySelector("a");
+
 				if (offLinkEl) {
 					try {
-						const u = new URL(offLinkEl.href, "https://acg.gamer.com.tw");
-						siteDomain = Utils.extractDomain(
-							u.searchParams.get("url") || offLinkEl.href,
-						);
+						const rawHref = offLinkEl.getAttribute("href");
+						if (rawHref) {
+							const u = new URL(rawHref, "https://acg.gamer.com.tw");
+							// 巴哈有時會用 ref.php?url=... 轉址，有時是直接連結
+							siteDomain = Utils.extractDomain(
+								u.searchParams.get("url") || rawHref,
+							);
+						}
 					} catch (e) {
-						Log.error(e);
+						Log.error("Domain Parse Error", e);
 					}
 				}
+
 				return {
 					nameJp: titleJp,
 					nameEn: titleEn,
