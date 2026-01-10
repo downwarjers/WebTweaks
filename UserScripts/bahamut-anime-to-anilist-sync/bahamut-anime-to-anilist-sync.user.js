@@ -401,8 +401,18 @@
 			const data = await this.request(query, { id });
 			const root = data.data.Media;
 			if (!root) return [];
-			const isMovie = root.format === "MOVIE";
-			const targetFormats = isMovie ? ["MOVIE"] : ["TV", "ONA", "OVA"];
+
+			const rootFormat = root.format;
+			let targetFormats = [];
+
+			if (rootFormat === "OVA" || rootFormat === "SPECIAL") {
+				targetFormats = ["OVA", "SPECIAL"];
+			} else if (rootFormat === "MOVIE") {
+				targetFormats = ["MOVIE"];
+			} else {
+				targetFormats = ["TV", "ONA", "OVA"];
+			}
+
 			const chain = [];
 			let current = root;
 			const visited = new Set();
@@ -499,7 +509,7 @@
                         <div style="font-size:12px;color:#aaa;line-height:1.5;">
                             <div>ID: ${rule.id}</div>
                             <div>${info.title.native}</div>
-                            <div>${info.seasonYear || "-"} | ${info.format} | ${info.episodes || "?"} 集</div>
+                            <div>${Utils.formatDate(info.startDate) || "-"} | ${info.format}</div>
                             <div style="margin-top:5px; color:#4caf50; font-weight:bold;">AniList 進度: ${statusData?.progress || 0} / ${info.episodes || "?"}</div>
                         </div>
                     </div>
@@ -526,11 +536,13 @@
                 <div style="background:#2e2818;padding:10px;margin-bottom:15px;border-radius:5px;border:1px solid #5a4b18;">
                     <div style="font-weight:bold;color:#ffb74d;font-size:13px;margin-bottom:5px;">💡 建議匹配</div>
                     <div style="display:flex;gap:10px;align-items:flex-start;">
-                        <img src="${candidate.coverImage.medium}" style="height:70px;border-radius:3px;">
+						<a href="https://anilist.co/anime/${candidate.id}" target="_blank">
+							<img src="${candidate.coverImage.medium}" style="height:70px;border-radius:3px;">
+						</a>
                         <div style="flex:1;">
-                            <div style="font-size:14px;font-weight:bold;">${candidate.title.native}</div>
+							<a href="https://anilist.co/anime/${candidate.id}" target="_blank" class="al-link" style="font-weight:bold;">${candidate.title.native}</a>
                             <div style="font-size:12px;color:#aaa;">${candidate.title.romaji}</div>
-                            <div style="font-size:12px;color:#888;">${candidate.seasonYear || ""} | ${candidate.format}</div>
+                            <div style="font-size:12px;color:#888;">${Utils.formatDate(candidate.startDate) || "-"} | ${candidate.format}</div>
                         </div>
                         <button id="btn-quick" class="al-bind-btn" style="align-self:center;">綁定</button>
                     </div>
@@ -546,11 +558,13 @@
         `,
 		searchResult: (m) => `
             <div class="al-result-item">
-                <img src="${m.coverImage.medium}" style="width:50px;height:75px;object-fit:cover;border-radius:3px;">
+				<a href="https://anilist.co/anime/${m.id}" target="_blank">
+                    <img src="${m.coverImage.medium}" style="width:50px;height:75px;object-fit:cover;border-radius:3px;">
+                </a>
                 <div style="flex:1;overflow:hidden;">
-                    <div style="font-weight:bold;">${m.title.native || m.title.romaji}</div>
+					<a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link" style="font-weight:bold;">${m.title.native || m.title.romaji}</a>
                     <div style="font-size:12px;color:#aaa;">${m.title.romaji}</div>
-                    <div style="font-size:12px;color:#666;">${m.seasonYear || "-"} | ${m.format} | ${m.episodes || "?"}集</div>
+                    <div style="font-size:12px;color:#666;">${Utils.formatDate(m.startDate) || "-"} | ${m.format} | ${m.episodes || "?"}集</div>
                 </div>
                 <button class="al-bind-btn bind-it" data-id="${m.id}" data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">綁定</button>
             </div>
@@ -587,7 +601,6 @@
 				btnTxt = "啟用";
 				btnClass = "enable";
 			}
-			const dateStr = Utils.formatDate(m.startDate);
 
 			return `
                 <tr class="series-row ${rowClass}" data-id="${m.id}" data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">
@@ -600,9 +613,9 @@
                             <a href="https://anilist.co/anime/${m.id}" target="_blank" style="flex-shrink:0;">
                                 <img src="${m.coverImage.medium}" style="width:40px;height:60px;object-fit:cover;border-radius:3px;">
                             </a>
-                            <div>
-                                <a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link">${m.title.native || m.title.romaji}</a>
-                                <div style="font-size:11px;color:#888;">${m.seasonYear || "-"} | ${m.format} | ${dateStr}</div>
+                            <div style="display:flex; flex-direction:column; gap:4px;">
+                                <a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link" style="line-height:1.2;">${m.title.native || m.title.romaji}</a>
+                                <div style="font-size:11px;color:#888;">${Utils.formatDate(m.startDate) || "-"} | ${m.format}</div>
                             </div>
                         </div>
                     </td>
@@ -1390,7 +1403,6 @@
 				);
 				const doc = new DOMParser().parseFromString(html, "text/html");
 
-				// 1. 標題擷取
 				const titleJp =
 					doc
 						.querySelector(CONSTANTS.SELECTORS.infoTitle)
@@ -1398,12 +1410,10 @@
 				const titles = doc.querySelectorAll(CONSTANTS.SELECTORS.infoTitle);
 				const titleEn = titles.length > 1 ? titles[1].textContent.trim() : "";
 
-				// 2. 列表資訊擷取
 				const getTextFromList = (items, keyword) => {
 					const found = items.find((el) => el.textContent.includes(keyword));
 					if (!found) return null;
 					const parts = found.textContent.split("：");
-					// 確保有切分出東西才 trim，否則回傳 null
 					return parts.length > 1 ? parts[1].trim() : null;
 				};
 
@@ -1413,7 +1423,6 @@
 				const dateJpStr = getTextFromList(listItems, "當地");
 				const dateTwStr = getTextFromList(listItems, "台灣");
 
-				// 3. 官網網域擷取
 				let siteDomain = "";
 				const offLinkEl = [...doc.querySelectorAll(".ACG-box1listB > li")]
 					.find((el) => el.textContent.includes("官方網站"))
@@ -1424,7 +1433,6 @@
 						const rawHref = offLinkEl.getAttribute("href");
 						if (rawHref) {
 							const u = new URL(rawHref, "https://acg.gamer.com.tw");
-							// 巴哈有時會用 ref.php?url=... 轉址，有時是直接連結
 							siteDomain = Utils.extractDomain(
 								u.searchParams.get("url") || rawHref,
 							);
@@ -1433,7 +1441,6 @@
 						Log.error("Domain Parse Error", e);
 					}
 				}
-
 				return {
 					nameJp: titleJp,
 					nameEn: titleEn,
