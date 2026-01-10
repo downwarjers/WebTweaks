@@ -279,9 +279,10 @@
 				if (found && targetLi) break;
 				const text = li.textContent.trim();
 
-				if (text === "0" || text.includes(".") || !/\d/.test(text)) continue;
-				const currentTextNum = parseInt(text, 10);
+				// 移除 text === "0" 的過濾，允許第 0 集
+				if (text.includes(".") || !/\d/.test(text)) continue;
 
+				const currentTextNum = parseInt(text, 10);
 				if (lastEpNum === null || isNaN(currentTextNum)) {
 					currentListEp++;
 				} else {
@@ -299,30 +300,21 @@
 			}
 			return targetLi ? resultEp : currentListEp;
 		},
-
 		getCurrent() {
 			const urlParams = new URLSearchParams(location.search);
 			const currentSn = urlParams.get("sn");
-
-			// 1. 透過 SN 尋找 LI
 			let anchor = _.$(`.season ul li a[href*="sn=${currentSn}"]`);
 			let targetLi = anchor ? anchor.closest("li") : null;
-
-			// 2. 找不到則找 .playing
 			if (!targetLi) {
 				targetLi = _.$(
 					`${CONSTANTS.SELECTORS.seasonList}${CONSTANTS.SELECTORS.playing}`,
 				);
 			}
-
-			// 3. 還是找不到
 			if (!targetLi) {
 				return location.href.includes("animeVideo.php") ? 1 : null;
 			}
-
 			return this.calculateFromList(targetLi.closest("ul"), targetLi);
 		},
-
 		getMax() {
 			const seasonUls = _.$$(".season ul");
 			if (seasonUls.length === 0)
@@ -402,34 +394,58 @@
 			const root = data.data.Media;
 			if (!root) return [];
 
+			// 1. 設定目標格式
 			const rootFormat = root.format;
 			let targetFormats = [];
-
-			if (rootFormat === "OVA" || rootFormat === "SPECIAL") {
+			if (["OVA", "SPECIAL"].includes(rootFormat)) {
 				targetFormats = ["OVA", "SPECIAL"];
 			} else if (rootFormat === "MOVIE") {
 				targetFormats = ["MOVIE"];
 			} else {
-				targetFormats = ["TV", "ONA", "OVA"];
+				targetFormats = ["TV", "TV_SHORT", "ONA", "OVA", "SPECIAL"];
 			}
 
-			const chain = [];
-			let current = root;
-			const visited = new Set();
-			while (current) {
-				if (visited.has(current.id)) break;
-				visited.add(current.id);
-				chain.push(current);
-				if (current.relations?.edges) {
-					const sequelEdge = current.relations.edges.find(
-						(e) =>
-							e.relationType === "SEQUEL" &&
-							targetFormats.includes(e.node.format),
+			// 2. 遍歷鏈條
+			const visited = new Map(); // 使用 Map 來避免重複並儲存節點
+			// 定義我們要抓取的關聯類型
+			const targetRelations = ["SEQUEL", "SIDE_STORY", "SPIN_OFF"];
+
+			const traverse = (node) => {
+				if (!node || visited.has(node.id)) return;
+
+				// 先記錄當前節點
+				visited.set(node.id, node);
+
+				if (node.relations?.edges) {
+					// 找出所有符合類型的關聯 (不只是一個，而是所有符合的)
+					const relatedEdges = node.relations.edges.filter((e) =>
+						targetRelations.includes(e.relationType),
 					);
-					current = sequelEdge ? sequelEdge.node : null;
-				} else current = null;
-			}
-			return chain;
+
+					// 繼續往下找
+					relatedEdges.forEach((edge) => {
+						if (edge.node) traverse(edge.node);
+					});
+				}
+			};
+
+			// 開始遍歷
+			traverse(root);
+
+			// 3. 轉為陣列並過濾格式
+			let resultChain = Array.from(visited.values()).filter((media) =>
+				targetFormats.includes(media.format),
+			);
+
+			resultChain.sort((a, b) => {
+				const dateA = Utils.dateToInt(a.startDate);
+				const dateB = Utils.dateToInt(b.startDate);
+				// 如果日期一樣或缺漏，則用 ID 排序當備案
+				if (dateA === dateB) return a.id - b.id;
+				return dateA - dateB;
+			});
+
+			return resultChain;
 		},
 	};
 
@@ -569,32 +585,28 @@
                 <button class="al-bind-btn bind-it" data-id="${m.id}" data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">綁定</button>
             </div>
         `,
-		seriesRow: (m, isActive, isSuggestion, isOut, val) => {
+		// Templates 物件
+		seriesRow: (m, isActive, isSuggestion, isOut, bahaVal, aniVal) => {
 			let statusText, statusColor, rowClass, btnTxt, btnClass;
-
 			if (isActive) {
-				// 狀態：已啟用 (最高優先級)
 				statusText = "✅ 使用中";
 				statusColor = "#66bb6a";
 				rowClass = "active";
 				btnTxt = "取消";
 				btnClass = "disable";
 			} else if (isSuggestion) {
-				// 狀態：建議啟用
 				statusText = "💡 建議";
 				statusColor = "#ffca28";
 				rowClass = "suggestion";
 				btnTxt = "套用";
 				btnClass = "enable";
 			} else if (isOut) {
-				// 狀態：非本頁範圍 (例如尚未播出的續作)
 				statusText = "🚫 非本頁";
 				statusColor = "#d32f2f";
 				rowClass = "";
 				btnTxt = "啟用";
 				btnClass = "enable";
 			} else {
-				// 狀態：未使用 (預設)
 				statusText = "⚪ 未使用";
 				statusColor = "#777";
 				rowClass = "";
@@ -602,28 +614,39 @@
 				btnClass = "enable";
 			}
 
+			// 若沒有傳入 aniVal，預設為 1 (如果是建議選項) 或 空白
+			const defaultAniVal = isActive ? aniVal : isSuggestion ? 1 : "";
+
 			return `
-                <tr class="series-row ${rowClass}" data-id="${m.id}" data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">
-                    <td style="width:80px;">
-                        <span class="status-label" style="color:${statusColor};font-weight:bold;">${statusText}</span>
-                        <input type="checkbox" class="cb-active" style="display:none;" ${isActive ? "checked" : ""}>
-                    </td>
-                    <td>
-                        <div style="display:flex; gap:10px; align-items:center;">
-                            <a href="https://anilist.co/anime/${m.id}" target="_blank" style="flex-shrink:0;">
-                                <img src="${m.coverImage.medium}" style="width:40px;height:60px;object-fit:cover;border-radius:3px;">
-                            </a>
-                            <div style="display:flex; flex-direction:column; gap:4px;">
-                                <a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link" style="line-height:1.2;">${m.title.native || m.title.romaji}</a>
-                                <div style="font-size:11px;color:#888;">${Utils.formatDate(m.startDate) || "-"} | ${m.format}</div>
-                            </div>
-                        </div>
-                    </td>
-                    <td style="text-align:center;width:50px;">${m.episodes || "?"}</td>
-                    <td style="width:70px;"><input type="number" class="inp-start al-input" style="padding:4px;text-align:center;" value="${val}"></td>
-                    <td style="width:70px;"><button class="al-toggle-btn btn-toggle ${btnClass}" data-suggested="${m.suggestedStart}">${btnTxt}</button></td>
-                </tr>
-            `;
+        <tr class="series-row ${rowClass}" data-id="${m.id}" data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">
+            <td style="width:80px;">
+                <span class="status-label" style="color:${statusColor};font-weight:bold;">${statusText}</span>
+                <input type="checkbox" class="cb-active" style="display:none;" ${isActive ? "checked" : ""}>
+            </td>
+            <td>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <a href="https://anilist.co/anime/${m.id}" target="_blank" style="flex-shrink:0;">
+                        <img src="${m.coverImage.medium}" style="width:40px;height:60px;object-fit:cover;border-radius:3px;">
+                    </a>
+                    <div style="display:flex; flex-direction:column; gap:4px;">
+                        <a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link" style="line-height:1.2;">${m.title.native || m.title.romaji}</a>
+                        <div style="font-size:11px;color:#888;">${Utils.formatDate(m.startDate) || "-"} | ${m.format}</div>
+                    </div>
+                </div>
+            </td>
+            <td style="text-align:center;width:50px;">${m.episodes || "?"}</td>
+            
+            <td style="width:60px;">
+                <input type="number" class="inp-start al-input" placeholder="巴哈" style="padding:4px;text-align:center;" value="${bahaVal !== undefined ? bahaVal : ""}">
+            </td>
+            <td style="width:20px;text-align:center;color:#666;">⮕</td>
+            <td style="width:60px;">
+                <input type="number" class="inp-ani-start al-input" placeholder="Ani" style="padding:4px;text-align:center;" value="${defaultAniVal}">
+            </td>
+            
+            <td style="width:70px;"><button class="al-toggle-btn btn-toggle ${btnClass}" data-suggested="${m.suggestedStart}">${btnTxt}</button></td>
+        </tr>
+    `;
 		},
 	};
 
@@ -959,35 +982,47 @@
 					const existing = App.state.rules.find((r) => r.id === m.id);
 					const isOut = m.suggestedStart > maxPageEp;
 					const isActive = !!existing;
-					const isSuggestion = !isActive && !isOut && m.suggestedStart > 1;
-					const val = existing
-						? existing.start
-						: isActive || isSuggestion
+					const isSuggestion = !isActive && !isOut && m.suggestedStart >= 1; // 允許大於等於1
+
+					// 取得現有設定值 (Baha 和 AniList)
+					const bahaVal = existing
+						? existing.bahaStart !== undefined
+							? existing.bahaStart
+							: existing.start
+						: isSuggestion
 							? m.suggestedStart
 							: "";
+					const aniVal = existing
+						? existing.aniStart !== undefined
+							? existing.aniStart
+							: 1
+						: 1;
+
 					rowsHtml += Templates.seriesRow(
 						m,
 						isActive,
 						isSuggestion,
 						isOut,
-						val,
+						bahaVal, // 傳入 bahaVal
+						aniVal, // 傳入 aniVal
 					);
 				});
 				container.innerHTML = `
-                    <div style="padding:15px;">
-                        <table class="al-map-table">
-                            <thead><tr><th>狀態</th><th>作品</th><th>集數</th><th>起始</th><th>操作</th></tr></thead>
-                            <tbody>${rowsHtml}</tbody>
-                        </table>
-                        <button id="save-series" class="al-bind-btn" style="width:100%;margin-top:15px;padding:10px;">儲存系列設定</button>
-                    </div>
-                `;
+    <div style="padding:15px;">
+        <table class="al-map-table">
+            <thead><tr><th>狀態</th><th>作品</th><th>總集數</th><th>巴哈起始</th><th></th><th>AniList起始</th><th>操作</th></tr></thead>
+            <tbody>${rowsHtml}</tbody>
+        </table>
+        <button id="save-series" class="al-bind-btn" style="width:100%;margin-top:15px;padding:10px;">儲存系列設定</button>
+    </div>
+`;
 
 				const updateRow = (row, active, val) => {
 					const btn = _.$(".btn-toggle", row);
 					const statusLbl = _.$(".status-label", row);
 					const cb = _.$(".cb-active", row);
 					const inp = _.$(".inp-start", row);
+					const inpAni = _.$(".inp-ani-start", row);
 
 					cb.checked = active;
 					if (active) {
@@ -998,6 +1033,8 @@
 						statusLbl.textContent = "✅ 使用中";
 						statusLbl.style.color = "#66bb6a";
 						if (val !== undefined) inp.value = val;
+						if (val !== undefined && val !== "") inp.value = val;
+						if (inpAni.value === "") inpAni.value = 1; // 啟用時預設填入 1
 					} else {
 						row.classList.remove("active");
 						btn.textContent = "啟用";
@@ -1029,10 +1066,15 @@
 					const newRules = [];
 					_.$$(".series-row", container).forEach((row) => {
 						const cb = _.$(".cb-active", row);
-						const val = parseInt(_.$(".inp-start", row).value);
-						if (cb.checked && val) {
+						const bahaVal = parseInt(_.$(".inp-start", row).value);
+						const aniVal = parseInt(_.$(".inp-ani-start", row).value);
+
+						// 允許輸入 0，只要不是 NaN 即可
+						if (cb.checked && !isNaN(bahaVal) && !isNaN(aniVal)) {
 							newRules.push({
-								start: val,
+								start: bahaVal, // 用於排序
+								bahaStart: bahaVal, // 儲存明確變數
+								aniStart: aniVal, // 儲存明確變數
 								id: parseInt(row.dataset.id),
 								title: row.dataset.title,
 							});
@@ -1233,24 +1275,53 @@
 			}
 		},
 		async syncProgress() {
-			await this.determineActiveRule();
 			const ep = EpisodeCalculator.getCurrent();
-			if (!ep || !this.state.activeRule) return;
+			if (ep === null || !this.state.activeRule) return; // 注意 ep 可能是 0，所以用 ep === null 判斷
+
 			const rule = this.state.activeRule;
-			const progress = ep - rule.start + 1;
+
+			// [核心計算邏輯修改]
+			// 向下相容：如果沒有 bahaStart，則使用舊的 start
+			const bahaStart =
+				rule.bahaStart !== undefined ? rule.bahaStart : rule.start;
+			// 向下相容：如果沒有 aniStart，預設為 1 (假設舊規則都是從第1集開始對應)
+			const aniStart = rule.aniStart !== undefined ? rule.aniStart : 1;
+
+			let progress = ep - bahaStart + aniStart;
 
 			UI.updateNav(CONSTANTS.STATUS.SYNCING, `同步 Ep.${progress}...`);
 			Log.info(`Syncing progress: Ep.${progress} for media ${rule.id}`);
 
 			try {
+				const mediaInfo = await AniListAPI.getMedia(rule.id);
+				const maxEp = mediaInfo.episodes;
+
+				if (maxEp && progress > maxEp) {
+					Log.info(`Progress clamped from ${progress} to ${maxEp}`);
+					progress = maxEp;
+				}
+
 				const checkData = await AniListAPI.getUserStatus(rule.id);
-				if (checkData?.status === "COMPLETED") {
+
+				if (
+					checkData?.status === "COMPLETED" &&
+					checkData?.progress === maxEp
+				) {
 					UI.updateNav(CONSTANTS.STATUS.INFO, "略過同步(已完成)");
 					return;
 				}
-				const result = await AniListAPI.updateUserProgress(rule.id, progress);
+
+				let result = await AniListAPI.updateUserProgress(rule.id, progress);
+
+				if (maxEp && progress === maxEp && result.status !== "COMPLETED") {
+					Log.info("Auto completing media...");
+					result = await AniListAPI.updateUserStatus(rule.id, "COMPLETED");
+					UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress} (完結)`);
+				} else {
+					UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress}`);
+				}
+
 				this.state.userStatus = result;
-				UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress}`);
 			} catch (e) {
 				const errStr = e.message;
 				UI.updateNav(CONSTANTS.STATUS.ERROR, "同步失敗");
