@@ -32,6 +32,8 @@
 		SEARCH_RANGE_DAYS: 10,
 		STORAGE_PREFIX: "baha_acg_",
 		SYNC_ON_BIND: false,
+		API_MAX_RETRIES: 5,
+        RETRY_DELAY_MS: 3000,
 		KEYS: {
 			TOKEN: "ANILIST_TOKEN",
 			CLIENT_ID: "ANILIST_CLIENT_ID",
@@ -331,46 +333,85 @@
 	// ================= [API] AniList 通訊層 =================
 	const AniListAPI = {
 		getToken: () => GM_getValue(CONSTANTS.KEYS.TOKEN),
-		async request(query, variables) {
-			const token = this.getToken();
-			if (!token && !query.includes("search")) throw new Error("Token 未設定");
-			Log.info("API Request:", {
-				query: query.substr(0, 50) + "...",
-				variables,
-			});
+        async request(query, variables, retryCount = 0) {
+            const token = this.getToken();
+            if (!token && !query.includes("search")) throw new Error("Token 未設定");
 
-			return new Promise((resolve, reject) => {
-				GM_xmlhttpRequest({
-					method: "POST",
-					url: CONSTANTS.API_URL,
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: token ? `Bearer ${token}` : undefined,
-					},
-					data: JSON.stringify({ query, variables }),
-					onload: (r) => {
-						try {
-							const d = JSON.parse(r.responseText);
-							if (d.errors) {
-								const msg = d.errors[0].message;
-								Log.warn("API Error:", msg);
-								if (msg === "Invalid token") reject(new Error("Invalid token"));
-								else if (r.status === 429)
-									reject(new Error("Too Many Requests"));
-								else reject(new Error(msg));
-							} else {
-								resolve(Utils.deepSanitize(d));
-							}
-						} catch (e) {
-							Log.error("JSON Parse Error", e);
-							reject(new Error("JSON 解析失敗"));
-						}
-					},
-					onerror: (e) =>
-						reject(new Error(`Network Error: ${e.statusText || "Unknown"}`)),
-				});
-			});
-		},
+            // Log: 如果是重試，顯示警告顏色
+            if (retryCount > 0) {
+                Log.warn(`API 重試中 (${retryCount}/${CONSTANTS.API_MAX_RETRIES})...`);
+            } else {
+                Log.info("API Request:", {
+                    query: query.substr(0, 50) + "...",
+                    variables,
+                });
+            }
+
+            return new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: "POST",
+                    url: CONSTANTS.API_URL,
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: token ? `Bearer ${token}` : undefined,
+                        Accept: "application/json",
+                    },
+                    data: JSON.stringify({ query, variables }),
+                    onload: (r) => {
+                        try {
+                            if (r.status === 429) {
+                                if (retryCount < CONSTANTS.API_MAX_RETRIES) {
+                                    const delay = CONSTANTS.RETRY_DELAY_MS * Math.pow(2, retryCount);
+
+									UI.updateNav(CONSTANTS.STATUS.SYNCING, `連線過於頻繁，重試中...(${retryCount + 1}/${CONSTANTS.API_MAX_RETRIES})`);
+
+                                    Log.warn(`Hit Rate Limit (429). Waiting ${delay}ms to retry...`);
+                                    
+                                    setTimeout(() => {
+                                        this.request(query, variables, retryCount + 1)
+                                            .then(resolve)
+                                            .catch(reject);
+                                    }, delay);
+                                    return;
+                                } else {
+                                    throw new Error("Too Many Requests (已達重試上限)");
+                                }
+                            }
+
+                            const d = JSON.parse(r.responseText);
+                            if (d.errors) {
+                                const msg = d.errors[0].message;
+                                Log.warn("API Error:", msg);
+                                if (msg === "Invalid token") reject(new Error("Invalid token"));
+                                else if (r.status === 429) reject(new Error("Too Many Requests")); // 雙重保險
+                                else reject(new Error(msg));
+                            } else {
+                                resolve(Utils.deepSanitize(d));
+                            }
+                        } catch (e) {
+                            Log.error("JSON Parse Error", e);
+                            reject(new Error("JSON 解析失敗"));
+                        }
+                    },
+                    onerror: (e) => {
+                        // 針對網路錯誤 (斷網/封包遺失) 進行重試
+                        if (retryCount < CONSTANTS.API_MAX_RETRIES) {
+                            const delay = CONSTANTS.RETRY_DELAY_MS;
+							
+							UI.updateNav(CONSTANTS.STATUS.SYNCING, `連線重試 (${retryCount + 1}/${CONSTANTS.API_MAX_RETRIES})`);
+
+                            setTimeout(() => {
+                                this.request(query, variables, retryCount + 1)
+                                    .then(resolve)
+                                    .catch(reject);
+                            }, delay);
+                        } else {
+                            reject(new Error(`Network Error: ${e.statusText || "Unknown"}`));
+                        }
+                    },
+                });
+            });
+        },
 		search: (term) => AniListAPI.request(GQL.SEARCH, { s: term }),
 		searchByDateRange: (start, end) =>
 			AniListAPI.request(GQL.SEARCH_RANGE, { start, end }),
@@ -1275,70 +1316,70 @@
 			}
 		},
 		async syncProgress() {
-			const ep = EpisodeCalculator.getCurrent();
-			if (ep === null || !this.state.activeRule) return; // 注意 ep 可能是 0，所以用 ep === null 判斷
+            const ep = EpisodeCalculator.getCurrent();
+            if (ep === null || !this.state.activeRule) return;
 
-			const rule = this.state.activeRule;
+            const rule = this.state.activeRule;
 
-			// [核心計算邏輯修改]
-			// 向下相容：如果沒有 bahaStart，則使用舊的 start
-			const bahaStart =
-				rule.bahaStart !== undefined ? rule.bahaStart : rule.start;
-			// 向下相容：如果沒有 aniStart，預設為 1 (假設舊規則都是從第1集開始對應)
-			const aniStart = rule.aniStart !== undefined ? rule.aniStart : 1;
+            // 向下相容邏輯
+            const bahaStart = rule.bahaStart !== undefined ? rule.bahaStart : rule.start;
+            const aniStart = rule.aniStart !== undefined ? rule.aniStart : 1;
 
-			let progress = ep - bahaStart + aniStart;
+            let progress = ep - bahaStart + aniStart;
 
-			UI.updateNav(CONSTANTS.STATUS.SYNCING, `同步 Ep.${progress}...`);
-			Log.info(`Syncing progress: Ep.${progress} for media ${rule.id}`);
+            UI.updateNav(CONSTANTS.STATUS.SYNCING, `同步 Ep.${progress}...`);
+            Log.info(`Syncing progress: Ep.${progress} for media ${rule.id}`);
 
-			try {
-				const mediaInfo = await AniListAPI.getMedia(rule.id);
-				const maxEp = mediaInfo.episodes;
+            try {
+                const mediaInfo = await AniListAPI.getMedia(rule.id);
+                const maxEp = mediaInfo.episodes;
 
-				if (maxEp && progress > maxEp) {
-					Log.info(`Progress clamped from ${progress} to ${maxEp}`);
-					progress = maxEp;
-				}
+                if (maxEp && progress > maxEp) {
+                    Log.info(`Progress clamped from ${progress} to ${maxEp}`);
+                    progress = maxEp;
+                }
 
-				const checkData = await AniListAPI.getUserStatus(rule.id);
+                const checkData = await AniListAPI.getUserStatus(rule.id);
 
-				if (
-					checkData?.status === "COMPLETED" &&
-					checkData?.progress === maxEp
-				) {
-					UI.updateNav(CONSTANTS.STATUS.INFO, "略過同步(已完成)");
-					return;
-				}
+                if (
+                    checkData?.status === "COMPLETED" &&
+                    checkData?.progress === maxEp
+                ) {
+                    UI.updateNav(CONSTANTS.STATUS.INFO, "略過同步(已完成)");
+                    return;
+                }
 
-				let result = await AniListAPI.updateUserProgress(rule.id, progress);
+                let result = await AniListAPI.updateUserProgress(rule.id, progress);
 
-				if (maxEp && progress === maxEp && result.status !== "COMPLETED") {
-					Log.info("Auto completing media...");
-					result = await AniListAPI.updateUserStatus(rule.id, "COMPLETED");
-					UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress} (完結)`);
-				} else {
-					UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress}`);
-				}
+                this.state.userStatus = result;
 
-				this.state.userStatus = result;
-			} catch (e) {
-				const errStr = e.message;
-				UI.updateNav(CONSTANTS.STATUS.ERROR, "同步失敗");
-				if (errStr.includes("Token") || errStr.includes("401")) {
-					this.state.tokenErrorCount++;
-					if (this.state.tokenErrorCount >= 3) this.state.stopSync = true;
-					UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
-				} else if (errStr.includes("Too Many Requests")) {
-					this.state.stopSync = true;
-					Utils.showToast("⚠️ 請求過於頻繁，已暫停同步");
-				} else {
-					setTimeout(() => {
-						this.state.hasSynced = false;
-					}, CONSTANTS.SYNC_DEBOUNCE_MS);
-				}
-			}
-		},
+                if (maxEp && progress === maxEp && result.status !== "COMPLETED") {
+                    Log.info("Auto completing media...");
+                    result = await AniListAPI.updateUserStatus(rule.id, "COMPLETED");
+                    this.state.userStatus = result; 
+                    UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress} (完結)`); 
+                } else {
+                    UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress}`);
+                }
+                // ==========================================
+
+            } catch (e) {
+                const errStr = e.message;
+                UI.updateNav(CONSTANTS.STATUS.ERROR, "同步失敗");
+                if (errStr.includes("Token") || errStr.includes("401")) {
+                    this.state.tokenErrorCount++;
+                    if (this.state.tokenErrorCount >= 3) this.state.stopSync = true;
+                    UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
+                } else if (errStr.includes("Too Many Requests")) {
+                    this.state.stopSync = true;
+                    Utils.showToast("⚠️ 請求過於頻繁，已暫停同步");
+                } else {
+                    setTimeout(() => {
+                        this.state.hasSynced = false;
+                    }, CONSTANTS.SYNC_DEBOUNCE_MS);
+                }
+            }
+        },
 		async tryAutoBind() {
 			if (!this.state.bahaData) return;
 			UI.updateNav(CONSTANTS.STATUS.SYNCING, "自動匹配中...");
