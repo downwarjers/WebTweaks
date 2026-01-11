@@ -448,7 +448,7 @@
 
 			// 2. 遍歷鏈條
 			const visited = new Map(); // 使用 Map 來避免重複並儲存節點
-			// 定義我們要抓取的關聯類型
+			// 定義要抓取的關聯類型
 			const targetRelations = ["SEQUEL", "SIDE_STORY", "SPIN_OFF"];
 
 			const traverse = (node) => {
@@ -458,7 +458,7 @@
 				visited.set(node.id, node);
 
 				if (node.relations?.edges) {
-					// 找出所有符合類型的關聯 (不只是一個，而是所有符合的)
+					// 找出所有符合類型的關聯
 					const relatedEdges = node.relations.edges.filter((e) =>
 						targetRelations.includes(e.relationType),
 					);
@@ -1321,7 +1321,6 @@
 
             const rule = this.state.activeRule;
 
-            // 向下相容邏輯
             const bahaStart = rule.bahaStart !== undefined ? rule.bahaStart : rule.start;
             const aniStart = rule.aniStart !== undefined ? rule.aniStart : 1;
 
