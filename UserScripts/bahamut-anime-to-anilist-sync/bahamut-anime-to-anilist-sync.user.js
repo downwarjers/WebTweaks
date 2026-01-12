@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bahamut Anime to AniList Sync
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      6.3.2
+// @version      6.3.3
 // @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @author       downwarjers
 // @license      MIT
@@ -157,7 +157,9 @@
     formatDate: (dObj) =>
       !dObj || !dObj.year
         ? '日期未定'
-        : `${dObj.year}/${String(dObj.month || 1).padStart(2, '0')}/${String(dObj.day || 1).padStart(2, '0')}`,
+        : `${dObj.year}/${String(dObj.month || 1).padStart(2, '0')}/${String(
+            dObj.day || 1,
+          ).padStart(2, '0')}`,
     getFuzzyDateRange(dateObj, toleranceDays) {
       if (!dateObj || !dateObj.year) return null;
       const target = new Date(dateObj.year, (dateObj.month || 1) - 1, dateObj.day || 1);
@@ -427,9 +429,9 @@
               {
                 name: 'Maintenance',
                 match: (r) =>
-                  r.status >= 500
-                  || r.responseText.includes('temporarily disabled')
-                  || r.responseText.includes('stability issues'),
+                  r.status >= 500 ||
+                  r.responseText.includes('temporarily disabled') ||
+                  r.responseText.includes('stability issues'),
                 execute: () => {
                   const info = 'AniList 維護中';
                   UI.updateNav(CONSTANTS.STATUS.ERROR, info);
@@ -599,13 +601,23 @@
   const Templates = {
     tabs: (activeTab, isVideo, hasRules) => `
             <div class="al-tabs-header">
-                <button class="al-tab-btn ${activeTab === 'home' ? 'active' : ''}" data-tab="home" ${!isVideo ? 'disabled' : ''}>主頁 / 狀態</button>
-                <button class="al-tab-btn ${activeTab === 'series' ? 'active' : ''}" data-tab="series" ${!hasRules ? 'disabled' : ''}>系列設定</button>
-                <button class="al-tab-btn ${activeTab === 'settings' ? 'active' : ''}" data-tab="settings">設定</button>
+                <button class="al-tab-btn ${
+                  activeTab === 'home' ? 'active' : ''
+                }" data-tab="home" ${!isVideo ? 'disabled' : ''}>主頁 / 狀態</button>
+                <button class="al-tab-btn ${
+                  activeTab === 'series' ? 'active' : ''
+                }" data-tab="series" ${!hasRules ? 'disabled' : ''}>系列設定</button>
+                <button class="al-tab-btn ${
+                  activeTab === 'settings' ? 'active' : ''
+                }" data-tab="settings">設定</button>
             </div>
             <div id="tab-home" class="al-tab-content ${activeTab === 'home' ? 'active' : ''}"></div>
-            <div id="tab-series" class="al-tab-content ${activeTab === 'series' ? 'active' : ''}"></div>
-            <div id="tab-settings" class="al-tab-content ${activeTab === 'settings' ? 'active' : ''}"></div>
+            <div id="tab-series" class="al-tab-content ${
+              activeTab === 'series' ? 'active' : ''
+            }"></div>
+            <div id="tab-settings" class="al-tab-content ${
+              activeTab === 'settings' ? 'active' : ''
+            }"></div>
         `,
     settings: (token, mode, clientId, customSec) => `
 			<div class="al-settings-container">
@@ -664,15 +676,20 @@
             <div style="padding:15px;">
                 <div class="al-result-item" style="background:#1a2633; border:1px solid #1e3a5f; border-radius:5px; align-items:flex-start;">
                     <a href="https://anilist.co/anime/${rule.id}" target="_blank">
-                        <img src="${info.coverImage.medium}" style="width:70px;height:100px;object-fit:cover;border-radius:4px;">
+                        <img src="${info.coverImage.medium}" 
+                          style="width:70px;height:100px;object-fit:cover;border-radius:4px;">
                     </a>
                     <div style="flex:1;">
-                        <a href="https://anilist.co/anime/${rule.id}" target="_blank" class="al-link" style="font-size:16px; display:block; margin-bottom:5px;">${rule.title}</a>
+                        <a href="https://anilist.co/anime/${rule.id}" 
+                          target="_blank" class="al-link" style="font-size:16px; display:block; margin-bottom:5px;">
+                          ${rule.title}</a>
                         <div style="font-size:12px;color:#aaa;line-height:1.5;">
                             <div>ID: ${rule.id}</div>
                             <div>${info.title.native}</div>
                             <div>${Utils.formatDate(info.startDate) || '-'} | ${info.format}</div>
-                            <div style="margin-top:5px; color:#4caf50; font-weight:bold;">AniList 進度: ${statusData?.progress || 0} / ${info.episodes || '?'}</div>
+                            <div style="margin-top:5px; color:#4caf50; font-weight:bold;">AniList 進度: ${
+                              statusData?.progress || 0
+                            } / ${info.episodes || '?'}</div>
                         </div>
                     </div>
                 </div>
@@ -690,45 +707,63 @@
                 <button id="btn-unbind" class="al-btn-grey">解除所有綁定</button>
             </div>
         `,
-    homeUnbound: (candidate, searchName) => `
-            <div style="padding:15px;">
-                ${
-                  candidate
-                    ? `
-                <div style="background:#2e2818;padding:10px;margin-bottom:15px;border-radius:5px;border:1px solid #5a4b18;">
-                    <div style="font-weight:bold;color:#ffb74d;font-size:13px;margin-bottom:5px;">💡 建議匹配</div>
-                    <div style="display:flex;gap:10px;align-items:flex-start;">
-						<a href="https://anilist.co/anime/${candidate.id}" target="_blank">
-							<img src="${candidate.coverImage.medium}" style="height:70px;border-radius:3px;">
-						</a>
-                        <div style="flex:1;">
-							<a href="https://anilist.co/anime/${candidate.id}" target="_blank" class="al-link" style="font-weight:bold;">${candidate.title.native}</a>
-                            <div style="font-size:12px;color:#aaa;">${candidate.title.romaji}</div>
-                            <div style="font-size:12px;color:#888;">${Utils.formatDate(candidate.startDate) || '-'} | ${candidate.format}</div>
+    homeUnbound: (candidate, searchName) => {
+      let suggestionHtml = '';
+      if (candidate) {
+        suggestionHtml = `
+            <div style="background:#2e2818;padding:10px;margin-bottom:15px;border-radius:5px;border:1px solid #5a4b18;">
+                <div style="font-weight:bold;color:#ffb74d;font-size:13px;margin-bottom:5px;">💡 建議匹配</div>
+                <div style="display:flex;gap:10px;align-items:flex-start;">
+                    <a href="https://anilist.co/anime/${candidate.id}" target="_blank">
+                        <img src="${candidate.coverImage.medium}" 
+                          style="height:70px;border-radius:3px;">
+                    </a>
+                    <div style="flex:1;">
+                        <a href="https://anilist.co/anime/${candidate.id}" 
+                          target="_blank" class="al-link" style="font-weight:bold;">
+                            ${candidate.title.native}
+                        </a>
+                        <div style="font-size:12px;color:#aaa;">${candidate.title.romaji}</div>
+                        <div style="font-size:12px;color:#888;">
+                            ${Utils.formatDate(candidate.startDate) || '-'} | ${candidate.format}
                         </div>
-                        <button id="btn-quick" class="al-bind-btn" style="align-self:center;">綁定</button>
                     </div>
-                </div>`
-                    : ''
-                }
-                <div style="display:flex;gap:5px;">
-                    <input id="search-in" class="al-input" value="${searchName || ''}" placeholder="搜尋...">
-                    <button id="btn-search" class="al-bind-btn">搜尋</button>
+                    <button id="btn-quick" class="al-bind-btn" style="align-self:center;">綁定</button>
                 </div>
-                <div id="search-res" style="margin-top:15px;"></div>
             </div>
-        `,
+        `;
+      }
+
+      return `
+        <div style="padding:15px;">
+            ${suggestionHtml}
+            
+            <div style="display:flex;gap:5px;">
+                <input id="search-in" class="al-input" value="${searchName || ''}" 
+                  placeholder="搜尋...">
+                <button id="btn-search" class="al-bind-btn">搜尋</button>
+            </div>
+            <div id="search-res" style="margin-top:15px;"></div>
+        </div>
+    `;
+    },
     searchResult: (m) => `
             <div class="al-result-item">
-				<a href="https://anilist.co/anime/${m.id}" target="_blank">
-                    <img src="${m.coverImage.medium}" style="width:50px;height:75px;object-fit:cover;border-radius:3px;">
-                </a>
+				      <a href="https://anilist.co/anime/${m.id}" target="_blank">
+                    <img src="${m.coverImage.medium}" 
+                      style="width:50px;height:75px;object-fit:cover;border-radius:3px;">
+              </a>
                 <div style="flex:1;overflow:hidden;">
-					<a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link" style="font-weight:bold;">${m.title.native || m.title.romaji}</a>
-                    <div style="font-size:12px;color:#aaa;">${m.title.romaji}</div>
-                    <div style="font-size:12px;color:#666;">${Utils.formatDate(m.startDate) || '-'} | ${m.format} | ${m.episodes || '?'}集</div>
-                </div>
-                <button class="al-bind-btn bind-it" data-id="${m.id}" data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">綁定</button>
+                      <a href="https://anilist.co/anime/${m.id}" 
+                        target="_blank" class="al-link" style="font-weight:bold;">
+                        ${m.title.native || m.title.romaji}</a>
+                      <div style="font-size:12px;color:#aaa;">${m.title.romaji}</div>
+                      <div style="font-size:12px;color:#666;">
+                        ${Utils.formatDate(m.startDate) || '-'} | 
+                        ${m.format} | ${m.episodes || '?'}集</div>
+              </div>
+              <button class="al-bind-btn bind-it" data-id="${m.id}" 
+                data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">綁定</button>
             </div>
         `,
     // Templates 物件
@@ -768,7 +803,8 @@
       }
 
       return `
-				<tr class="series-row ${rowClass}" data-id="${m.id}" data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">
+				<tr class="series-row ${rowClass}" data-id="${m.id}" 
+          data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">
 					<td style="width:80px; text-align:center;">
 						<span class="status-label" style="color:${statusColor};font-weight:bold;">${statusText}</span>
 						<input type="checkbox" class="cb-active" style="display:none;" ${isActive ? 'checked' : ''}>
@@ -776,10 +812,13 @@
 					<td>
 						<div style="display:flex; gap:10px; align-items:center;">
 							<a href="https://anilist.co/anime/${m.id}" target="_blank" style="flex-shrink:0;">
-								<img src="${m.coverImage.medium}" style="width:40px;height:60px;object-fit:cover;border-radius:3px;">
+								<img src="${m.coverImage.medium}" 
+                  style="width:40px;height:60px;object-fit:cover;border-radius:3px;">
 							</a>
 							<div style="display:flex; flex-direction:column; gap:4px;">
-								<a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link" style="line-height:1.2;">${m.title.native || m.title.romaji}</a>
+								<a href="https://anilist.co/anime/${m.id}" 
+                  target="_blank" class="al-link" style="line-height:1.2;">
+                    ${m.title.native || m.title.romaji}</a>
 								<div style="font-size:11px;color:#888;">${Utils.formatDate(m.startDate) || '-'} | ${m.format}</div>
 							</div>
 						</div>
@@ -787,7 +826,8 @@
 					<td style="text-align:center;width:60px;">${m.episodes || '?'}</td>
 					
 					<td style="width:70px;">
-						<input type="number" class="inp-start al-input" placeholder="巴哈" style="padding:4px;text-align:center;" value="${bahaVal !== undefined ? bahaVal : ''}">
+						<input type="number" class="inp-start al-input" placeholder="巴哈" style="padding:4px;text-align:center;" 
+              value="${bahaVal !== undefined ? bahaVal : ''}">
 					</td>
 					<td style="width:20px;text-align:center;color:#666;">⮕</td>
 					<td style="width:70px;">
@@ -795,7 +835,8 @@
 					</td>
 					
 					<td style="width:70px;text-align:center;">
-						<button class="al-toggle-btn btn-toggle ${btnClass}" data-suggested="${m.suggestedStart}">${btnTxt}</button>
+						<button class="al-toggle-btn btn-toggle ${btnClass}" 
+              data-suggested="${m.suggestedStart}">${btnTxt}</button>
 					</td>
 				</tr>
 			`;
@@ -837,8 +878,8 @@
       }
       const rule = App.state.activeRule;
       const showTitle =
-        rule
-        && [
+        rule &&
+        [
           CONSTANTS.STATUS.BOUND,
           CONSTANTS.STATUS.SYNCING,
           CONSTANTS.STATUS.DONE,
@@ -1105,8 +1146,8 @@
               ? existing.bahaStart
               : existing.start
             : isSuggestion
-              ? m.suggestedStart
-              : '';
+            ? m.suggestedStart
+            : '';
           const aniVal = existing ? (existing.aniStart !== undefined ? existing.aniStart : 1) : 1;
 
           rowsHtml += Templates.seriesRow(
@@ -1320,8 +1361,8 @@
       const currentEp = EpisodeCalculator.getCurrent();
       if (currentEp) {
         this.state.activeRule =
-          this.state.rules.find((r) => currentEp >= r.start)
-          || this.state.rules[this.state.rules.length - 1];
+          this.state.rules.find((r) => currentEp >= r.start) ||
+          this.state.rules[this.state.rules.length - 1];
       } else {
         this.state.activeRule = this.state.rules[0];
       }
@@ -1409,14 +1450,14 @@
         const checkData = await AniListAPI.getUserStatus(rule.id);
 
         if (
-          checkData?.status === CONSTANTS.ANI_STATUS.COMPLETED.value
-          && checkData?.progress === maxEp
+          checkData?.status === CONSTANTS.ANI_STATUS.COMPLETED.value &&
+          checkData?.progress === maxEp
         ) {
           UI.updateNav(CONSTANTS.STATUS.INFO, '略過同步(已完成)');
           return;
         } else if (
-          checkData?.status === CONSTANTS.ANI_STATUS.PLANNING.value
-          || checkData?.status === CONSTANTS.ANI_STATUS.PAUSED.value
+          checkData?.status === CONSTANTS.ANI_STATUS.PLANNING.value ||
+          checkData?.status === CONSTANTS.ANI_STATUS.PAUSED.value
         ) {
           Log.info(`Auto switching status from ${checkData?.status} to CURRENT`);
           await AniListAPI.updateUserStatus(rule.id, 'CURRENT');
@@ -1481,8 +1522,8 @@
 
                 const match = list.find((media) => {
                   return (
-                    ctx.utils.isDateCloseEnough(dateJP.obj, media.startDate)
-                    || ctx.utils.isDateCloseEnough(dateTW.obj, media.startDate)
+                    ctx.utils.isDateCloseEnough(dateJP.obj, media.startDate) ||
+                    ctx.utils.isDateCloseEnough(dateTW.obj, media.startDate)
                   );
                 });
 
@@ -1518,8 +1559,8 @@
                 );
                 // 雙重確認：網域對了，日期也要大致對
                 const dateMatch =
-                  ctx.utils.isDateCloseEnough(dateJP.obj, media.startDate)
-                  || ctx.utils.isDateCloseEnough(dateTW.obj, media.startDate);
+                  ctx.utils.isDateCloseEnough(dateJP.obj, media.startDate) ||
+                  ctx.utils.isDateCloseEnough(dateTW.obj, media.startDate);
                 return domainMatch && dateMatch;
               });
             } catch (e) {
