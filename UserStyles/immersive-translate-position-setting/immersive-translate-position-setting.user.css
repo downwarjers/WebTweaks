@@ -8,16 +8,6 @@
 @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/immersive-translate-position-setting/immersive-translate-position-setting.user.css
 ==/UserStyle== */
 
-/* ==UserStyle==
-@name         Immersive Translate 位置與大小調整
-@namespace    https://github.com/downwarjers/WebTweaks
-@version      1.3
-@description  Immersive Translate 字幕位置與遮擋問題
-@author       downwarjers
-@license      MIT
-@updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/immersive-translate-position-setting/immersive-translate-position-setting.user.css
-==/UserStyle== */
-
 @-moz-document domain("viki.com") {
   /* 1. 針對字幕外層容器 (#immersive-translate-caption-window) */
   #immersive-translate-caption-window {
