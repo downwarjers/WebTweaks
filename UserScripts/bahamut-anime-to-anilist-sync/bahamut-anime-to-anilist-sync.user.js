@@ -600,25 +600,21 @@
   // ================= [UI] 畫面渲染與事件 =================
   const Templates = {
     tabs: (activeTab, isVideo, hasRules) => `
-            <div class="al-tabs-header">
-                <button class="al-tab-btn ${
-                  activeTab === 'home' ? 'active' : ''
-                }" data-tab="home" ${!isVideo ? 'disabled' : ''}>主頁 / 狀態</button>
-                <button class="al-tab-btn ${
-                  activeTab === 'series' ? 'active' : ''
-                }" data-tab="series" ${!hasRules ? 'disabled' : ''}>系列設定</button>
-                <button class="al-tab-btn ${
-                  activeTab === 'settings' ? 'active' : ''
-                }" data-tab="settings">設定</button>
-            </div>
-            <div id="tab-home" class="al-tab-content ${activeTab === 'home' ? 'active' : ''}"></div>
-            <div id="tab-series" class="al-tab-content ${
-              activeTab === 'series' ? 'active' : ''
-            }"></div>
-            <div id="tab-settings" class="al-tab-content ${
-              activeTab === 'settings' ? 'active' : ''
-            }"></div>
-        `,
+      <div class="al-tabs-header">
+        <button class="al-tab-btn ${activeTab === 'home' ? 'active' : ''}" 
+          data-tab="home" ${!isVideo ? 'disabled' : ''}>主頁 / 狀態</button>
+        <button class="al-tab-btn ${activeTab === 'series' ? 'active' : ''}" 
+          data-tab="series" ${!hasRules ? 'disabled' : ''}>系列設定</button>
+        <button class="al-tab-btn ${activeTab === 'settings' ? 'active' : ''}" 
+          data-tab="settings">設定</button>
+        </div>
+          <div id="tab-home" class="al-tab-content ${activeTab === 'home' ? 'active' : ''}"></div>
+          <div id="tab-series" class="al-tab-content 
+            ${activeTab === 'series' ? 'active' : ''}"></div>
+          <div id="tab-settings" class="al-tab-content 
+            ${activeTab === 'settings' ? 'active' : ''}">
+        </div>
+    `,
     settings: (token, mode, clientId, customSec) => `
 			<div class="al-settings-container">
 				<div>
@@ -673,99 +669,97 @@
 			</div>
     `,
     homeBound: (rule, info, statusData, statusOptions) => `
-            <div style="padding:15px;">
-                <div class="al-result-item" style="background:#1a2633; border:1px solid #1e3a5f; border-radius:5px; align-items:flex-start;">
-                    <a href="https://anilist.co/anime/${rule.id}" target="_blank">
-                        <img src="${info.coverImage.medium}" 
-                          style="width:70px;height:100px;object-fit:cover;border-radius:4px;">
-                    </a>
-                    <div style="flex:1;">
-                        <a href="https://anilist.co/anime/${rule.id}" 
-                          target="_blank" class="al-link" style="font-size:16px; display:block; margin-bottom:5px;">
-                          ${rule.title}</a>
-                        <div style="font-size:12px;color:#aaa;line-height:1.5;">
-                            <div>ID: ${rule.id}</div>
-                            <div>${info.title.native}</div>
-                            <div>${Utils.formatDate(info.startDate) || '-'} | ${info.format}</div>
-                            <div style="margin-top:5px; color:#4caf50; font-weight:bold;">AniList 進度: ${
-                              statusData?.progress || 0
-                            } / ${info.episodes || '?'}</div>
-                        </div>
-                    </div>
-                </div>
-                <div style="margin-top:15px;">
-                    <label style="font-weight:bold;color:#ccc;font-size:13px;">切換狀態:</label>
-                    <select id="home-status" class="al-input" style="margin-top:5px;">${statusOptions}</select>
-                </div>
-                <div style="margin-top:15px; border-top:1px solid #333; padding-top:15px;">
-                    <label style="font-weight:bold;color:#ccc;font-size:13px;">手動修改 ID:</label>
-                    <div style="display:flex; gap:10px; margin-top:5px;">
-                        <input type="number" id="home-edit-id" class="al-input" value="${rule.id}">
-                        <button id="home-save-id" class="al-bind-btn" style="background:#555;">更新</button>
-                    </div>
-                </div>
-                <button id="btn-unbind" class="al-btn-grey">解除所有綁定</button>
+      <div style="padding:15px;">
+        <div class="al-result-item" style="background:#1a2633; border:1px solid #1e3a5f; border-radius:5px; align-items:flex-start;">
+          <a href="https://anilist.co/anime/${rule.id}" target="_blank">
+            <img src="${info.coverImage.medium}" 
+              style="width:70px;height:100px;object-fit:cover;border-radius:4px;">
+          </a>
+          <div style="flex:1;">
+            <a href="https://anilist.co/anime/${rule.id}" 
+              target="_blank" class="al-link" style="font-size:16px; display:block; margin-bottom:5px;">
+              ${rule.title}</a>
+            <div style="font-size:12px;color:#aaa;line-height:1.5;">
+              <div>ID: ${rule.id}</div>
+              <div>${info.title.native}</div>
+              <div>${Utils.formatDate(info.startDate) || '-'} | ${info.format}</div>
+              <div style="margin-top:5px; color:#4caf50; font-weight:bold;">AniList 進度: 
+                ${statusData?.progress || 0} / ${info.episodes || '?'}</div>
             </div>
-        `,
+          </div>
+        </div>
+        <div style="margin-top:15px;">
+          <label style="font-weight:bold;color:#ccc;font-size:13px;">切換狀態:</label>
+          <select id="home-status" class="al-input" style="margin-top:5px;">${statusOptions}</select>
+        </div>
+        <div style="margin-top:15px; border-top:1px solid #333; padding-top:15px;">
+          <label style="font-weight:bold;color:#ccc;font-size:13px;">手動修改 ID:</label>
+          <div style="display:flex; gap:10px; margin-top:5px;">
+            <input type="number" id="home-edit-id" class="al-input" value="${rule.id}">
+            <button id="home-save-id" class="al-bind-btn" style="background:#555;">更新</button>
+          </div>
+        </div>
+        <button id="btn-unbind" class="al-btn-grey">解除所有綁定</button>
+      </div>
+    `,
     homeUnbound: (candidate, searchName) => {
       let suggestionHtml = '';
       if (candidate) {
         suggestionHtml = `
-            <div style="background:#2e2818;padding:10px;margin-bottom:15px;border-radius:5px;border:1px solid #5a4b18;">
-                <div style="font-weight:bold;color:#ffb74d;font-size:13px;margin-bottom:5px;">💡 建議匹配</div>
-                <div style="display:flex;gap:10px;align-items:flex-start;">
-                    <a href="https://anilist.co/anime/${candidate.id}" target="_blank">
-                        <img src="${candidate.coverImage.medium}" 
-                          style="height:70px;border-radius:3px;">
-                    </a>
-                    <div style="flex:1;">
-                        <a href="https://anilist.co/anime/${candidate.id}" 
-                          target="_blank" class="al-link" style="font-weight:bold;">
-                            ${candidate.title.native}
-                        </a>
-                        <div style="font-size:12px;color:#aaa;">${candidate.title.romaji}</div>
-                        <div style="font-size:12px;color:#888;">
-                            ${Utils.formatDate(candidate.startDate) || '-'} | ${candidate.format}
-                        </div>
-                    </div>
-                    <button id="btn-quick" class="al-bind-btn" style="align-self:center;">綁定</button>
+          <div style="background:#2e2818;padding:10px;margin-bottom:15px;border-radius:5px;border:1px solid #5a4b18;">
+            <div style="font-weight:bold;color:#ffb74d;font-size:13px;margin-bottom:5px;">💡 建議匹配</div>
+              <div style="display:flex;gap:10px;align-items:flex-start;">
+                <a href="https://anilist.co/anime/${candidate.id}" target="_blank">
+                  <img src="${candidate.coverImage.medium}" 
+                    style="height:70px;border-radius:3px;">
+                </a>
+                <div style="flex:1;">
+                  <a href="https://anilist.co/anime/${candidate.id}" 
+                    target="_blank" class="al-link" style="font-weight:bold;">
+                    ${candidate.title.native}
+                  </a>
+                  <div style="font-size:12px;color:#aaa;">${candidate.title.romaji}</div>
+                  <div style="font-size:12px;color:#888;">
+                    ${Utils.formatDate(candidate.startDate) || '-'} | ${candidate.format}
+                  </div>
                 </div>
-            </div>
+                <button id="btn-quick" class="al-bind-btn" style="align-self:center;">綁定</button>
+              </div>
+          </div>
         `;
       }
 
       return `
         <div style="padding:15px;">
-            ${suggestionHtml}
-            
-            <div style="display:flex;gap:5px;">
-                <input id="search-in" class="al-input" value="${searchName || ''}" 
-                  placeholder="搜尋...">
-                <button id="btn-search" class="al-bind-btn">搜尋</button>
-            </div>
-            <div id="search-res" style="margin-top:15px;"></div>
+          ${suggestionHtml}
+          <div style="display:flex;gap:5px;">
+            <input id="search-in" class="al-input" value="${searchName || ''}" 
+              placeholder="搜尋...">
+            <button id="btn-search" class="al-bind-btn">搜尋</button>
+          </div>
+          <div id="search-res" style="margin-top:15px;"></div>
         </div>
-    `;
+      `;
     },
     searchResult: (m) => `
-            <div class="al-result-item">
-				      <a href="https://anilist.co/anime/${m.id}" target="_blank">
-                    <img src="${m.coverImage.medium}" 
-                      style="width:50px;height:75px;object-fit:cover;border-radius:3px;">
-              </a>
-                <div style="flex:1;overflow:hidden;">
-                      <a href="https://anilist.co/anime/${m.id}" 
-                        target="_blank" class="al-link" style="font-weight:bold;">
-                        ${m.title.native || m.title.romaji}</a>
-                      <div style="font-size:12px;color:#aaa;">${m.title.romaji}</div>
-                      <div style="font-size:12px;color:#666;">
-                        ${Utils.formatDate(m.startDate) || '-'} | 
-                        ${m.format} | ${m.episodes || '?'}集</div>
-              </div>
-              <button class="al-bind-btn bind-it" data-id="${m.id}" 
-                data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">綁定</button>
-            </div>
-        `,
+      <div class="al-result-item">
+			  <a href="https://anilist.co/anime/${m.id}" target="_blank">
+          <img src="${m.coverImage.medium}" 
+            style="width:50px;height:75px;object-fit:cover;border-radius:3px;">
+        </a>
+        <div style="flex:1;overflow:hidden;">
+        <a href="https://anilist.co/anime/${m.id}" 
+          target="_blank" class="al-link" style="font-weight:bold;">
+          ${m.title.native || m.title.romaji}</a>
+        <div style="font-size:12px;color:#aaa;">${m.title.romaji}</div>
+        <div style="font-size:12px;color:#666;">
+          ${Utils.formatDate(m.startDate) || '-'} | 
+          ${m.format} | ${m.episodes || '?'}集</div>
+        </div>
+        <button class="al-bind-btn bind-it" data-id="${m.id}" 
+          data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">綁定</button>
+      </div>
+    `,
     // Templates 物件
     seriesRow: (m, isActive, isSuggestion, isOut, bahaVal, aniVal) => {
       let statusText, statusColor, rowClass, btnTxt, btnClass;
