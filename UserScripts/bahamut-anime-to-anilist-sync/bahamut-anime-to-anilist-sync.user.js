@@ -79,6 +79,28 @@
 			EIGHTY_PCT: "80pct", // 快看完時：影片進度達 80% 才同步
 			CUSTOM: "custom", // 自訂時間：依照使用者設定的秒數同步
 		},
+
+		// --- AniList 狀態集中管理設定 ---
+		ANI_STATUS: {
+			CURRENT: { value: "CURRENT", label: "Watching", display: "📺 觀看中" },
+			COMPLETED: {
+				value: "COMPLETED",
+				label: "Completed",
+				display: "🎉 已看完",
+			},
+			PLANNING: {
+				value: "PLANNING",
+				label: "Plan to Watch",
+				display: "📅 計畫中",
+			},
+			REPEATING: {
+				value: "REPEATING",
+				label: "Rewatching",
+				display: "🔁 重看中",
+			},
+			PAUSED: { value: "PAUSED", label: "Paused", display: "⏸️ 暫停" },
+			DROPPED: { value: "DROPPED", label: "Dropped", display: "🗑️ 棄番" },
+		},
 	};
 
 	const ICONS = {
@@ -875,15 +897,8 @@
 				$title.style.display = "inline";
 				if (App.state.userStatus) {
 					const { status, progress } = App.state.userStatus;
-					const statusMap = {
-						CURRENT: "📺 觀看中",
-						COMPLETED: "🎉 已看完",
-						PLANNING: "📅 計畫中",
-						REPEATING: "🔁 重看中",
-						PAUSED: "⏸️ 暫停",
-						DROPPED: "🗑️ 棄番",
-					};
-					let stTxt = statusMap[status] || "";
+					const statusConfig = CONSTANTS.ANI_STATUS[status];
+					let stTxt = statusConfig ? statusConfig.display : "";
 					if (progress > 0) stTxt += `【Ep.${progress}】`;
 					if (stTxt) {
 						$uStatus.textContent = stTxt;
@@ -1030,21 +1045,20 @@
 				]);
 				App.state.userStatus = statusData;
 				UI.updateNav(CONSTANTS.STATUS.BOUND);
-				const statusMap = {
-					CURRENT: "Watching",
-					COMPLETED: "Completed",
-					PLANNING: "Plan to Watch",
-					REPEATING: "Rewatching",
-					PAUSED: "Paused",
-					DROPPED: "Dropped",
-				};
+
+				const settings = CONSTANTS.ANI_STATUS;
 				const currentStatus = statusData?.status || "NOT_IN_LIST";
+
 				let opts =
 					currentStatus === "NOT_IN_LIST"
 						? `<option value="NOT_IN_LIST" selected>Not in List</option>`
 						: "";
-				for (let k in statusMap)
-					opts += `<option value="${k}" ${currentStatus === k ? "selected" : ""}>${statusMap[k]}</option>`;
+
+				Object.values(settings).forEach((setting) => {
+					const isSelected = currentStatus === setting.value ? "selected" : "";
+					opts += `<option value="${setting.value}" ${isSelected}>${setting.label}</option>`;
+				});
+
 				container.innerHTML = Templates.homeBound(rule, info, statusData, opts);
 
 				_.$("#home-status", container).addEventListener(
@@ -1467,7 +1481,6 @@
 
 			const rule = this.state.activeRule;
 
-			// 向下相容邏輯
 			const bahaStart =
 				rule.bahaStart !== undefined ? rule.bahaStart : rule.start;
 			const aniStart = rule.aniStart !== undefined ? rule.aniStart : 1;
@@ -1489,26 +1502,40 @@
 				const checkData = await AniListAPI.getUserStatus(rule.id);
 
 				if (
-					checkData?.status === "COMPLETED" &&
+					checkData?.status === CONSTANTS.ANI_STATUS.COMPLETED.value &&
 					checkData?.progress === maxEp
 				) {
 					UI.updateNav(CONSTANTS.STATUS.INFO, "略過同步(已完成)");
 					return;
+				} else if (
+					checkData?.status === CONSTANTS.ANI_STATUS.PLANNING.value ||
+					checkData?.status === CONSTANTS.ANI_STATUS.PAUSED.value
+				) {
+					Log.info(
+						`Auto switching status from ${checkData?.status} to CURRENT`,
+					);
+					await AniListAPI.updateUserStatus(rule.id, "CURRENT");
 				}
 
 				let result = await AniListAPI.updateUserProgress(rule.id, progress);
 
 				this.state.userStatus = result;
 
-				if (maxEp && progress === maxEp && result.status !== "COMPLETED") {
+				if (
+					maxEp &&
+					progress === maxEp &&
+					result.status !== CONSTANTS.ANI_STATUS.COMPLETED.value
+				) {
 					Log.info("Auto completing media...");
-					result = await AniListAPI.updateUserStatus(rule.id, "COMPLETED");
+					result = await AniListAPI.updateUserStatus(
+						rule.id,
+						CONSTANTS.ANI_STATUS.COMPLETED.value,
+					);
 					this.state.userStatus = result; // 若有自動完結，再次更新狀態
 					UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress} (完結)`);
 				} else {
 					UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress}`);
 				}
-				// ==========================================
 			} catch (e) {
 				const errStr = e.message;
 				UI.updateNav(CONSTANTS.STATUS.ERROR, "同步失敗");
