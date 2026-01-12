@@ -25,44 +25,59 @@
 
 	// ================= [Constants] 常數管理 =================
 	const CONSTANTS = {
+		// --- 基礎與除錯設定 ---
 		DEBUG: false, // 除錯模式開關
-		API_URL: "https://graphql.anilist.co",
-		SYNC_DEBOUNCE_MS: 2000,
-		MATCH_TOLERANCE_DAYS: 2,
-		SEARCH_RANGE_DAYS: 10,
-		STORAGE_PREFIX: "baha_acg_",
-		SYNC_ON_BIND: false,
-		API_MAX_RETRIES: 5,
-        RETRY_DELAY_MS: 3000,
+		API_URL: "https://graphql.anilist.co", // AniList 的 API 網址
+
+		// --- 同步與匹配邏輯設定 ---
+		SYNC_DEBOUNCE_MS: 2000, // 防抖動時間 (毫秒)
+		MATCH_TOLERANCE_DAYS: 2, // 開播日期匹配容許誤差 (天)
+		SEARCH_RANGE_DAYS: 10, // 自動模糊搜尋範圍 (天)
+		STORAGE_PREFIX: "baha_acg_", // 本地儲存 (Local Storage) 的 key 前綴
+		SYNC_ON_BIND: false, // 綁定後是否立即同步
+
+		// --- API 連線重試機制 ---
+		API_MAX_RETRIES: 5, // API連線失敗時的最大重試次數
+		RETRY_DELAY_MS: 3000, // 重試前的等待時間 (毫秒)
+
+		// --- 本地儲存的鍵名 (Key Names) ---
 		KEYS: {
-			TOKEN: "ANILIST_TOKEN",
-			CLIENT_ID: "ANILIST_CLIENT_ID",
-			SYNC_MODE: "SYNC_MODE",
-			CUSTOM_SEC: "SYNC_CUSTOM_SECONDS",
+			TOKEN: "ANILIST_TOKEN", // AniList Access Token
+			CLIENT_ID: "ANILIST_CLIENT_ID", // Client ID
+			SYNC_MODE: "SYNC_MODE", // 同步模式的設定
+			CUSTOM_SEC: "SYNC_CUSTOM_SECONDS", // 自訂秒數的數值
 		},
+
+		// --- DOM 元素選擇器 (Selectors) ---
+		// 巴哈姆特資訊
 		SELECTORS: {
-			infoTitle: ".ACG-info-container > h2",
-			infoList: ".ACG-box1listA > li",
-			seasonList: ".season ul li",
-			playing: ".playing",
-			acgLink: 'a[href*="acgDetail.php"]',
-			acgLinkAlt: "a", // 用於 contains 過濾
-			videoElement: "video",
+			infoTitle: ".ACG-info-container > h2", // 作品標題
+			infoList: ".ACG-box1listA > li", // 作品資訊列表
+			seasonList: ".season ul li", // 動畫瘋播放頁下方的集數列表
+			playing: ".playing", // 正在播放的 CSS class
+			acgLink: 'a[href*="acgDetail.php"]', // 作品資料頁的連結
+			acgLinkAlt: "a", // 備用選擇器 (用於 contains 文字搜尋)
+			videoElement: "video", // 網頁上的影片播放器元素 (<video>)
 		},
+
+		// --- 狀態代碼 (Status Codes) ---
+		// 腳本內部狀態， UI 顯示的圖示/文字
 		STATUS: {
-			TOKEN_ERROR: "token_error",
-			UNBOUND: "unbound",
-			BOUND: "bound",
-			SYNCING: "syncing",
-			DONE: "done",
-			ERROR: "error",
-			INFO: "info",
+			TOKEN_ERROR: "token_error", // Token 錯誤或過期
+			UNBOUND: "unbound", // 尚未綁定 AniList 作品
+			BOUND: "bound", // 已綁定，準備就緒
+			SYNCING: "syncing", // 正在同步中
+			DONE: "done", // 同步完成
+			ERROR: "error", // 發生錯誤
+			INFO: "info", // 一般訊息提示
 		},
+
+		// --- 同步模式選項 (Sync Modes) ---
 		SYNC_MODES: {
-			INSTANT: "instant",
-			TWO_MIN: "2min",
-			EIGHTY_PCT: "80pct",
-			CUSTOM: "custom",
+			INSTANT: "instant", // 即時同步：播放 5 秒後就送出進度
+			TWO_MIN: "2min", // 觀看確認：播放 2 分鐘後才同步
+			EIGHTY_PCT: "80pct", // 快看完時：影片進度達 80% 才同步
+			CUSTOM: "custom", // 自訂時間：依照使用者設定的秒數同步
 		},
 	};
 
@@ -215,58 +230,109 @@
 
 	// ================= [Styles] CSS =================
 	GM_addStyle(`
-        .al-nav-item { margin-left: 10px; padding-left: 10px; border-left: 1px solid #555; display: inline-flex; height: 100%; vertical-align: middle; }
-        .al-nav-link { color: #ccc; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; text-decoration: none !important; transition: 0.2s; }
-        .al-nav-link:hover { color: #fff; }
-        .al-nav-title { color: #888; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .al-user-status { color: #4caf50; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; display: none; }
-        @media (max-width: 1200px) { .al-nav-title { max-width: 150px; } }
-        @media (max-width: 768px) { .al-nav-title, .al-user-status { display: none; } }
-        .al-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 99999; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.2s ease-in-out; }
-        .al-modal-content { background: #1b1b1b; color: #eee; width: 750px; max-height: 90vh; border-radius: 8px; display: flex; flex-direction: column; border: 1px solid #333; box-shadow: 0 10px 25px rgba(0,0,0,0.8); }
-        .al-modal-header { padding: 15px; background: #222; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-        .al-modal-body { overflow-y: auto; flex: 1; padding: 0; min-height: 300px; background: #1b1b1b; }
-        .al-close-btn { color: #ff5252; font-weight: bold; font-size: 24px; background: none; border: none; cursor: pointer; }
-        .al-tabs-header { display: flex; border-bottom: 1px solid #333; background: #222; }
-        .al-tab-btn { flex: 1; padding: 12px; cursor: pointer; border: none; background: #222; color: #888; font-weight: bold; transition: 0.2s; border-bottom: 3px solid transparent;}
-        .al-tab-btn:hover { background: #333; color: #3db4f2; }
-        .al-tab-btn.active { color: #3db4f2; border-bottom-color: #3db4f2; background: #2a2a2a; }
-        .al-tab-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .al-tab-content { display: none; padding: 15px; animation: al-fadein 0.2s; }
-        .al-tab-content.active { display: block; }
-        .al-bind-btn { background: #3db4f2; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; transition: 0.2s; }
-        .al-bind-btn:hover { background: #2a9bd6; }
-        .al-btn-grey { background: #d32f2f; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 15px; }
-        .al-input { padding: 8px; border: 1px solid #555; border-radius: 4px; background: #333; color: #eee; width: 100%; box-sizing: border-box; }
-        .al-input:focus { border-color: #3db4f2; outline: none; }
-        .al-link { color: #81d4fa; text-decoration: none; font-weight: bold; }
-        .al-link:hover { text-decoration: underline; }
-        .al-result-item { padding: 12px; border-bottom: 1px solid #333; display: flex; gap: 15px; align-items: center; transition: background 0.2s; }
-        .al-result-item:hover { background: #2a2a2a; }
-        .al-map-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .al-map-table th { background: #2a2a2a; padding: 10px; text-align: left; border-bottom: 2px solid #444; color: #ccc; }
-        .al-map-table td { padding: 8px; border-bottom: 1px solid #333; vertical-align: middle; }
-        .series-row.active { background-color: #1b2e1b; }
-        .series-row.suggestion { background-color: #3e3315; }
-        .al-toggle-btn { font-size: 12px; padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; color: white; width: 100%; }
-        .al-toggle-btn.enable { background-color: #388e3c; }
-        .al-toggle-btn.disable { background-color: #d32f2f; }
-        .al-step-card { font-size: 13px; color: #aaa; margin-top: 15px; background: #222; padding: 12px 15px; border-radius: 6px; border: 1px solid #333; }
-        .al-step-title { margin: 0 0 10px 0; font-weight: bold; color: #eee; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 6px; }
-        .al-step-item { display: flex; align-items: flex-start; margin-bottom: 8px; line-height: 1.6; }
-        .al-step-num { flex-shrink: 0; width: 20px; font-weight: bold; color: #3db4f2; }
-        .al-step-content { flex: 1; }
+		/* =========================================
+		1. Navigation Bar (導覽列)
+		整合到巴哈姆特網頁頂部的按鈕與狀態顯示
+		========================================= */
+		.al-nav-item { margin-left: 10px; padding-left: 10px; border-left: 1px solid #555; display: inline-flex; height: 100%; vertical-align: middle; }
+		.al-nav-link { color: #ccc; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; text-decoration: none !important; transition: 0.2s; }
+		.al-nav-link:hover { color: #fff; }
+		.al-nav-title { color: #888; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+		.al-user-status { color: #4caf50; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; display: none; }
+		
+		/* 響應式設計：螢幕變窄時隱藏部分資訊 */
+		@media (max-width: 1200px) { .al-nav-title { max-width: 150px; } }
+		@media (max-width: 768px) { .al-nav-title, .al-user-status { display: none; } }
+
+		/* =========================================
+		2. Modal Window (彈出視窗)
+		主要設定介面的外框與遮罩
+		========================================= */
+		.al-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 99999; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.2s ease-in-out; }
+		.al-modal-content { background: #1b1b1b; color: #eee; width: 750px; max-height: 90vh; border-radius: 8px; display: flex; flex-direction: column; border: 1px solid #333; box-shadow: 0 10px 25px rgba(0,0,0,0.8); }
+		.al-modal-header { padding: 15px; background: #222; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
+		.al-modal-body { overflow-y: auto; flex: 1; padding: 0; min-height: 300px; background: #1b1b1b; }
+		.al-close-btn { color: #ff5252; font-weight: bold; font-size: 24px; background: none; border: none; cursor: pointer; }
+
+		/* =========================================
+		3. Tabs System (分頁切換)
+		控制上方「主頁/系列設定/設定」的分頁標籤
+		========================================= */
+		.al-tabs-header { display: flex; border-bottom: 1px solid #333; background: #222; }
+		.al-tab-btn { flex: 1; padding: 12px; cursor: pointer; border: none; background: #222; color: #888; font-weight: bold; transition: 0.2s; border-bottom: 3px solid transparent;}
+		.al-tab-btn:hover { background: #333; color: #3db4f2; }
+		.al-tab-btn.active { color: #3db4f2; border-bottom-color: #3db4f2; background: #2a2a2a; }
+		.al-tab-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+		.al-tab-content { display: none; padding: 15px; animation: al-fadein 0.2s; }
+		.al-tab-content.active { display: block; }
+
+		/* =========================================
+		4. Buttons (按鈕樣式)
+		通用按鈕、綁定按鈕、開關按鈕
+		========================================= */
+		.al-bind-btn { background: #3db4f2; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; transition: 0.2s; }
+		.al-bind-btn:hover { background: #2a9bd6; }
+		.al-btn-grey { background: #d32f2f; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 15px; }
+		.al-toggle-btn { font-size: 12px; padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; color: white; width: 100%; }
+		.al-toggle-btn.enable { background-color: #388e3c; }
+		.al-toggle-btn.disable { background-color: #d32f2f; }
+
+		/* =========================================
+		5. Forms & Inputs (表單與輸入框)
+		設定頁面與搜尋框的樣式
+		========================================= */
+		.al-input { padding: 8px; border: 1px solid #555; border-radius: 4px; background: #333; color: #eee; width: 100%; box-sizing: border-box; }
+		.al-input:focus { border-color: #3db4f2; outline: none; }
+		.al-input-group { display: flex; gap: 10px; align-items: center; }
+		.al-input-group-wrap { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+		.al-input-sm { width: 80px; text-align: center; }
+		
+		/* =========================================
+		6. Search Results & Lists (搜尋與列表)
+		搜尋結果的項目顯示
+		========================================= */
+		.al-result-item { padding: 12px; border-bottom: 1px solid #333; display: flex; gap: 15px; align-items: center; transition: background 0.2s; }
+		.al-result-item:hover { background: #2a2a2a; }
+		
+		/* =========================================
+		7. Tables & Mapping (表格與對照)
+		系列設定頁面的集數對照表
+		========================================= */
+		.al-map-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+		.al-map-table th { background: #2a2a2a; padding: 10px; text-align: left; border-bottom: 2px solid #444; color: #ccc; }
+		.al-map-table td { padding: 8px; border-bottom: 1px solid #333; vertical-align: middle; }
+		.series-row.active { background-color: #1b2e1b; }
+		.series-row.suggestion { background-color: #3e3315; }
+
+		/* =========================================
+		8. Steps & Instructions (教學步驟)
+		取得 Token 的步驟教學卡片
+		========================================= */
+		.al-step-card { font-size: 13px; color: #aaa; margin-top: 15px; background: #222; padding: 12px 15px; border-radius: 6px; border: 1px solid #333; }
+		.al-step-title { margin: 0 0 10px 0; font-weight: bold; color: #eee; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 6px; }
+		.al-step-item { display: flex; align-items: flex-start; margin-bottom: 8px; line-height: 1.6; }
+		.al-step-num { flex-shrink: 0; width: 20px; font-weight: bold; color: #3db4f2; }
+		.al-step-content { flex: 1; }
+
+		/* =========================================
+		9. General Layout & Typography (通用排版)
+		通用文字、連結、圖示
+		========================================= */
 		.al-settings-container { padding: 20px; }
 		.al-label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: #eee; }
 		.al-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #333; }
-		.al-input-group { display: flex; gap: 10px; align-items: center; }
-		.al-input-group-wrap { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 		.al-text-muted { font-size: 13px; color: #ccc; }
-		.al-input-sm { width: 80px; text-align: center; }
+		.al-link { color: #81d4fa; text-decoration: none; font-weight: bold; }
+		.al-link:hover { text-decoration: underline; }
 		.al-icon { width: 20px; height: 20px; stroke: #ccc; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
-        .al-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(20,20,20,0.95); border: 1px solid #444; color: #fff; padding: 10px 20px; border-radius: 20px; z-index: 100000; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; opacity: 0; transition: opacity 0.2s; }
-        @keyframes al-fadein { from { opacity: 0; } to { opacity: 1; } }
-    `);
+
+		/* =========================================
+		10. Notifications & Animations (通知與動畫)
+		下方的 Toast 訊息與淡入動畫
+		========================================= */
+		.al-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(20,20,20,0.95); border: 1px solid #444; color: #fff; padding: 10px 20px; border-radius: 20px; z-index: 100000; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; opacity: 0; transition: opacity 0.2s; }
+		@keyframes al-fadein { from { opacity: 0; } to { opacity: 1; } }
+	`);
 
 	// ================= [Logic] 集數計算核心 =================
 	const EpisodeCalculator = {
@@ -333,85 +399,147 @@
 	// ================= [API] AniList 通訊層 =================
 	const AniListAPI = {
 		getToken: () => GM_getValue(CONSTANTS.KEYS.TOKEN),
-        async request(query, variables, retryCount = 0) {
-            const token = this.getToken();
-            if (!token && !query.includes("search")) throw new Error("Token 未設定");
+		async request(query, variables, retryCount = 0) {
+			const token = this.getToken();
+			if (!token && !query.includes("search")) throw new Error("Token 未設定");
 
-            // Log: 如果是重試，顯示警告顏色
-            if (retryCount > 0) {
-                Log.warn(`API 重試中 (${retryCount}/${CONSTANTS.API_MAX_RETRIES})...`);
-            } else {
-                Log.info("API Request:", {
-                    query: query.substr(0, 50) + "...",
-                    variables,
-                });
-            }
+			// Log: 如果是重試，顯示警告顏色
+			if (retryCount > 0) {
+				Log.warn(`API 重試中 (${retryCount}/${CONSTANTS.API_MAX_RETRIES})...`);
+			} else {
+				Log.info("API Request:", {
+					query: query.substr(0, 50) + "...",
+					variables,
+				});
+			}
 
-            return new Promise((resolve, reject) => {
-                GM_xmlhttpRequest({
-                    method: "POST",
-                    url: CONSTANTS.API_URL,
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: token ? `Bearer ${token}` : undefined,
-                        Accept: "application/json",
-                    },
-                    data: JSON.stringify({ query, variables }),
-                    onload: (r) => {
-                        try {
-                            if (r.status === 429) {
-                                if (retryCount < CONSTANTS.API_MAX_RETRIES) {
-                                    const delay = CONSTANTS.RETRY_DELAY_MS * Math.pow(2, retryCount);
+			return new Promise((resolve, reject) => {
+				GM_xmlhttpRequest({
+					method: "POST",
+					url: CONSTANTS.API_URL,
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: token ? `Bearer ${token}` : undefined,
+						Accept: "application/json",
+					},
+					data: JSON.stringify({ query, variables }),
+					onload: (r) => {
+						const context = {
+							r,
+							resolve,
+							reject,
+							retryCount,
+							query,
+							variables,
+							api: this,
+						};
 
-									UI.updateNav(CONSTANTS.STATUS.SYNCING, `連線過於頻繁，重試中...(${retryCount + 1}/${CONSTANTS.API_MAX_RETRIES})`);
+						const strategies = [
+							{
+								name: "Maintenance",
+								match: (r) =>
+									r.status >= 500 ||
+									r.responseText.includes("temporarily disabled") ||
+									r.responseText.includes("stability issues"),
+								execute: () => {
+									const info = "AniList 維護中";
+									UI.updateNav(CONSTANTS.STATUS.ERROR, info);
+									Utils.showToast(
+										"⚠️ 伺服器維護中，API 暫時關閉，詳情請至 AniList Discord 查看",
+									);
+									Log.error("AniList Maintenance Mode Detected");
+									reject(new Error(info));
+								},
+							},
+							{
+								name: "RateLimit",
+								match: (r) => r.status === 429,
+								execute: () => {
+									if (retryCount < CONSTANTS.API_MAX_RETRIES) {
+										const delay =
+											CONSTANTS.RETRY_DELAY_MS * Math.pow(2, retryCount);
+										UI.updateNav(
+											CONSTANTS.STATUS.SYNCING,
+											`連線過於頻繁，重試中...(${retryCount + 1}/${CONSTANTS.API_MAX_RETRIES})`,
+										);
+										setTimeout(() => {
+											context.api
+												.request(query, variables, retryCount + 1)
+												.then(resolve)
+												.catch(reject);
+										}, delay);
+									} else {
+										throw new Error("Too Many Requests (已達重試上限)");
+									}
+								},
+							},
+							{
+								name: "AuthError",
+								match: (r) =>
+									r.status === 401 || r.responseText.includes("Invalid token"),
+								execute: () => {
+									UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
+									Utils.showToast("❌ Token 無效或過期，請重新設定");
+									reject(new Error("Invalid Token"));
+								},
+							},
+							{
+								name: "Success",
+								match: () => true,
+								execute: () => {
+									const d = JSON.parse(r.responseText);
+									if (d.errors) {
+										const msg = d.errors[0].message;
+										Log.warn("API Logic Error:", msg);
+										reject(new Error(msg));
+									} else {
+										resolve(Utils.deepSanitize(d));
+									}
+								},
+							},
+						];
 
-                                    Log.warn(`Hit Rate Limit (429). Waiting ${delay}ms to retry...`);
-                                    
-                                    setTimeout(() => {
-                                        this.request(query, variables, retryCount + 1)
-                                            .then(resolve)
-                                            .catch(reject);
-                                    }, delay);
-                                    return;
-                                } else {
-                                    throw new Error("Too Many Requests (已達重試上限)");
-                                }
-                            }
+						try {
+							const activeStrategy = strategies.find((s) => s.match(r));
+							if (activeStrategy) {
+								Log.info(`Executing Strategy: ${activeStrategy.name}`);
+								activeStrategy.execute();
+							} else {
+								throw new Error("Unknown Response State");
+							}
+						} catch (e) {
+							Log.error("Strategy Execution Error", e);
 
-                            const d = JSON.parse(r.responseText);
-                            if (d.errors) {
-                                const msg = d.errors[0].message;
-                                Log.warn("API Error:", msg);
-                                if (msg === "Invalid token") reject(new Error("Invalid token"));
-                                else if (r.status === 429) reject(new Error("Too Many Requests")); // 雙重保險
-                                else reject(new Error(msg));
-                            } else {
-                                resolve(Utils.deepSanitize(d));
-                            }
-                        } catch (e) {
-                            Log.error("JSON Parse Error", e);
-                            reject(new Error("JSON 解析失敗"));
-                        }
-                    },
-                    onerror: (e) => {
-                        // 針對網路錯誤 (斷網/封包遺失) 進行重試
-                        if (retryCount < CONSTANTS.API_MAX_RETRIES) {
-                            const delay = CONSTANTS.RETRY_DELAY_MS;
-							
-							UI.updateNav(CONSTANTS.STATUS.SYNCING, `連線重試 (${retryCount + 1}/${CONSTANTS.API_MAX_RETRIES})`);
+							if (e.name === "SyntaxError" && r.status >= 500) {
+								UI.updateNav(CONSTANTS.STATUS.ERROR, "伺服器錯誤");
+								reject(new Error("伺服器回應錯誤 (非 JSON)"));
+							} else {
+								reject(e);
+							}
+						}
+					},
+					onerror: (e) => {
+						// 針對網路錯誤 (斷網/封包遺失) 進行重試
+						if (retryCount < CONSTANTS.API_MAX_RETRIES) {
+							const delay = CONSTANTS.RETRY_DELAY_MS;
 
-                            setTimeout(() => {
-                                this.request(query, variables, retryCount + 1)
-                                    .then(resolve)
-                                    .catch(reject);
-                            }, delay);
-                        } else {
-                            reject(new Error(`Network Error: ${e.statusText || "Unknown"}`));
-                        }
-                    },
-                });
-            });
-        },
+							UI.updateNav(
+								CONSTANTS.STATUS.SYNCING,
+								`連線重試 (${retryCount + 1}/${CONSTANTS.API_MAX_RETRIES})`,
+							);
+
+							setTimeout(() => {
+								this.request(query, variables, retryCount + 1)
+									.then(resolve)
+									.catch(reject);
+							}, delay);
+						} else {
+							reject(new Error(`Network Error: ${e.statusText || "Unknown"}`));
+						}
+					},
+				});
+			});
+		},
 		search: (term) => AniListAPI.request(GQL.SEARCH, { s: term }),
 		searchByDateRange: (start, end) =>
 			AniListAPI.request(GQL.SEARCH_RANGE, { start, end }),
@@ -655,39 +783,45 @@
 				btnClass = "enable";
 			}
 
-			// 若沒有傳入 aniVal，預設為 1 (如果是建議選項) 或 空白
-			const defaultAniVal = isActive ? aniVal : isSuggestion ? 1 : "";
+			let defaultAniVal = "";
+			if (isActive) {
+				defaultAniVal = aniVal;
+			} else if (isSuggestion) {
+				defaultAniVal = 1;
+			}
 
 			return `
-        <tr class="series-row ${rowClass}" data-id="${m.id}" data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">
-            <td style="width:80px;">
-                <span class="status-label" style="color:${statusColor};font-weight:bold;">${statusText}</span>
-                <input type="checkbox" class="cb-active" style="display:none;" ${isActive ? "checked" : ""}>
-            </td>
-            <td>
-                <div style="display:flex; gap:10px; align-items:center;">
-                    <a href="https://anilist.co/anime/${m.id}" target="_blank" style="flex-shrink:0;">
-                        <img src="${m.coverImage.medium}" style="width:40px;height:60px;object-fit:cover;border-radius:3px;">
-                    </a>
-                    <div style="display:flex; flex-direction:column; gap:4px;">
-                        <a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link" style="line-height:1.2;">${m.title.native || m.title.romaji}</a>
-                        <div style="font-size:11px;color:#888;">${Utils.formatDate(m.startDate) || "-"} | ${m.format}</div>
-                    </div>
-                </div>
-            </td>
-            <td style="text-align:center;width:50px;">${m.episodes || "?"}</td>
-            
-            <td style="width:60px;">
-                <input type="number" class="inp-start al-input" placeholder="巴哈" style="padding:4px;text-align:center;" value="${bahaVal !== undefined ? bahaVal : ""}">
-            </td>
-            <td style="width:20px;text-align:center;color:#666;">⮕</td>
-            <td style="width:60px;">
-                <input type="number" class="inp-ani-start al-input" placeholder="Ani" style="padding:4px;text-align:center;" value="${defaultAniVal}">
-            </td>
-            
-            <td style="width:70px;"><button class="al-toggle-btn btn-toggle ${btnClass}" data-suggested="${m.suggestedStart}">${btnTxt}</button></td>
-        </tr>
-    `;
+				<tr class="series-row ${rowClass}" data-id="${m.id}" data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">
+					<td style="width:80px; text-align:center;">
+						<span class="status-label" style="color:${statusColor};font-weight:bold;">${statusText}</span>
+						<input type="checkbox" class="cb-active" style="display:none;" ${isActive ? "checked" : ""}>
+					</td>
+					<td>
+						<div style="display:flex; gap:10px; align-items:center;">
+							<a href="https://anilist.co/anime/${m.id}" target="_blank" style="flex-shrink:0;">
+								<img src="${m.coverImage.medium}" style="width:40px;height:60px;object-fit:cover;border-radius:3px;">
+							</a>
+							<div style="display:flex; flex-direction:column; gap:4px;">
+								<a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link" style="line-height:1.2;">${m.title.native || m.title.romaji}</a>
+								<div style="font-size:11px;color:#888;">${Utils.formatDate(m.startDate) || "-"} | ${m.format}</div>
+							</div>
+						</div>
+					</td>
+					<td style="text-align:center;width:60px;">${m.episodes || "?"}</td>
+					
+					<td style="width:70px;">
+						<input type="number" class="inp-start al-input" placeholder="巴哈" style="padding:4px;text-align:center;" value="${bahaVal !== undefined ? bahaVal : ""}">
+					</td>
+					<td style="width:20px;text-align:center;color:#666;">⮕</td>
+					<td style="width:70px;">
+						<input type="number" class="inp-ani-start al-input" placeholder="AniList" style="padding:4px;text-align:center;" value="${defaultAniVal}">
+					</td>
+					
+					<td style="width:70px;text-align:center;">
+						<button class="al-toggle-btn btn-toggle ${btnClass}" data-suggested="${m.suggestedStart}">${btnTxt}</button>
+					</td>
+				</tr>
+			`;
 		},
 	};
 
@@ -1049,14 +1183,24 @@
 					);
 				});
 				container.innerHTML = `
-    <div style="padding:15px;">
-        <table class="al-map-table">
-            <thead><tr><th>狀態</th><th>作品</th><th>總集數</th><th>巴哈起始</th><th></th><th>AniList起始</th><th>操作</th></tr></thead>
-            <tbody>${rowsHtml}</tbody>
-        </table>
-        <button id="save-series" class="al-bind-btn" style="width:100%;margin-top:15px;padding:10px;">儲存系列設定</button>
-    </div>
-`;
+					<div style="padding:15px;">
+						<table class="al-map-table">
+							<thead>
+								<tr>
+									<th style="width:80px; text-align:center;">狀態</th>
+									<th>作品</th>
+									<th style="width:60px; text-align:center; white-space:nowrap;">總集數</th>
+									<th style="width:70px; text-align:center; white-space:nowrap;">巴哈對應<br>集數起始</th>
+									<th style="width:20px;"></th>
+									<th style="width:70px; text-align:center; white-space:nowrap;">AniList對應<br>集數起始</th>
+									<th style="width:70px; text-align:center;">操作</th>
+								</tr>
+							</thead>
+							<tbody>${rowsHtml}</tbody>
+						</table>
+						<button id="save-series" class="al-bind-btn" style="width:100%;margin-top:15px;padding:10px;">儲存系列設定</button>
+					</div>
+				`;
 
 				const updateRow = (row, active, val) => {
 					const btn = _.$(".btn-toggle", row);
@@ -1301,6 +1445,7 @@
 			const video = e.target;
 			const { mode, custom } = this.state.syncSettings;
 			let shouldSync = false;
+
 			if (mode === CONSTANTS.SYNC_MODES.INSTANT)
 				shouldSync = video.currentTime > 5;
 			else if (mode === CONSTANTS.SYNC_MODES.TWO_MIN)
@@ -1310,124 +1455,172 @@
 					video.duration > 0 && video.currentTime / video.duration > 0.8;
 			else if (mode === CONSTANTS.SYNC_MODES.CUSTOM)
 				shouldSync = video.currentTime > custom;
+
 			if (shouldSync) {
 				this.state.hasSynced = true;
 				this.syncProgress();
 			}
 		},
 		async syncProgress() {
-            const ep = EpisodeCalculator.getCurrent();
-            if (ep === null || !this.state.activeRule) return;
+			const ep = EpisodeCalculator.getCurrent();
+			if (ep === null || !this.state.activeRule) return;
 
-            const rule = this.state.activeRule;
+			const rule = this.state.activeRule;
 
-            const bahaStart = rule.bahaStart !== undefined ? rule.bahaStart : rule.start;
-            const aniStart = rule.aniStart !== undefined ? rule.aniStart : 1;
+			// 向下相容邏輯
+			const bahaStart =
+				rule.bahaStart !== undefined ? rule.bahaStart : rule.start;
+			const aniStart = rule.aniStart !== undefined ? rule.aniStart : 1;
 
-            let progress = ep - bahaStart + aniStart;
+			let progress = ep - bahaStart + aniStart;
 
-            UI.updateNav(CONSTANTS.STATUS.SYNCING, `同步 Ep.${progress}...`);
-            Log.info(`Syncing progress: Ep.${progress} for media ${rule.id}`);
+			UI.updateNav(CONSTANTS.STATUS.SYNCING, `同步 Ep.${progress}...`);
+			Log.info(`Syncing progress: Ep.${progress} for media ${rule.id}`);
 
-            try {
-                const mediaInfo = await AniListAPI.getMedia(rule.id);
-                const maxEp = mediaInfo.episodes;
+			try {
+				const mediaInfo = await AniListAPI.getMedia(rule.id);
+				const maxEp = mediaInfo.episodes;
 
-                if (maxEp && progress > maxEp) {
-                    Log.info(`Progress clamped from ${progress} to ${maxEp}`);
-                    progress = maxEp;
-                }
+				if (maxEp && progress > maxEp) {
+					Log.info(`Progress clamped from ${progress} to ${maxEp}`);
+					progress = maxEp;
+				}
 
-                const checkData = await AniListAPI.getUserStatus(rule.id);
+				const checkData = await AniListAPI.getUserStatus(rule.id);
 
-                if (
-                    checkData?.status === "COMPLETED" &&
-                    checkData?.progress === maxEp
-                ) {
-                    UI.updateNav(CONSTANTS.STATUS.INFO, "略過同步(已完成)");
-                    return;
-                }
+				if (
+					checkData?.status === "COMPLETED" &&
+					checkData?.progress === maxEp
+				) {
+					UI.updateNav(CONSTANTS.STATUS.INFO, "略過同步(已完成)");
+					return;
+				}
 
-                let result = await AniListAPI.updateUserProgress(rule.id, progress);
+				let result = await AniListAPI.updateUserProgress(rule.id, progress);
 
-                this.state.userStatus = result;
+				this.state.userStatus = result;
 
-                if (maxEp && progress === maxEp && result.status !== "COMPLETED") {
-                    Log.info("Auto completing media...");
-                    result = await AniListAPI.updateUserStatus(rule.id, "COMPLETED");
-                    this.state.userStatus = result; 
-                    UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress} (完結)`); 
-                } else {
-                    UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress}`);
-                }
-                // ==========================================
-
-            } catch (e) {
-                const errStr = e.message;
-                UI.updateNav(CONSTANTS.STATUS.ERROR, "同步失敗");
-                if (errStr.includes("Token") || errStr.includes("401")) {
-                    this.state.tokenErrorCount++;
-                    if (this.state.tokenErrorCount >= 3) this.state.stopSync = true;
-                    UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
-                } else if (errStr.includes("Too Many Requests")) {
-                    this.state.stopSync = true;
-                    Utils.showToast("⚠️ 請求過於頻繁，已暫停同步");
-                } else {
-                    setTimeout(() => {
-                        this.state.hasSynced = false;
-                    }, CONSTANTS.SYNC_DEBOUNCE_MS);
-                }
-            }
-        },
+				if (maxEp && progress === maxEp && result.status !== "COMPLETED") {
+					Log.info("Auto completing media...");
+					result = await AniListAPI.updateUserStatus(rule.id, "COMPLETED");
+					this.state.userStatus = result; // 若有自動完結，再次更新狀態
+					UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress} (完結)`);
+				} else {
+					UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress}`);
+				}
+				// ==========================================
+			} catch (e) {
+				const errStr = e.message;
+				UI.updateNav(CONSTANTS.STATUS.ERROR, "同步失敗");
+				if (errStr.includes("Token") || errStr.includes("401")) {
+					this.state.tokenErrorCount++;
+					if (this.state.tokenErrorCount >= 3) this.state.stopSync = true;
+					UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
+				} else if (errStr.includes("Too Many Requests")) {
+					this.state.stopSync = true;
+					Utils.showToast("⚠️ 請求過於頻繁，已暫停同步");
+				} else {
+					setTimeout(() => {
+						this.state.hasSynced = false;
+					}, CONSTANTS.SYNC_DEBOUNCE_MS);
+				}
+			}
+		},
 		async tryAutoBind() {
 			if (!this.state.bahaData) return;
+
 			UI.updateNav(CONSTANTS.STATUS.SYNCING, "自動匹配中...");
-			const { nameJp, nameEn, dateJP, dateTW, site } = this.state.bahaData;
-			let match = null;
-			const terms = [nameEn, nameJp].filter(Boolean);
-			for (let term of terms) {
-				try {
-					const res = await AniListAPI.search(term);
-					const list = res.data.Page.media || [];
-					if (list.length > 0 && !this.state.candidate)
-						this.state.candidate = list[0];
-					match = list.find((media) => {
-						return (
-							Utils.isDateCloseEnough(dateJP.obj, media.startDate) ||
-							Utils.isDateCloseEnough(dateTW.obj, media.startDate)
+
+			const context = {
+				data: this.state.bahaData,
+				api: AniListAPI,
+				utils: Utils,
+			};
+
+			const strategies = [
+				// 1.使用日文或英文名搜尋，並比對開播日期
+				{
+					name: "NameSearch",
+					execute: async (ctx) => {
+						const { nameEn, nameJp, dateJP, dateTW } = ctx.data;
+						const terms = [nameEn, nameJp].filter(Boolean);
+
+						for (let term of terms) {
+							try {
+								const res = await ctx.api.search(term);
+								const list = res.data.Page.media || [];
+
+								if (list.length > 0 && !App.state.candidate) {
+									App.state.candidate = list[0];
+								}
+
+								const match = list.find((media) => {
+									return (
+										ctx.utils.isDateCloseEnough(dateJP.obj, media.startDate) ||
+										ctx.utils.isDateCloseEnough(dateTW.obj, media.startDate)
+									);
+								});
+
+								if (match) return match;
+							} catch (e) {
+								Log.warn(`[AutoBind] NameSearch Error (${term}):`, e);
+							}
+						}
+						return null;
+					},
+				},
+				// 2.當名字搜不到時，改搜前後幾天開播的所有動畫，再比對官網網域
+				{
+					name: "DateRangeDomainSearch",
+					execute: async (ctx) => {
+						const { dateJP, dateTW, site } = ctx.data;
+						if (!site) return null;
+
+						const range = ctx.utils.getFuzzyDateRange(
+							dateJP.obj || dateTW.obj,
+							CONSTANTS.SEARCH_RANGE_DAYS,
 						);
-					});
-				} catch (e) {
-					Log.warn("AutoBind Search Error:", e);
-				}
-				if (match) break;
-			}
-			if (!match && site) {
-				const range = Utils.getFuzzyDateRange(
-					dateJP.obj || dateTW.obj,
-					CONSTANTS.SEARCH_RANGE_DAYS,
-				);
-				if (range) {
-					try {
-						const res = await AniListAPI.searchByDateRange(
-							range.start,
-							range.end,
-						);
-						const list = res.data.Page.media || [];
-						match = list.find((media) => {
-							const domainMatch = media.externalLinks?.some((l) =>
-								Utils.extractDomain(l.url)?.includes(site),
+
+						if (!range) return null;
+
+						try {
+							const res = await ctx.api.searchByDateRange(
+								range.start,
+								range.end,
 							);
-							const dateMatch =
-								Utils.isDateCloseEnough(dateJP.obj, media.startDate) ||
-								Utils.isDateCloseEnough(dateTW.obj, media.startDate);
-							return domainMatch && dateMatch;
-						});
-					} catch (e) {
-						Log.warn("AutoBind Range Error:", e);
-					}
+							const list = res.data.Page.media || [];
+
+							return list.find((media) => {
+								const domainMatch = media.externalLinks?.some((l) =>
+									ctx.utils.extractDomain(l.url)?.includes(site),
+								);
+								// 雙重確認：網域對了，日期也要大致對
+								const dateMatch =
+									ctx.utils.isDateCloseEnough(dateJP.obj, media.startDate) ||
+									ctx.utils.isDateCloseEnough(dateTW.obj, media.startDate);
+								return domainMatch && dateMatch;
+							});
+						} catch (e) {
+							Log.warn("[AutoBind] DateRangeSearch Error:", e);
+							return null;
+						}
+					},
+				},
+			];
+
+			let match = null;
+			for (const strategy of strategies) {
+				Log.info(`Executing AutoBind Strategy: ${strategy.name}`);
+				match = await strategy.execute(context);
+				if (match) {
+					Log.info(
+						`[AutoBind] Matched by ${strategy.name}:`,
+						match.title.native,
+					);
+					break;
 				}
 			}
+
 			if (match) {
 				await this.bindSeries(
 					match.id,
