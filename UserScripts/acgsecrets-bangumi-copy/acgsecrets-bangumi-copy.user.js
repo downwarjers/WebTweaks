@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        ACGSecrets Bangumi 分類抓取
 // @namespace   https://github.com/downwarjers/WebTweaks
-// @version     2.3.3
+// @version     2.3.4
 // @description 針對 ACGSecrets.hk 網站，依據作品標籤（如「續作」、「新作」、「家長指引」）與名稱規則（正則表達式判斷季數、篇章），將新番列表自動分類為八大類。在頁面右下角提供「複製分類結果」與「下載 txt」按鈕。
 // @author      downwarjers
 // @license     MIT
@@ -39,8 +39,8 @@
   // 輔助函式：判斷名稱是否符合續作/特別篇模式
   function isContentSequelOrArc(name) {
     return (
-      contentSequelPatterns.some((p) => p.test(name))
-      || contentArcPatterns.some((p) => p.test(name))
+      contentSequelPatterns.some((p) => p.test(name)) ||
+      contentArcPatterns.some((p) => p.test(name))
     );
   }
 

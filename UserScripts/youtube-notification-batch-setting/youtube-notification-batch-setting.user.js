@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube - Advanced Batch Channel Notifier (Dynamic Scroll)
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.2.2
+// @version      2.2.3
 // @description  在 YouTube 訂閱內容管理頁面新增控制面板，可批次將所有頻道的通知鈴鐺設定為「全部」、「個人化」或「無」。支援動態滾動載入 (Dynamic Scroll)，可自動處理長列表的訂閱頻道。
 // @author       downwarjers
 // @license      MIT
@@ -83,7 +83,9 @@
             const channelName =
               channel.querySelector('#channel-title')?.textContent.trim() || '未知頻道';
             updateStatus(
-              `[${globalStats.processed + globalStats.skipped + 1}/${globalStats.totalFound}] 處理中: ${channelName}`,
+              `[${globalStats.processed + globalStats.skipped + 1}/${
+                globalStats.totalFound
+              }] 處理中: ${channelName}`,
             );
 
             // 標記為已處理

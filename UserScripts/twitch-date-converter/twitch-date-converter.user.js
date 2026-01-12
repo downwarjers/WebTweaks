@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Twitch 精確日期轉換器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.6.1
+// @version      1.6.2
 // @description  將 Twitch 影片/剪輯列表上的相對時間（如「2小時前」、「3天前」）替換為精確的日期格式（yyyy-MM-dd）。直接讀取縮圖元素中的 `title` 屬性（原始時間戳），確保日期準確。
 // @author       downwarjers
 // @license      MIT
@@ -67,10 +67,10 @@
 
     // 2. 排除 "觀看次數" 與時間長度 (含冒號)
     if (
-      lowerText.includes('觀看')
-      || lowerText.includes('view')
-      || lowerText.includes('visualizaç')
-      || text.includes(':')
+      lowerText.includes('觀看') ||
+      lowerText.includes('view') ||
+      lowerText.includes('visualizaç') ||
+      text.includes(':')
     ) {
       return false;
     }

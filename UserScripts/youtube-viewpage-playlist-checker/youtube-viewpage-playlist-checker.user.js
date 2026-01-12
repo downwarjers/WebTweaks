@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 影片頁面播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      29.9
+// @version      29.10
 // @description  在 YouTube 影片頁面顯示當前影片是否已加入使用者的任何自訂播放清單。透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
 // @author       downwarjers
 // @license      MIT
@@ -140,10 +140,10 @@
 
     for (let k in obj) {
       if (
-        k === 'secondaryResults'
-        || k === 'frameworkUpdates'
-        || k === 'loggingContext'
-        || k === 'playerOverlays'
+        k === 'secondaryResults' ||
+        k === 'frameworkUpdates' ||
+        k === 'loggingContext' ||
+        k === 'playerOverlays'
       )
         continue;
       const result = findButtonByText(obj[k], targetTexts, visited);
@@ -221,9 +221,9 @@
               btn.buttonRenderer?.icon?.iconType || btn.flexibleActionsViewModel?.iconName;
             if (icon === 'PLAYLIST_ADD' || icon === 'SAVE') {
               let ep =
-                btn.buttonRenderer?.serviceEndpoint
-                || btn.buttonRenderer?.command
-                || btn.flexibleActionsViewModel?.onTap?.command;
+                btn.buttonRenderer?.serviceEndpoint ||
+                btn.buttonRenderer?.command ||
+                btn.flexibleActionsViewModel?.onTap?.command;
               if (ep) {
                 if (ep.addToPlaylistServiceEndpoint)
                   params = ep.addToPlaylistServiceEndpoint.params;
@@ -290,7 +290,9 @@
 
       const html =
         added.length > 0
-          ? `✅ 本影片已存在於：<span style="color: #4af; font-weight:bold;">${added.join('、 ')}</span>`
+          ? `✅ 本影片已存在於：<span style="color: #4af; font-weight:bold;">${added.join(
+              '、 ',
+            )}</span>`
           : `⚪ 未加入任何自訂清單`;
 
       showStatus(html, '');

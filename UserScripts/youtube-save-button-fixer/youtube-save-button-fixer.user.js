@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 影片儲存按鈕強制顯示
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.2
+// @version      2.3
 // @description  強制在 YouTube 影片操作列顯示「儲存」（加入播放清單）按鈕。當視窗縮放導致按鈕被收入「...」選單時，自動複製並生成一個獨立的按鈕置於操作列上。
 // @author       downwarjers
 // @license      MIT
@@ -81,9 +81,9 @@
           if (item.innerText && item.innerText.trim() === text) {
             clearInterval(timer);
             resolve(
-              item.closest('ytd-menu-service-item-renderer')
-                || item.closest('tp-yt-paper-item')
-                || item,
+              item.closest('ytd-menu-service-item-renderer') ||
+                item.closest('tp-yt-paper-item') ||
+                item,
             );
             return;
           }
@@ -113,8 +113,8 @@
     clonedBtn.setAttribute('aria-label', MY_BTN_LABEL);
 
     const iconContainer =
-      clonedBtn.querySelector('.yt-spec-button-shape-next__icon')
-      || clonedBtn.querySelector('yt-icon');
+      clonedBtn.querySelector('.yt-spec-button-shape-next__icon') ||
+      clonedBtn.querySelector('yt-icon');
     if (iconContainer) {
       iconContainer.innerHTML = `
                 <svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" class="style-scope yt-icon" style="pointer-events: none; display: block; width: 100%; height: 100%;">
@@ -123,8 +123,8 @@
     }
 
     const textContainer =
-      clonedBtn.querySelector('.yt-spec-button-shape-next__button-text-content')
-      || clonedBtn.querySelector('div[class*="text-content"]');
+      clonedBtn.querySelector('.yt-spec-button-shape-next__button-text-content') ||
+      clonedBtn.querySelector('div[class*="text-content"]');
     if (textContainer) {
       textContainer.innerText = MY_BTN_LABEL;
     }

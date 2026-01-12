@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         電子發票平台 - 年度發票儀表板
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.2
+// @version      3.3
 // @description  自動查詢近 7 個月區間發票
 // @author       downwarjers
 // @license      MIT
@@ -306,7 +306,9 @@
     };
 
     log(
-      `範圍: ${ranges[0].y}/${ranges[0].m} (最新) ~ ${ranges[ranges.length - 1].y}/${ranges[ranges.length - 1].m} (最舊)`,
+      `範圍: ${ranges[0].y}/${ranges[0].m} (最新) ~ ${ranges[ranges.length - 1].y}/${
+        ranges[ranges.length - 1].m
+      } (最舊)`,
     );
 
     for (let i = 0; i < ranges.length; i++) {
@@ -391,10 +393,10 @@
         log(`❌ ${range.m}月 失敗: ${e.message}`);
 
         if (
-          e.message.includes('Session')
-          || e.message.includes('HTTP 401')
-          || e.message.includes('HTTP 403')
-          || e.message.includes('<html')
+          e.message.includes('Session') ||
+          e.message.includes('HTTP 401') ||
+          e.message.includes('HTTP 403') ||
+          e.message.includes('<html')
         ) {
           isErrorStop = true;
           alert(

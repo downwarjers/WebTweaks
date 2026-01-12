@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Game8 馬娘支援卡評價與持有整合面板
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.6.8
+// @version      2.6.9
 // @description   整合Game8馬娘攻略網的支援卡評價顯示與持有率管理。核心功能包括：自動背景抓取評價資料、CSV匯入匯出、以及優化的「資料庫/畫面」同步邏輯
 // @author       downwarjers
 // @license      MIT
@@ -248,7 +248,10 @@
   function updateTimeDisplay() {
     if (window.LAST_UPDATE > 0) {
       const d = new Date(window.LAST_UPDATE);
-      const timeStr = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+      const timeStr = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${d
+        .getHours()
+        .toString()
+        .padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
       timeDisplay.innerText = `最後紀錄時間: ${timeStr}`;
     } else {
       timeDisplay.innerText = '尚未有紀錄';
@@ -288,7 +291,9 @@
 
       tr.innerHTML = `
                 <td><img src="${data.img}" class="g8-thumb"></td>
-                <td class="text-left" style="color:#4FC3F7; font-weight:bold;">${data.cardTitle}</td>
+                <td class="text-left" style="color:#4FC3F7; font-weight:bold;">${
+                  data.cardTitle
+                }</td>
                 <td class="text-left">${data.charName}</td>
                 <td id="o-${key}">${ownedHtml}</td>
                 <td class="possess-cell" id="p-${key}">${limitBreakHtml}</td>

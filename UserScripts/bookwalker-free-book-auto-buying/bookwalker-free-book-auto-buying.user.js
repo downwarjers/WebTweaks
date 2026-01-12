@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BOOKWALKER 跨頁面批量加入購物車 (自動過濾已購/已在購物車) - 全自動靜默結帳版
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.33.3
+// @version      2.33.4
 // @description  自動化處理 BookWalker 免費書籍領取。支援跨頁面批量將書籍加入購物車，自動過濾已購買書籍。包含「全自動靜默結帳」功能，遇到購物車滿額（200本）時會自動觸發結帳流程，並在完成後返回原頁面繼續執行。
 // @author       downwarjers
 // @license      MIT
@@ -174,8 +174,8 @@
       let successCount = 0;
       for (const element of bookElements) {
         if (
-          localStorage.getItem(BATCH_MODE_KEY) !== 'true'
-          || localStorage.getItem(TAB_LOCK_KEY) !== CURRENT_TAB_ID
+          localStorage.getItem(BATCH_MODE_KEY) !== 'true' ||
+          localStorage.getItem(TAB_LOCK_KEY) !== CURRENT_TAB_ID
         ) {
           return;
         }
@@ -210,8 +210,8 @@
   function handleNextPage(current_page_added_count) {
     if (!window.jQuery) return;
     if (
-      localStorage.getItem(CHECKOUT_MODE_KEY) === 'true'
-      || localStorage.getItem(TAB_LOCK_KEY) !== CURRENT_TAB_ID
+      localStorage.getItem(CHECKOUT_MODE_KEY) === 'true' ||
+      localStorage.getItem(TAB_LOCK_KEY) !== CURRENT_TAB_ID
     ) {
       return;
     }

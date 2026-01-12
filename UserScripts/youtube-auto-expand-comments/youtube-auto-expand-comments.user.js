@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 自動展開所有留言
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.9.1
+// @version      3.9.2
 // @description  自動展開 YouTube 留言。已修復畫面亂跳及無限展開隱藏的迴圈問題。
 // @author       downwarjers
 // @license      MIT
@@ -85,12 +85,12 @@
 
     // 白名單關鍵字
     return (
-      text.includes('查看')
-      || text.includes('view')
-      || text.includes('更多')
-      || text.includes('more')
-      || text.includes('replies')
-      || (text.includes('回覆') && /\d/.test(text)) // 例如 "5 則回覆"
+      text.includes('查看') ||
+      text.includes('view') ||
+      text.includes('更多') ||
+      text.includes('more') ||
+      text.includes('replies') ||
+      (text.includes('回覆') && /\d/.test(text)) // 例如 "5 則回覆"
     );
   }
 
@@ -325,8 +325,8 @@
     if (document.getElementById('yt-expand-comments-wrapper')) return;
 
     const targetContainer =
-      document.querySelector('ytd-comments-header-renderer #title')
-      || document.querySelector('ytd-comments-header-renderer #additional-section');
+      document.querySelector('ytd-comments-header-renderer #title') ||
+      document.querySelector('ytd-comments-header-renderer #additional-section');
 
     if (targetContainer) {
       const wrapper = document.createElement('div');

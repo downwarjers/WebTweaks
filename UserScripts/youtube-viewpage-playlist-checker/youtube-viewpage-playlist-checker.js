@@ -97,9 +97,9 @@ async function checkPlaylistsInBackground() {
           const icon = btn.buttonRenderer?.icon?.iconType || btn.flexibleActionsViewModel?.iconName;
           if (icon === 'PLAYLIST_ADD' || icon === 'SAVE') {
             let ep =
-              btn.buttonRenderer?.serviceEndpoint
-              || btn.buttonRenderer?.command
-              || btn.flexibleActionsViewModel?.onTap?.command;
+              btn.buttonRenderer?.serviceEndpoint ||
+              btn.buttonRenderer?.command ||
+              btn.flexibleActionsViewModel?.onTap?.command;
             if (ep) {
               if (ep.addToPlaylistServiceEndpoint) params = ep.addToPlaylistServiceEndpoint.params;
               else if (ep.showSheetCommand)

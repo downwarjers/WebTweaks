@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Auto Mobile→Desktop Redirect (Enhanced)
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.1.4
+// @version      1.1.5
 // @description  當訪問手機版網頁（如 `m.`, `mobile.` 開頭或包含 `/mobile/` 路徑）時，自動嘗試跳轉回桌面版網址。內建防無限迴圈機制（檢查 Referrer 與 SessionStorage 計數），避免在只有手機版的網站上卡死。
 // @author       downwarjers
 // @license      MIT
@@ -75,8 +75,8 @@
     // 如果來源網址包含了我們要跳轉的目標網址 (例如從 www 被踢回 m)，則停止跳轉
     // 這解決了 "只有手機版網站" 或 "強制手機版" 造成的無窮迴圈
     if (
-      document.referrer
-      && (newUrl.includes(document.referrer) || document.referrer.includes(newUrl))
+      document.referrer &&
+      (newUrl.includes(document.referrer) || document.referrer.includes(newUrl))
     ) {
       console.warn(`PROG: 偵測到被伺服器踢回 (來源: ${document.referrer})，停止跳轉。`);
       // 既然被踢回來，代表這次 session 也不用再試了，直接把計數器填滿
