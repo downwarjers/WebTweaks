@@ -228,7 +228,7 @@
 		1. Navigation Bar (導覽列)
 		整合到巴哈姆特網頁頂部的按鈕與狀態顯示
 		========================================= */
-		.al-nav-item { margin-left: 10px; padding-left: 10px; border-left: 1px solid #555; display: inline-flex; height: 100%; vertical-align: middle; }
+		.al-nav-item { margin-left: 3px; padding-left: 3px; border-left: none; display: inline-flex; height: 100%; vertical-align: middle; }
 		.al-nav-link { color: #ccc; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; text-decoration: none !important; transition: 0.2s; }
 		.al-nav-link:hover { color: #fff; }
 		.al-nav-title { color: #888; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
