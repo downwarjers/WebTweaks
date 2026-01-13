@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bahamut Anime to AniList Sync
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      6.5.1
+// @version      6.5
 // @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @author       downwarjers
 // @license      MIT
@@ -269,8 +269,13 @@
     UPDATE_STATUS: `mutation ($id:Int,$status:MediaListStatus){SaveMediaListEntry(mediaId:$id,status:$status){id progress status}}`,
     SEQUEL_CHAIN: (fields) => `
             query ($id: Int) {
-                Media(id: $id) { ${fields} relations { edges { relationType(version: 2) node { ${fields} relations { edges { relationType(version: 2) node { ${fields} relations { edges { relationType(version: 2) node { ${fields} } } } } } } } } } } }
-        `,
+                Media(id: $id) { ${fields} relations { edges { relationType(version: 2) node { ${fields} relations { edges { relationType(version: 2) node { ${fields} relations { edges { relationType(version: 2) node { ${fields} } } } } } } } } } } }`,
+    GET_MEDIA_AND_STATUS: `query ($id: Int) {
+        Media(id: $id) {
+            id title { romaji native } coverImage { medium } episodes seasonYear startDate { year month day } format
+            mediaListEntry { status progress id }
+        }
+    }`,
   };
 
   // ================= [Styles] CSS =================
@@ -483,7 +488,7 @@
     async request(query, variables, retryCount = 0) {
       const token = this.getToken();
       if (!token && !query.includes('search')) throw new Error('Token 未設定');
-
+      console.log('AniListAPI:' + query);
       // Log: 如果是重試，顯示警告顏色
       if (retryCount > 0) {
         Log.warn(`API 重試中 (${retryCount}/${CONSTANTS.API_MAX_RETRIES})...`);
@@ -620,6 +625,8 @@
     search: (term) => AniListAPI.request(GQL.SEARCH, { s: term }),
     searchByDateRange: (start, end) => AniListAPI.request(GQL.SEARCH_RANGE, { start, end }),
     getMedia: (id) => AniListAPI.request(GQL.GET_MEDIA, { id }).then((d) => d.data.Media),
+    getMediaAndStatus: (id) =>
+      AniListAPI.request(GQL.GET_MEDIA_AND_STATUS, { id }).then((d) => d.data.Media),
     getUserStatus: (id) =>
       AniListAPI.request(GQL.GET_USER_STATUS, { id }).then((d) => d.data.Media.mediaListEntry),
     updateUserProgress: (id, p) =>
@@ -764,29 +771,49 @@
     },
     homeBound: (rule, info, statusData, statusOptions) => `
       <div style="padding:15px;">
-        <div class="al-result-item" style="background:var(--al-bg-sec); border:1px solid var(--al-border-color); border-radius:5px; align-items:flex-start;">
-          <a href="https://anilist.co/anime/${rule.id}" target="_blank">
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-weight:bold; color:var(--al-text-label); font-size:13px;">作品資料:</label>
+            <button id="btn-refresh-data" class="al-bind-btn" style="padding:2px 8px; font-size:12px; background:var(--al-hover-bg); color:var(--al-text-muted); border:1px solid var(--al-border-color);" title="強制重新整理">
+              🔄 刷新
+            </button>
+        </div>
+
+        <div class="al-result-item" style="background:var(--al-bg-sec); border:1px solid var(--al-border-color); border-radius:5px; align-items:stretch;">
+          <a href="https://anilist.co/anime/${rule.id}" target="_blank" style="flex-shrink:0;">
             <img src="${info.coverImage.medium}" 
-              style="width:70px;height:100px;object-fit:cover;border-radius:4px;">
+              style="width:80px;height:110px;object-fit:cover;border-radius:4px;display:block;">
           </a>
-          <div style="flex:1;">
-            <a href="https://anilist.co/anime/${rule.id}" 
-              target="_blank" class="al-link" style="font-size:16px; display:block; margin-bottom:5px;">
-              ${rule.title}</a>
-              
-            <div style="font-size:12px;color:var(--al-text-muted);line-height:1.5;">
-              <div>ID: ${rule.id}</div>
-              <div>${info.title.native}</div>
-              <div>${Utils.formatDate(info.startDate) || '-'} | ${info.format}</div>
-              <div style="margin-top:5px; color:#4caf50; font-weight:bold;">AniList 進度: 
-                ${statusData?.progress || 0} / ${info.episodes || '?'}</div>
+
+          <div style="flex:1; display:flex; flex-direction:column; justify-content:space-between; overflow:hidden; padding-left:5px;">
+            
+            <div>
+                <a href="https://anilist.co/anime/${rule.id}" 
+                  target="_blank" class="al-link" style="font-size:15px; font-weight:bold; line-height:1.3; display:block; margin-bottom:4px;">
+                  ${rule.title}
+                </a>
+                
+                <div style="font-size:12px;color:var(--al-text-muted); line-height:1.4;">
+                  <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${
+                    info.title.romaji
+                  }</div>
+                  <div>ID: ${rule.id} | ${info.format}</div>
+                  <div>開播: ${Utils.formatDate(info.startDate) || '-'}</div>
+                </div>
             </div>
+
+            <div style="border-top:1px dashed var(--al-border-color); padding-top:6px; margin-top:6px; color:#4caf50; font-weight:bold; font-size:13px;">
+               AniList 進度: ${statusData?.progress || 0} / ${info.episodes || '?'}
+            </div>
+
           </div>
         </div>
+
         <div style="margin-top:15px;">
           <label style="font-weight:bold;color:var(--al-text-label);font-size:13px;">切換狀態:</label>
           <select id="home-status" class="al-input" style="margin-top:5px;">${statusOptions}</select>
         </div>
+
         <div style="margin-top:15px; border-top:1px solid var(--al-border-color); padding-top:15px;">
           <label style="font-weight:bold;color:var(--al-text-label);font-size:13px;">手動修改 ID:</label>
           <div style="display:flex; gap:10px; margin-top:5px;">
@@ -794,6 +821,7 @@
             <button id="home-save-id" class="al-bind-btn" style="background:#555;">更新</button>
           </div>
         </div>
+
         <button id="btn-unbind" class="al-btn-grey">解除所有綁定</button>
       </div>
     `,
@@ -1134,10 +1162,19 @@
       container.innerHTML = '<div style="padding:20px;">讀取中...</div>';
       const rule = App.state.activeRule;
       try {
-        const [info, statusData] = await Promise.all([
-          AniListAPI.getMedia(rule.id),
-          AniListAPI.getUserStatus(rule.id),
-        ]);
+        let info, statusData;
+
+        if (App.state.cachedMediaInfo && App.state.cachedMediaInfo.id === rule.id) {
+          Log.info('UI using cached data');
+          info = App.state.cachedMediaInfo;
+          statusData = info.mediaListEntry;
+        } else {
+          info = await AniListAPI.getMediaAndStatus(rule.id);
+          statusData = info.mediaListEntry;
+          // 更新快取
+          App.state.cachedMediaInfo = info;
+        }
+
         App.state.userStatus = statusData;
         UI.updateNav(CONSTANTS.STATUS.BOUND);
 
@@ -1163,6 +1200,9 @@
           try {
             const newS = await AniListAPI.updateUserStatus(rule.id, s);
             App.state.userStatus = newS;
+            if (App.state.cachedMediaInfo && App.state.cachedMediaInfo.id === rule.id) {
+              App.state.cachedMediaInfo.mediaListEntry = newS;
+            }
             Utils.showToast('✅ 狀態已更新');
             UI.loadTabContent('home');
           } catch (e) {
@@ -1181,6 +1221,11 @@
             GM_deleteValue(`${CONSTANTS.STORAGE_PREFIX}${App.state.bahaSn}`);
             location.reload();
           }
+        });
+
+        _.$('#btn-refresh-data', container)?.addEventListener('click', function () {
+          App.state.cachedMediaInfo = null;
+          UI.loadTabContent('home');
         });
       } catch (e) {
         container.innerHTML = `<div style="padding:20px; color:red;">Error: ${e.message}</div>`;
@@ -1236,7 +1281,14 @@
         return;
       }
       try {
-        const chain = await AniListAPI.getSequelChain(baseId);
+        let chain;
+        if (App.state.cachedSeriesChain && App.state.cachedSeriesBaseId === baseId) {
+          chain = App.state.cachedSeriesChain;
+        } else {
+          chain = await AniListAPI.getSequelChain(baseId);
+          App.state.cachedSeriesChain = chain;
+          App.state.cachedSeriesBaseId = baseId;
+        }
         const maxPageEp = EpisodeCalculator.getMax();
         chain.forEach((media, index) => {
           if (index === 0) media.suggestedStart = 1;
@@ -1272,24 +1324,30 @@
           );
         });
         container.innerHTML = `
-					<div style="padding:15px;">
-						<table class="al-map-table">
-							<thead>
-								<tr>
-									<th style="width:80px; text-align:center;">狀態</th>
-									<th>作品</th>
-									<th style="width:60px; text-align:center; white-space:nowrap;">總集數</th>
-									<th style="width:70px; text-align:center; white-space:nowrap;">巴哈對應<br>集數起始</th>
-									<th style="width:20px;"></th>
-									<th style="width:70px; text-align:center; white-space:nowrap;">AniList對應<br>集數起始</th>
-									<th style="width:70px; text-align:center;">操作</th>
-								</tr>
-							</thead>
-							<tbody>${rowsHtml}</tbody>
-						</table>
-						<button id="save-series" class="al-bind-btn" style="width:100%;margin-top:15px;padding:10px;">儲存系列設定</button>
-					</div>
-				`;
+            <div style="padding:15px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <span style="font-weight:bold; color:var(--al-text-label);">系列作設定</span>
+                    <button id="btn-refresh-series" class="al-bind-btn" style="flex-shrink:0; padding:4px 8px; font-size:12px; background:var(--al-hover-bg); color:var(--al-text-muted); border:1px solid var(--al-border-color);" title="強制重新抓取系列清單">
+                      🔄 刷新
+                    </button>
+                </div>
+                <table class="al-map-table">
+                    <thead>
+                        <tr>
+                            <th style="width:80px; text-align:center;">狀態</th>
+                            <th>作品</th>
+                            <th style="width:60px; text-align:center; white-space:nowrap;">總集數</th>
+                            <th style="width:70px; text-align:center; white-space:nowrap;">巴哈對應<br>集數起始</th>
+                            <th style="width:20px;"></th>
+                            <th style="width:70px; text-align:center; white-space:nowrap;">AniList對應<br>集數起始</th>
+                            <th style="width:70px; text-align:center;">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+                <button id="save-series" class="al-bind-btn" style="width:100%;margin-top:15px;padding:10px;">儲存系列設定</button>
+            </div>
+        `;
 
         const updateRow = (row, active, val) => {
           const btn = _.$('.btn-toggle', row);
@@ -1336,6 +1394,11 @@
           });
         });
 
+        _.$('#btn-refresh-series', container).addEventListener('click', async function () {
+          App.state.cachedSeriesChain = null;
+          UI.renderSeries(container);
+        });
+
         _.$('#save-series', container).addEventListener('click', () => {
           const newRules = [];
           _.$$('.series-row', container).forEach((row) => {
@@ -1372,21 +1435,31 @@
   // ================= [App] 主程式控制器 =================
   const App = {
     state: {
-      token: AniListAPI.getToken(),
-      rules: [],
-      activeRule: null,
-      userStatus: null,
-      bahaSn: null,
-      bahaData: null,
-      candidate: null,
-      currentUrlSn: null,
-      hasSynced: false,
-      isHunting: false,
-      stopSync: false,
-      tokenErrorCount: 0,
-      syncSettings: {},
-      huntTimer: null,
-      lastTimeUpdate: 0,
+      // --- 1. 基礎設定與認證 ---
+      token: AniListAPI.getToken(), // AniList Access Token
+      syncSettings: {}, // 同步設定 (觸發模式、自訂秒數)
+      tokenErrorCount: 0, // Token 錯誤計數 (連續錯誤則停止同步)
+
+      // --- 2. 作品與綁定資料 ---
+      bahaSn: null, // 巴哈姆特作品 SN (系列 ID)
+      bahaData: null, // 巴哈姆特頁面爬蟲取得的資料 (標題、日期等)
+      rules: [], // 系列作對應規則列表 (Baha集數 -> AniList ID)
+      activeRule: null, // 目前集數適用的對應規則
+      candidate: null, // 自動搜尋到的候選 AniList 作品 (未綁定時用)
+      userStatus: null, // 使用者在 AniList 上的觀看進度與狀態
+
+      // --- 3. 執行狀態與計時器 ---
+      currentUrlSn: null, // 目前網址上的 SN (單集 ID)，用於偵測換集
+      hasSynced: false, // 本集是否已執行過同步 (防止重複發送)
+      isHunting: false, // 是否正在搜尋播放器元素 (<video>)
+      stopSync: false, // 全域停止同步開關 (發生嚴重錯誤或頻繁請求時)
+      huntTimer: null, // 搜尋播放器的 setInterval ID
+      lastTimeUpdate: 0, // 上次處理 timeupdate 事件的時間戳
+
+      // --- 4. API 資料快取 (Cache) ---
+      cachedMediaInfo: null, // [主頁快取] 作品詳細資訊 + 使用者狀態 (合併查詢結果)
+      cachedSeriesChain: null, // [系列頁快取] 系列作關聯列表 (Sequel Chain)
+      cachedSeriesBaseId: null, // [系列頁快取識別] 記錄目前的系列快取是基於哪個 ID 查詢的
     },
     init() {
       Utils.validatePage(); //檢查CSS選擇器
@@ -1482,8 +1555,13 @@
 
       if (this.state.activeRule && this.state.token) {
         try {
-          const status = await AniListAPI.getUserStatus(this.state.activeRule.id);
-          this.state.userStatus = status;
+          const data = await AniListAPI.getMediaAndStatus(this.state.activeRule.id);
+          if (data.mediaListEntry) {
+            this.state.userStatus = data.mediaListEntry;
+          } else {
+            this.state.userStatus = null;
+          }
+          this.state.cachedMediaInfo = data;
           this.updateUIStatus();
         } catch (e) {
           Log.error('Fetch status error:', e);
@@ -1556,15 +1634,25 @@
       Log.info(`Syncing progress: Ep.${progress} for media ${rule.id}`);
 
       try {
-        const mediaInfo = await AniListAPI.getMedia(rule.id);
-        const maxEp = mediaInfo.episodes;
+        let data;
+
+        // 1. 優先從快取讀取資料
+        if (this.state.cachedMediaInfo && this.state.cachedMediaInfo.id === rule.id) {
+          data = this.state.cachedMediaInfo;
+          Log.info('Sync using cached data');
+        } else {
+          // 2. 萬一沒有快取 (極少見)，才發送合併請求
+          data = await AniListAPI.getMediaAndStatus(rule.id);
+          this.state.cachedMediaInfo = data;
+        }
+
+        const maxEp = data.episodes;
+        const checkData = data.mediaListEntry; // 從合併資料中取得狀態
 
         if (maxEp && progress > maxEp) {
           Log.info(`Progress clamped from ${progress} to ${maxEp}`);
           progress = maxEp;
         }
-
-        const checkData = await AniListAPI.getUserStatus(rule.id);
 
         if (
           checkData?.status === CONSTANTS.ANI_STATUS.COMPLETED.value &&
@@ -1581,7 +1669,9 @@
         }
 
         let result = await AniListAPI.updateUserProgress(rule.id, progress);
-
+        if (this.state.cachedMediaInfo) {
+          this.state.cachedMediaInfo.mediaListEntry = result;
+        }
         this.state.userStatus = result;
 
         if (maxEp && progress === maxEp && result.status !== CONSTANTS.ANI_STATUS.COMPLETED.value) {
