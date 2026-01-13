@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bahamut Anime to AniList Sync
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      6.4
+// @version      6.5
 // @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @author       downwarjers
 // @license      MIT
@@ -36,6 +36,10 @@
     STORAGE_PREFIX: 'baha_acg_', // 本地儲存 (Local Storage) 的 key 前綴
     SYNC_ON_BIND: false, // 綁定後是否立即同步
 
+    URLS: {
+      VIDEO_PAGE: 'animeVideo.php', // 用於判斷是否在播放頁
+    },
+
     // --- API 連線重試機制 ---
     API_MAX_RETRIES: 5, // API連線失敗時的最大重試次數
     RETRY_DELAY_MS: 3000, // 重試前的等待時間 (毫秒)
@@ -51,13 +55,20 @@
     // --- DOM 元素選擇器 (Selectors) ---
     // 巴哈姆特資訊
     SELECTORS: {
-      infoTitle: '.ACG-info-container > h2', // 作品標題
-      infoList: '.ACG-box1listA > li', // 作品資訊列表
-      seasonList: '.season ul li', // 動畫瘋播放頁下方的集數列表
-      playing: '.playing', // 正在播放的 CSS class
-      acgLink: 'a[href*="acgDetail.php"]', // 作品資料頁的連結
-      acgLinkAlt: 'a', // 備用選擇器 (用於 contains 文字搜尋)
-      videoElement: 'video', // 網頁上的影片播放器元素 (<video>)
+      // 當前頁面頁面操作
+      PAGE: {
+        seasonList: '.season ul li', // 動畫瘋播放頁下方的集數列表
+        seasonUl: '.season ul', // 動畫瘋播放頁下方的全部列表
+        playing: '.playing', // 正在播放的 CSS class
+        acgLink: 'a[href*="acgDetail.php"]', // 作品資料頁的連結
+        acgLinkAlt: 'a', // 備用選擇器 (用於 contains 文字搜尋)
+        videoElement: 'video', // 網頁上的影片播放器元素 (<video>)
+      },
+      // 背景爬蟲
+      PARSER: {
+        infoTitle: '.ACG-info-container > h2', // 作品標題
+        infoList: '.ACG-box1listA > li', // 作品資訊列表
+      },
     },
 
     // --- 狀態代碼 (Status Codes) ---
@@ -73,13 +84,6 @@
     },
 
     // --- 同步模式選項 (Sync Modes) ---
-    // SYNC_MODES: {
-    //   INSTANT: 'instant', // 即時同步：播放 5 秒後就送出進度
-    //   TWO_MIN: '2min', // 觀看確認：播放 2 分鐘後才同步
-    //   EIGHTY_PCT: '80pct', // 快看完時：影片進度達 80% 才同步
-    //   CUSTOM: 'custom', // 自訂時間：依照使用者設定的秒數同步
-    // },
-
     SYNC_MODES: {
       INSTANT: { value: 'instant', label: '🚀 即時同步 (播放 5 秒後)' },
       TWO_MIN: { value: '2min', label: '⏳ 觀看確認 (播放 2 分鐘後)' },
@@ -216,22 +220,41 @@
         setTimeout(() => t.remove(), 300);
       }, 2500);
     },
-    validateSelectors() {
-      Log.group('🔍 Selector 健康度檢查');
+    // 選擇器檢查
+    _validateGroup(scope, selectors, groupName) {
+      Log.group(`🔍 Selector 檢查: ${groupName}`);
       let allGood = true;
-      for (const [key, selector] of Object.entries(CONSTANTS.SELECTORS)) {
-        const el = document.querySelector(selector);
+
+      for (const [key, selector] of Object.entries(selectors)) {
+        // 例外處理：playing 是動態 class，初始檢查時可能不存在，標記為警告但不算錯誤
+        if (key === 'playing') continue;
+
+        const el = scope.querySelector(selector);
         if (el) {
           Log.info(`✅ ${key}`, `(${selector})`, el);
         } else {
           Log.warn(`⚠️ MISSING ${key}`, `Selector: ${selector}`);
-          if (key !== 'playing') allGood = false;
+          allGood = false;
         }
       }
+
       if (!allGood) {
-        Log.error('部分關鍵元素未找到，若巴哈改版，請檢查 SELECTORS 設定。');
+        Log.warn(`⚠️ ${groupName} 結構檢查發現缺失，可能影響功能。`);
+      } else {
+        Log.info(`✅ ${groupName} 結構健康。`);
       }
       Log.groupEnd();
+      return allGood;
+    },
+
+    // 檢查當前頁面
+    validatePage() {
+      return this._validateGroup(document, CONSTANTS.SELECTORS.PAGE, 'Page (UI)');
+    },
+
+    // 檢查背景解析
+    validateParser(doc) {
+      return this._validateGroup(doc, CONSTANTS.SELECTORS.PARSER, 'Parser (Data)');
     },
   };
 
@@ -432,19 +455,19 @@
     getCurrent() {
       const urlParams = new URLSearchParams(location.search);
       const currentSn = urlParams.get('sn');
-      let anchor = _.$(`.season ul li a[href*="sn=${currentSn}"]`);
+      let anchor = _.$(`${CONSTANTS.SELECTORS.PAGE.seasonList} a[href*="sn=${currentSn}"]`);
       let targetLi = anchor ? anchor.closest('li') : null;
       if (!targetLi) {
-        targetLi = _.$(`${CONSTANTS.SELECTORS.seasonList}${CONSTANTS.SELECTORS.playing}`);
+        targetLi = _.$(`${CONSTANTS.SELECTORS.PAGE.seasonList}${CONSTANTS.SELECTORS.PAGE.playing}`);
       }
       if (!targetLi) {
-        return location.href.includes('animeVideo.php') ? 1 : null;
+        return location.href.includes(CONSTANTS.URLS.VIDEO_PAGE) ? 1 : null;
       }
       return this.calculateFromList(targetLi.closest('ul'), targetLi);
     },
     getMax() {
-      const seasonUls = _.$$('.season ul');
-      if (seasonUls.length === 0) return location.href.includes('animeVideo.php') ? 1 : 0;
+      const seasonUls = _.$$(CONSTANTS.SELECTORS.PAGE.seasonUl);
+      if (seasonUls.length === 0) return location.href.includes(CONSTANTS.URLS.VIDEO_PAGE) ? 1 : 0;
       let maxEp = 0;
       seasonUls.forEach((ul) => {
         const listEp = EpisodeCalculator.calculateFromList(ul, null);
@@ -1019,7 +1042,7 @@
       this.renderTabs();
     },
     renderTabs() {
-      const isVideo = location.href.includes('animeVideo.php');
+      const isVideo = location.href.includes(CONSTANTS.URLS.VIDEO_PAGE);
       const hasRules = App.state.rules.length > 0;
       const hasToken = !!App.state.token;
       let activeTab = hasToken ? (isVideo ? 'home' : 'settings') : 'settings';
@@ -1366,7 +1389,7 @@
       lastTimeUpdate: 0,
     },
     init() {
-      Utils.validateSelectors(); //檢查所有CSS選擇器
+      Utils.validatePage(); //檢查CSS選擇器
       if (!this.state.token) Log.warn('Token 未設定');
       this.waitForNavbar();
       this.startMonitor();
@@ -1390,7 +1413,7 @@
       setInterval(() => this.checkUrlChange(), 1000);
     },
     checkUrlChange() {
-      if (!location.href.includes('animeVideo.php')) return;
+      if (!location.href.includes(CONSTANTS.URLS.VIDEO_PAGE)) return;
       const params = new URLSearchParams(location.search);
       const newSn = params.get('sn');
       if (newSn && newSn !== this.state.currentUrlSn) {
@@ -1402,7 +1425,7 @@
     },
     resetEpisodeState() {
       if (this.state.huntTimer) clearInterval(this.state.huntTimer);
-      const video = document.querySelector(CONSTANTS.SELECTORS.videoElement);
+      const video = document.querySelector(CONSTANTS.SELECTORS.PAGE.videoElement);
       if (video) video.removeEventListener('timeupdate', this.handleTimeUpdate);
       this.state.huntTimer = null;
       this.state.hasSynced = false;
@@ -1436,9 +1459,9 @@
       this.updateUIStatus();
     },
     getAcgLink() {
-      const el = document.querySelector(CONSTANTS.SELECTORS.acgLink);
+      const el = document.querySelector(CONSTANTS.SELECTORS.PAGE.acgLink);
       if (el) return el.getAttribute('href');
-      const alt = [...document.querySelectorAll(CONSTANTS.SELECTORS.acgLinkAlt)].find((a) =>
+      const alt = [...document.querySelectorAll(CONSTANTS.SELECTORS.PAGE.acgLinkAlt)].find((a) =>
         a.textContent.includes('作品資料'),
       );
       return alt ? alt.getAttribute('href') : null;
@@ -1477,7 +1500,7 @@
       };
       let attempts = 0;
       this.state.huntTimer = setInterval(() => {
-        const video = document.querySelector(CONSTANTS.SELECTORS.videoElement);
+        const video = document.querySelector(CONSTANTS.SELECTORS.PAGE.videoElement);
         attempts++;
         if (video && video.dataset.alHooked !== this.state.currentUrlSn) {
           video.dataset.alHooked = this.state.currentUrlSn;
@@ -1752,9 +1775,17 @@
           }),
         );
         const doc = new DOMParser().parseFromString(html, 'text/html');
+        if (CONSTANTS.DEBUG) {
+          Utils.validateParser(doc);
+        } else {
+          if (!doc.querySelector(CONSTANTS.SELECTORS.PARSER.infoTitle)) {
+            Log.error('Parser Error: 找不到標題，巴哈可能改版');
+          }
+        }
 
-        const titleJp = doc.querySelector(CONSTANTS.SELECTORS.infoTitle)?.textContent.trim() || '';
-        const titles = doc.querySelectorAll(CONSTANTS.SELECTORS.infoTitle);
+        const titleJp =
+          doc.querySelector(CONSTANTS.SELECTORS.PARSER.infoTitle)?.textContent.trim() || '';
+        const titles = doc.querySelectorAll(CONSTANTS.SELECTORS.PARSER.infoTitle);
         const titleEn = titles.length > 1 ? titles[1].textContent.trim() : '';
 
         const getTextFromList = (items, keyword) => {
@@ -1764,7 +1795,7 @@
           return parts.length > 1 ? parts[1].trim() : null;
         };
 
-        const listItems = [...doc.querySelectorAll(CONSTANTS.SELECTORS.infoList)];
+        const listItems = [...doc.querySelectorAll(CONSTANTS.SELECTORS.PARSER.infoList)];
         const dateJpStr = getTextFromList(listItems, '當地');
         const dateTwStr = getTextFromList(listItems, '台灣');
 
