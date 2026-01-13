@@ -129,6 +129,10 @@
       CONSTANTS.DEBUG && console.warn('%c[AniList]', 'color:#ffca28;font-weight:bold;', ...args),
     error: (...args) =>
       console.error('%c[AniList Error]', 'color:#ff5252;font-weight:bold;', ...args),
+    group: (...args) =>
+      CONSTANTS.DEBUG &&
+      console.group('%c[AniList Check]', 'color:#3db4f2;font-weight:bold;', ...args),
+    groupEnd: () => CONSTANTS.DEBUG && console.groupEnd(),
   };
 
   const Utils = {
@@ -204,6 +208,23 @@
         _.fadeOut(t);
         setTimeout(() => t.remove(), 300);
       }, 2500);
+    },
+    validateSelectors() {
+      Log.group('🔍 Selector 健康度檢查');
+      let allGood = true;
+      for (const [key, selector] of Object.entries(CONSTANTS.SELECTORS)) {
+        const el = document.querySelector(selector);
+        if (el) {
+          Log.info(`✅ ${key}`, `(${selector})`, el);
+        } else {
+          Log.warn(`⚠️ MISSING ${key}`, `Selector: ${selector}`);
+          if (key !== 'playing') allGood = false;
+        }
+      }
+      if (!allGood) {
+        Log.error('部分關鍵元素未找到，若巴哈改版，請檢查 SELECTORS 設定。');
+      }
+      Log.groupEnd();
     },
   };
 
@@ -1334,6 +1355,7 @@
       lastTimeUpdate: 0,
     },
     init() {
+      Utils.validateSelectors(); //檢查所有CSS選擇器
       if (!this.state.token) Log.warn('Token 未設定');
       this.waitForNavbar();
       this.startMonitor();
