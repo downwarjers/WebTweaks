@@ -73,11 +73,18 @@
     },
 
     // --- 同步模式選項 (Sync Modes) ---
+    // SYNC_MODES: {
+    //   INSTANT: 'instant', // 即時同步：播放 5 秒後就送出進度
+    //   TWO_MIN: '2min', // 觀看確認：播放 2 分鐘後才同步
+    //   EIGHTY_PCT: '80pct', // 快看完時：影片進度達 80% 才同步
+    //   CUSTOM: 'custom', // 自訂時間：依照使用者設定的秒數同步
+    // },
+
     SYNC_MODES: {
-      INSTANT: 'instant', // 即時同步：播放 5 秒後就送出進度
-      TWO_MIN: '2min', // 觀看確認：播放 2 分鐘後才同步
-      EIGHTY_PCT: '80pct', // 快看完時：影片進度達 80% 才同步
-      CUSTOM: 'custom', // 自訂時間：依照使用者設定的秒數同步
+      INSTANT: { value: 'instant', label: '🚀 即時同步 (播放 5 秒後)' },
+      TWO_MIN: { value: '2min', label: '⏳ 觀看確認 (播放 2 分鐘後)' },
+      EIGHTY_PCT: { value: '80pct', label: '🏁 快看完時 (進度 80%)' },
+      CUSTOM: { value: 'custom', label: '⚙️ 自訂時間' },
     },
 
     // --- AniList 狀態集中管理設定 ---
@@ -280,7 +287,7 @@
       --al-shadow: rgba(0,0,0,0.8);
       --al-row-active: #1b2e1b;
       --al-row-suggest: #3e3315;
-    
+    }
 
 		/* =========================================
 		1. Navigation Bar (導覽列)
@@ -675,59 +682,63 @@
             ${activeTab === 'settings' ? 'active' : ''}">
         </div>
     `,
-    settings: (token, mode, clientId, customSec) => `
-			<div class="al-settings-container">
-				<div>
-					<label class="al-label">AniList Access Token</label>
-					<div class="al-input-group">
-						<input type="password" id="set-token" class="al-input" value="${token}" placeholder="請貼上 Token" style="flex:1;">
-						<button id="toggle-token-btn" class="al-bind-btn" style="background:#333; border:1px solid #555; padding:4px 10px; height:35px; display:flex; align-items:center;">
-							${ICONS.EYE_OPEN}
-						</button>
-					</div>
-				</div>
+    settings: (token, mode, clientId, customSec) => {
+      const optionsHtml = Object.values(CONSTANTS.SYNC_MODES)
+        .map((m) => {
+          const isSelected = mode === m.value ? 'selected' : '';
+          return `<option value="${m.value}" ${isSelected}>${m.label}</option>`;
+        })
+        .join('');
 
-				<div class="al-section">
-					<label class="al-label">同步觸發時機</label>
-					<select id="set-mode" class="al-input">
-						<option value="instant" ${mode === 'instant' ? 'selected' : ''}>🚀 即時同步 (播放 5 秒後)</option>
-						<option value="2min" ${mode === '2min' ? 'selected' : ''}>⏳ 觀看確認 (播放 2 分鐘後)</option>
-						<option value="80pct" ${mode === '80pct' ? 'selected' : ''}>🏁 快看完時 (進度 80%)</option>
-						<option value="custom" ${mode === 'custom' ? 'selected' : ''}>⚙️ 自訂時間</option>
-					</select>
-					
-					<div id="custom-sec-group" class="al-input-group" style="margin-top:10px; display:none;">
-						<span class="al-text-muted">播放超過：</span>
-						<input type="number" id="set-custom-sec" class="al-input al-input-sm" value="${customSec}" min="1">
-						<span class="al-text-muted">秒後同步</span>
-					</div>
-				</div>
+      return `
+        <div class="al-settings-container">
+          <div>
+            <label class="al-label">AniList Access Token</label>
+            <div class="al-input-group">
+              <input type="password" id="set-token" class="al-input" value="${token}" placeholder="請貼上 Token" style="flex:1;">
+              <button id="toggle-token-btn" class="al-bind-btn" style="background:#333; border:1px solid #555; padding:4px 10px; height:35px; display:flex; align-items:center;">
+                ${ICONS.EYE_OPEN}
+              </button>
+            </div>
+          </div>
 
-				<button id="save-set" class="al-bind-btn" style="width:100%; margin-top:20px; background:#388e3c;">儲存設定</button>
+          <div class="al-section">
+            <label class="al-label">同步觸發時機</label>
+            <select id="set-mode" class="al-input">${optionsHtml} </select>
+            
+            <div id="custom-sec-group" class="al-input-group" style="margin-top:10px; display:none;">
+              <span class="al-text-muted">播放超過：</span>
+              <input type="number" id="set-custom-sec" class="al-input al-input-sm" value="${customSec}" min="1">
+              <span class="al-text-muted">秒後同步</span>
+            </div>
+          </div>
 
-				<div class="al-step-card">
-					<p class="al-step-title">如何取得 Token?</p>
-					<div class="al-step-item">
-						<span class="al-step-num">1.</span>
-						<div class="al-step-content">
-							登入 <a href="https://anilist.co/" target="_blank" class="al-link">AniList</a> 後，前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">開發者設定</a>，新增 API Client。
-						</div>
-					</div>
-					<div class="al-step-item" style="align-items:center;">
-						<span class="al-step-num">2.</span>
-						<div class="al-step-content al-input-group-wrap">
-							<span>輸入 Client ID：</span>
-							<input id="client-id" class="al-input" style="width:100px; text-align:center;" value="${clientId}" placeholder="ID">
-							<a id="auth-link" href="#" target="_blank" class="al-bind-btn">前往授權</a>
-						</div>
-					</div>
-					<div class="al-step-item">
-						<span class="al-step-num">3.</span>
-						<div class="al-step-content">點擊 Authorize，將網址列或頁面上的 Access Token 複製貼回上方。</div>
-					</div>
-				</div>
-			</div>
-    `,
+          <button id="save-set" class="al-bind-btn" style="width:100%; margin-top:20px; background:#388e3c;">儲存設定</button>
+
+          <div class="al-step-card">
+            <p class="al-step-title">如何取得 Token?</p>
+            <div class="al-step-item">
+              <span class="al-step-num">1.</span>
+              <div class="al-step-content">
+                登入 <a href="https://anilist.co/" target="_blank" class="al-link">AniList</a> 後，前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">開發者設定</a>，新增 API Client。
+              </div>
+            </div>
+            <div class="al-step-item" style="align-items:center;">
+              <span class="al-step-num">2.</span>
+              <div class="al-step-content al-input-group-wrap">
+                <span>輸入 Client ID：</span>
+                <input id="client-id" class="al-input" style="width:100px; text-align:center;" value="${clientId}" placeholder="ID">
+                <a id="auth-link" href="#" target="_blank" class="al-bind-btn">前往授權</a>
+              </div>
+            </div>
+            <div class="al-step-item">
+              <span class="al-step-num">3.</span>
+              <div class="al-step-content">點擊 Authorize，將網址列或頁面上的 Access Token 複製貼回上方。</div>
+            </div>
+          </div>
+        </div>
+      `;
+    },
     homeBound: (rule, info, statusData, statusOptions) => `
       <div style="padding:15px;">
         <div class="al-result-item" style="background:var(--al-bg-sec); border:1px solid var(--al-border-color); border-radius:5px; align-items:flex-start;">
@@ -1492,11 +1503,15 @@
       const { mode, custom } = this.state.syncSettings;
       let shouldSync = false;
 
-      if (mode === CONSTANTS.SYNC_MODES.INSTANT) shouldSync = video.currentTime > 5;
-      else if (mode === CONSTANTS.SYNC_MODES.TWO_MIN) shouldSync = video.currentTime > 120;
-      else if (mode === CONSTANTS.SYNC_MODES.EIGHTY_PCT)
+      if (mode === CONSTANTS.SYNC_MODES.INSTANT.value) {
+        shouldSync = video.currentTime > 5;
+      } else if (mode === CONSTANTS.SYNC_MODES.TWO_MIN.value) {
+        shouldSync = video.currentTime > 120;
+      } else if (mode === CONSTANTS.SYNC_MODES.EIGHTY_PCT.value) {
         shouldSync = video.duration > 0 && video.currentTime / video.duration > 0.8;
-      else if (mode === CONSTANTS.SYNC_MODES.CUSTOM) shouldSync = video.currentTime > custom;
+      } else if (mode === CONSTANTS.SYNC_MODES.CUSTOM.value) {
+        shouldSync = video.currentTime > custom;
+      }
 
       if (shouldSync) {
         this.state.hasSynced = true;
