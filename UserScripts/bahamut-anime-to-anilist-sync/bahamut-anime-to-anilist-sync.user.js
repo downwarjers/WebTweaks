@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bahamut Anime to AniList Sync
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      6.5
+// @version      6.5.1
 // @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @author       downwarjers
 // @license      MIT
@@ -720,7 +720,7 @@
             <div class="al-input-group">
               <input type="password" id="set-token" class="al-input" value="${token}" placeholder="請貼上 Token" style="flex:1;">
               <button id="toggle-token-btn" class="al-bind-btn" style="background:#333; border:1px solid #555; padding:4px 10px; height:35px; display:flex; align-items:center;">
-                ${ICONS.EYE_OPEN}
+                ${ICONS.EYE_OFF}
               </button>
             </div>
           </div>
@@ -1084,10 +1084,10 @@
         const inp = _.$('#set-token', container);
         if (inp.type === 'password') {
           inp.type = 'text';
-          this.innerHTML = ICONS.EYE_OFF;
+          this.innerHTML = ICONS.EYE_OPEN;
         } else {
           inp.type = 'password';
-          this.innerHTML = ICONS.EYE_OPEN;
+          this.innerHTML = ICONS.EYE_OFF;
         }
       });
 
