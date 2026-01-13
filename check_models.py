@@ -6,7 +6,7 @@ import time
 
 # ================= 設定區 =================
 # 請填入你的 API KEY
-API_KEY = "AIzaSyDbp9ay6VjdIKha8cRnv7GnHqJvV_wwm_g"  # 記得換成你的 Key
+API_KEY = "AIzaSyCXB45NZq049zsO_JrPUHh_DeDCaDF1EL8"  # 記得換成你的 Key
 # =========================================
 
 def test_model_quota(model_name):

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bahamut Anime to AniList Sync
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      6.3.3
+// @version      6.4
 // @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @author       downwarjers
 // @license      MIT
@@ -224,9 +224,45 @@
 
   // ================= [Styles] CSS =================
   GM_addStyle(`
+    /* =========================================
+		0. Theme Variables (主題變數)
+		========================================= */
+    /* 亮色模式 */
+    :root {
+      --al-bg-color: #ffffff;
+      --al-bg-sec: #f5f5f5;
+      --al-text-color: #333333;
+      --al-text-muted: #666666;
+      --al-text-label: #444444;
+      --al-border-color: #dddddd;
+      --al-input-bg: #ffffff;
+      --al-hover-bg: #f0f0f0;
+      --al-header-bg: #eeeeee;
+      --al-accent: #3db4f2;
+      --al-shadow: rgba(0,0,0,0.15);
+      --al-row-active: #e8f5e9;
+      --al-row-suggest: #fff8e1;
+    }
+
+    /* 深色模式 */
+    .al-theme-dark {
+      --al-bg-color: #1b1b1b;
+      --al-bg-sec: #222222;
+      --al-text-color: #eeeeee;
+      --al-text-muted: #aaaaaa;
+      --al-text-label: #cccccc;
+      --al-border-color: #333333;
+      --al-input-bg: #333333;
+      --al-hover-bg: #2a2a2a;
+      --al-header-bg: #222222;
+      --al-accent: #3db4f2;
+      --al-shadow: rgba(0,0,0,0.8);
+      --al-row-active: #1b2e1b;
+      --al-row-suggest: #3e3315;
+    
+
 		/* =========================================
 		1. Navigation Bar (導覽列)
-		整合到巴哈姆特網頁頂部的按鈕與狀態顯示
 		========================================= */
 		.al-nav-item { margin-left: 3px; padding-left: 3px; border-left: none; display: inline-flex; height: 100%; vertical-align: middle; }
 		.al-nav-link { color: #ccc; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; text-decoration: none !important; transition: 0.2s; }
@@ -234,37 +270,42 @@
 		.al-nav-title { color: #888; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 		.al-user-status { color: #4caf50; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; display: none; }
 		
-		/* 響應式設計：螢幕變窄時隱藏部分資訊 */
 		@media (max-width: 1200px) { .al-nav-title { max-width: 150px; } }
 		@media (max-width: 768px) { .al-nav-title, .al-user-status { display: none; } }
 
 		/* =========================================
 		2. Modal Window (彈出視窗)
-		主要設定介面的外框與遮罩
 		========================================= */
-		.al-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 99999; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.2s ease-in-out; }
-		.al-modal-content { background: #1b1b1b; color: #eee; width: 750px; max-height: 90vh; border-radius: 8px; display: flex; flex-direction: column; border: 1px solid #333; box-shadow: 0 10px 25px rgba(0,0,0,0.8); }
-		.al-modal-header { padding: 15px; background: #222; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center; }
-		.al-modal-body { overflow-y: auto; flex: 1; padding: 0; min-height: 300px; background: #1b1b1b; }
+		.al-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.2s ease-in-out; }
+		
+    /* 應用變數到 Modal Content */
+    .al-modal-content { 
+      background: var(--al-bg-color); 
+      color: var(--al-text-color); 
+      width: 750px; max-height: 90vh; border-radius: 8px; display: flex; flex-direction: column; 
+      border: 1px solid var(--al-border-color); 
+      box-shadow: 0 10px 25px var(--al-shadow); 
+    }
+
+		.al-modal-header { padding: 15px; background: var(--al-header-bg); border-bottom: 1px solid var(--al-border-color); display: flex; justify-content: space-between; align-items: center; }
+		.al-modal-body { overflow-y: auto; flex: 1; padding: 0; min-height: 300px; background: var(--al-bg-color); }
 		.al-close-btn { color: #ff5252; font-weight: bold; font-size: 24px; background: none; border: none; cursor: pointer; }
 
 		/* =========================================
 		3. Tabs System (分頁切換)
-		控制上方「主頁/系列設定/設定」的分頁標籤
 		========================================= */
-		.al-tabs-header { display: flex; border-bottom: 1px solid #333; background: #222; }
-		.al-tab-btn { flex: 1; padding: 12px; cursor: pointer; border: none; background: #222; color: #888; font-weight: bold; transition: 0.2s; border-bottom: 3px solid transparent;}
-		.al-tab-btn:hover { background: #333; color: #3db4f2; }
-		.al-tab-btn.active { color: #3db4f2; border-bottom-color: #3db4f2; background: #2a2a2a; }
+		.al-tabs-header { display: flex; border-bottom: 1px solid var(--al-border-color); background: var(--al-bg-sec); }
+		.al-tab-btn { flex: 1; padding: 12px; cursor: pointer; border: none; background: var(--al-bg-sec); color: var(--al-text-muted); font-weight: bold; transition: 0.2s; border-bottom: 3px solid transparent;}
+		.al-tab-btn:hover { background: var(--al-hover-bg); color: var(--al-accent); }
+		.al-tab-btn.active { color: var(--al-accent); border-bottom-color: var(--al-accent); background: var(--al-bg-color); }
 		.al-tab-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 		.al-tab-content { display: none; padding: 15px; animation: al-fadein 0.2s; }
 		.al-tab-content.active { display: block; }
 
 		/* =========================================
 		4. Buttons (按鈕樣式)
-		通用按鈕、綁定按鈕、開關按鈕
 		========================================= */
-		.al-bind-btn { background: #3db4f2; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; transition: 0.2s; }
+		.al-bind-btn { background: var(--al-accent); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; transition: 0.2s; }
 		.al-bind-btn:hover { background: #2a9bd6; }
 		.al-btn-grey { background: #d32f2f; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 15px; }
 		.al-toggle-btn { font-size: 12px; padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; color: white; width: 100%; }
@@ -273,56 +314,54 @@
 
 		/* =========================================
 		5. Forms & Inputs (表單與輸入框)
-		設定頁面與搜尋框的樣式
 		========================================= */
-		.al-input { padding: 8px; border: 1px solid #555; border-radius: 4px; background: #333; color: #eee; width: 100%; box-sizing: border-box; }
-		.al-input:focus { border-color: #3db4f2; outline: none; }
+		.al-input { padding: 8px; border: 1px solid var(--al-border-color); border-radius: 4px; background: var(--al-input-bg); color: var(--al-text-color); width: 100%; box-sizing: border-box; }
+		.al-input:focus { border-color: var(--al-accent); outline: none; }
 		.al-input-group { display: flex; gap: 10px; align-items: center; }
 		.al-input-group-wrap { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 		.al-input-sm { width: 80px; text-align: center; }
 		
 		/* =========================================
 		6. Search Results & Lists (搜尋與列表)
-		搜尋結果的項目顯示
 		========================================= */
-		.al-result-item { padding: 12px; border-bottom: 1px solid #333; display: flex; gap: 15px; align-items: center; transition: background 0.2s; }
-		.al-result-item:hover { background: #2a2a2a; }
+		.al-result-item { padding: 12px; border-bottom: 1px solid var(--al-border-color); display: flex; gap: 15px; align-items: center; transition: background 0.2s; }
+		.al-result-item:hover { background: var(--al-hover-bg); }
 		
 		/* =========================================
 		7. Tables & Mapping (表格與對照)
-		系列設定頁面的集數對照表
 		========================================= */
 		.al-map-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-		.al-map-table th { background: #2a2a2a; padding: 10px; text-align: left; border-bottom: 2px solid #444; color: #ccc; }
-		.al-map-table td { padding: 8px; border-bottom: 1px solid #333; vertical-align: middle; }
-		.series-row.active { background-color: #1b2e1b; }
-		.series-row.suggestion { background-color: #3e3315; }
+		.al-map-table th { background: var(--al-hover-bg); padding: 10px; text-align: left; border-bottom: 2px solid var(--al-border-color); color: var(--al-text-muted); }
+		.al-map-table td { padding: 8px; border-bottom: 1px solid var(--al-border-color); vertical-align: middle; }
+		.series-row.active { background-color: var(--al-row-active); }
+		.series-row.suggestion { background-color: var(--al-row-suggest); }
 
 		/* =========================================
 		8. Steps & Instructions (教學步驟)
-		取得 Token 的步驟教學卡片
 		========================================= */
-		.al-step-card { font-size: 13px; color: #aaa; margin-top: 15px; background: #222; padding: 12px 15px; border-radius: 6px; border: 1px solid #333; }
-		.al-step-title { margin: 0 0 10px 0; font-weight: bold; color: #eee; font-size: 14px; border-bottom: 1px solid #333; padding-bottom: 6px; }
+		.al-step-card { font-size: 13px; color: var(--al-text-muted); margin-top: 15px; background: var(--al-bg-sec); padding: 12px 15px; border-radius: 6px; border: 1px solid var(--al-border-color); }
+		.al-step-title { margin: 0 0 10px 0; font-weight: bold; color: var(--al-text-color); font-size: 14px; border-bottom: 1px solid var(--al-border-color); padding-bottom: 6px; }
 		.al-step-item { display: flex; align-items: flex-start; margin-bottom: 8px; line-height: 1.6; }
-		.al-step-num { flex-shrink: 0; width: 20px; font-weight: bold; color: #3db4f2; }
+		.al-step-num { flex-shrink: 0; width: 20px; font-weight: bold; color: var(--al-accent); }
 		.al-step-content { flex: 1; }
 
 		/* =========================================
 		9. General Layout & Typography (通用排版)
-		通用文字、連結、圖示
 		========================================= */
 		.al-settings-container { padding: 20px; }
-		.al-label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: #eee; }
-		.al-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid #333; }
-		.al-text-muted { font-size: 13px; color: #ccc; }
+		.al-label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: var(--al-text-color); }
+		.al-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--al-border-color); }
+		.al-text-muted { font-size: 13px; color: var(--al-text-muted); }
 		.al-link { color: #81d4fa; text-decoration: none; font-weight: bold; }
+    
+    :root .al-link { color: #0288d1; }
+    .al-theme-dark .al-link { color: #81d4fa; }
+
 		.al-link:hover { text-decoration: underline; }
-		.al-icon { width: 20px; height: 20px; stroke: #ccc; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+		.al-icon { width: 20px; height: 20px; stroke: var(--al-text-muted); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 
 		/* =========================================
 		10. Notifications & Animations (通知與動畫)
-		下方的 Toast 訊息與淡入動畫
 		========================================= */
 		.al-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(20,20,20,0.95); border: 1px solid #444; color: #fff; padding: 10px 20px; border-radius: 20px; z-index: 100000; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; opacity: 0; transition: opacity 0.2s; }
 		@keyframes al-fadein { from { opacity: 0; } to { opacity: 1; } }
@@ -670,7 +709,7 @@
     `,
     homeBound: (rule, info, statusData, statusOptions) => `
       <div style="padding:15px;">
-        <div class="al-result-item" style="background:#1a2633; border:1px solid #1e3a5f; border-radius:5px; align-items:flex-start;">
+        <div class="al-result-item" style="background:var(--al-bg-sec); border:1px solid var(--al-border-color); border-radius:5px; align-items:flex-start;">
           <a href="https://anilist.co/anime/${rule.id}" target="_blank">
             <img src="${info.coverImage.medium}" 
               style="width:70px;height:100px;object-fit:cover;border-radius:4px;">
@@ -679,7 +718,8 @@
             <a href="https://anilist.co/anime/${rule.id}" 
               target="_blank" class="al-link" style="font-size:16px; display:block; margin-bottom:5px;">
               ${rule.title}</a>
-            <div style="font-size:12px;color:#aaa;line-height:1.5;">
+              
+            <div style="font-size:12px;color:var(--al-text-muted);line-height:1.5;">
               <div>ID: ${rule.id}</div>
               <div>${info.title.native}</div>
               <div>${Utils.formatDate(info.startDate) || '-'} | ${info.format}</div>
@@ -689,11 +729,11 @@
           </div>
         </div>
         <div style="margin-top:15px;">
-          <label style="font-weight:bold;color:#ccc;font-size:13px;">切換狀態:</label>
+          <label style="font-weight:bold;color:var(--al-text-label);font-size:13px;">切換狀態:</label>
           <select id="home-status" class="al-input" style="margin-top:5px;">${statusOptions}</select>
         </div>
-        <div style="margin-top:15px; border-top:1px solid #333; padding-top:15px;">
-          <label style="font-weight:bold;color:#ccc;font-size:13px;">手動修改 ID:</label>
+        <div style="margin-top:15px; border-top:1px solid var(--al-border-color); padding-top:15px;">
+          <label style="font-weight:bold;color:var(--al-text-label);font-size:13px;">手動修改 ID:</label>
           <div style="display:flex; gap:10px; margin-top:5px;">
             <input type="number" id="home-edit-id" class="al-input" value="${rule.id}">
             <button id="home-save-id" class="al-bind-btn" style="background:#555;">更新</button>
@@ -706,8 +746,8 @@
       let suggestionHtml = '';
       if (candidate) {
         suggestionHtml = `
-          <div style="background:#2e2818;padding:10px;margin-bottom:15px;border-radius:5px;border:1px solid #5a4b18;">
-            <div style="font-weight:bold;color:#ffb74d;font-size:13px;margin-bottom:5px;">💡 建議匹配</div>
+          <div style="background:var(--al-row-suggest); padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid var(--al-border-color);">
+            <div style="font-weight:bold;color:var(--al-accent);font-size:13px;margin-bottom:5px;">💡 建議匹配</div>
               <div style="display:flex;gap:10px;align-items:flex-start;">
                 <a href="https://anilist.co/anime/${candidate.id}" target="_blank">
                   <img src="${candidate.coverImage.medium}" 
@@ -751,8 +791,8 @@
         <a href="https://anilist.co/anime/${m.id}" 
           target="_blank" class="al-link" style="font-weight:bold;">
           ${m.title.native || m.title.romaji}</a>
-        <div style="font-size:12px;color:#aaa;">${m.title.romaji}</div>
-        <div style="font-size:12px;color:#666;">
+        <div style="font-size:12px;color:var(--al-text-muted);">${m.title.romaji}</div>
+        <div style="font-size:12px;color:var(--al-text-muted);">
           ${Utils.formatDate(m.startDate) || '-'} | 
           ${m.format} | ${m.episodes || '?'}集</div>
         </div>
@@ -813,7 +853,8 @@
 								<a href="https://anilist.co/anime/${m.id}" 
                   target="_blank" class="al-link" style="line-height:1.2;">
                     ${m.title.native || m.title.romaji}</a>
-								<div style="font-size:11px;color:#888;">${Utils.formatDate(m.startDate) || '-'} | ${m.format}</div>
+								<div style="font-size:11px;color:var(--al-text-muted);">
+                  ${Utils.formatDate(m.startDate) || '-'} | ${m.format}</div>
 							</div>
 						</div>
 					</td>
@@ -839,6 +880,18 @@
 
   const UI = {
     statusTimer: null,
+    checkTheme() {
+      const modalContent = _.$('.al-modal-content');
+      if (!modalContent) return;
+
+      const moonBtn = document.getElementById('darkmode-moon');
+      // 如果月亮按鈕存在且被勾選，則加入 dark class
+      if (moonBtn && moonBtn.checked) {
+        modalContent.classList.add('al-theme-dark');
+      } else {
+        modalContent.classList.remove('al-theme-dark');
+      }
+    },
     initNavbar(nav) {
       if (_.$('#al-trigger')) return;
       const li = _.html(
@@ -848,6 +901,7 @@
 
       _.$('#al-trigger').addEventListener('click', () => this.openModal());
 
+      // Modal 結構建立
       const modal = _.html(
         `<div id="al-modal" class="al-modal-overlay"><div class="al-modal-content"><div class="al-modal-header"><strong>AniList 設定</strong><button class="al-close-btn">&times;</button></div><div class="al-modal-body" id="al-modal-body"></div></div></div>`,
       );
@@ -857,6 +911,15 @@
       modal.addEventListener('click', (e) => {
         if (e.target.id === 'al-modal') _.fadeOut(modal);
       });
+
+      // 深色模式切換按鈕
+      const themeRadios = document.querySelectorAll('input[name="darkmode"]');
+      themeRadios.forEach((radio) => {
+        radio.addEventListener('change', () => this.checkTheme());
+      });
+
+      // 初始化時檢查一次主題
+      this.checkTheme();
     },
     updateNav(type, msg) {
       const $icon = _.$('#al-icon'),
