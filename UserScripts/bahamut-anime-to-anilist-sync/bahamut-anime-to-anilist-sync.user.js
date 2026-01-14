@@ -1493,7 +1493,6 @@
           opts += `<option value="${setting.value}" ${isSelected}>${setting.label}</option>`;
         });
 
-        isUnknownEp = true;
         const warningHtml = isUnknownEp
           ? `<div class="al-p-3 al-mb-3" style="background:#fff3cd; color:#856404; border-radius:4px; font-size:12px; border:1px solid #ffeeba;">
                  ⚠️ 當前集數無法判定 (如小數點集數或特別篇)，<b>已暫停自動同步</b>，但您仍可手動管理狀態。
