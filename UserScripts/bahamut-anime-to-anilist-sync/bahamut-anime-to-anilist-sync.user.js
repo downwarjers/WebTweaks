@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bahamut Anime to AniList Sync
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      6.6
+// @version      6.7
 // @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @author       downwarjers
 // @license      MIT
@@ -108,7 +108,7 @@
   };
   // #endregion
 
-  // #region ================= DOM 輔助函式庫 =================
+  // #region ================= [DOM] 輔助函式庫 =================
   const _ = {
     $: (s, p = document) => p.querySelector(s),
     $$: (s, p = document) => [...p.querySelectorAll(s)],
@@ -247,6 +247,35 @@
     validateParser(doc) {
       return this._validateGroup(doc, CONSTANTS.SELECTORS.PARSER, 'Parser (Data)');
     },
+  };
+  // #endregion
+
+  // #region ================= [State] 狀態控制器 =================
+  const State = {
+    // --- 1. 基礎設定與認證 ---
+    syncSettings: {}, // 同步設定 (觸發模式、自訂秒數)
+    tokenErrorCount: 0, // Token 錯誤計數 (連續錯誤則停止同步)
+
+    // --- 2. 作品與綁定資料 ---
+    bahaSn: null, // 巴哈姆特作品 SN (系列 ID)
+    bahaData: null, // 巴哈姆特頁面爬蟲取得的資料 (標題、日期等)
+    rules: [], // 系列作對應規則列表 (Baha集數 -> AniList ID)
+    activeRule: null, // 目前集數適用的對應規則
+    candidate: null, // 自動搜尋到的候選 AniList 作品 (未綁定時用)
+    userStatus: null, // 使用者在 AniList 上的觀看進度與狀態
+
+    // --- 3. 執行狀態與計時器 ---
+    currentUrlSn: null, // 目前網址上的 SN (單集 ID)，用於偵測換集
+    hasSynced: false, // 本集是否已執行過同步 (防止重複發送)
+    isHunting: false, // 是否正在搜尋播放器元素 (<video>)
+    stopSync: false, // 全域停止同步開關 (發生嚴重錯誤或頻繁請求時)
+    huntTimer: null, // 搜尋播放器的 setInterval ID
+    lastTimeUpdate: 0, // 上次處理 timeupdate 事件的時間戳
+
+    // --- 4. API 資料快取 (Cache) ---
+    cachedMediaInfo: null, // [主頁快取] 作品詳細資訊 + 使用者狀態 (合併查詢結果)
+    cachedSeriesChain: null, // [系列頁快取] 系列作關聯列表 (Sequel Chain)
+    cachedSeriesBaseId: null, // [系列頁快取識別] 記錄目前的系列快取是基於哪個 ID 查詢的
   };
   // #endregion
 
@@ -1089,7 +1118,7 @@
         clearTimeout(this.statusTimer);
         this.statusTimer = null;
       }
-      const rule = App.state.activeRule;
+      const rule = State.activeRule;
       const showTitle =
         rule &&
         [
@@ -1102,8 +1131,8 @@
       if (showTitle) {
         $title.textContent = rule.title;
         $title.style.display = 'inline';
-        if (App.state.userStatus) {
-          const { status, progress } = App.state.userStatus;
+        if (State.userStatus) {
+          const { status, progress } = State.userStatus;
           const statusConfig = CONSTANTS.ANI_STATUS[status];
           let stTxt = statusConfig ? statusConfig.display : '';
           if (progress > 0) stTxt += `【Ep.${progress}】`;
@@ -1134,7 +1163,7 @@
         this.statusTimer = setTimeout(() => {
           $icon.textContent = '✅';
           $text.textContent = '已連動';
-          if (App.state.userStatus) $uStatus.style.display = 'inline-block';
+          if (State.userStatus) $uStatus.style.display = 'inline-block';
         }, 1500);
       }
     },
@@ -1144,8 +1173,8 @@
     },
     renderTabs() {
       const isVideo = location.href.includes(CONSTANTS.URLS.VIDEO_PAGE);
-      const hasRules = App.state.rules.length > 0;
-      const hasToken = !!App.state.token;
+      const hasRules = State.rules.length > 0;
+      const hasToken = !!GM_getValue(CONSTANTS.KEYS.TOKEN);
 
       // 邏輯：有 Token 且在看影片 -> 預設 Home，否則預設 Settings
       let activeTab = hasToken ? (isVideo ? 'home' : 'settings') : 'settings';
@@ -1174,7 +1203,7 @@
       if (tabName === 'settings') this.renderSettings(container);
       else if (tabName === 'series') this.renderSeries(container);
       else {
-        if (App.state.rules.length > 0) this.renderHomeBound(container);
+        if (State.rules.length > 0) this.renderHomeBound(container);
         else this.renderHomeUnbound(container);
       }
     },
@@ -1231,21 +1260,20 @@
         GM_setValue(CONSTANTS.KEYS.TOKEN, newToken);
         GM_setValue(CONSTANTS.KEYS.SYNC_MODE, newMode);
         if (!isNaN(customSec)) GM_setValue(CONSTANTS.KEYS.CUSTOM_SEC, customSec);
-        App.state.token = newToken;
-        UI.showToast('✅ 設定已儲存，請重新整理');
+        UI.showToast('✅ 設定已儲存，重新整理中...');
         setTimeout(() => location.reload(), 800);
       });
     },
     async renderHomeBound(container) {
       container.innerHTML = '<div style="padding:20px;">讀取中...</div>';
 
-      let rule = App.state.activeRule;
+      let rule = State.activeRule;
       let isUnknownEp = false;
 
       // 如果當前集數沒有對應規則，則借用第一條規則的 ID 來顯示資訊
       if (!rule) {
-        if (App.state.rules.length > 0) {
-          rule = App.state.rules[0]; // 借用系列 ID
+        if (State.rules.length > 0) {
+          rule = State.rules[0]; // 借用系列 ID
           isUnknownEp = true; // 標記為未知集數
         } else {
           return this.renderHomeUnbound(container);
@@ -1255,17 +1283,17 @@
       try {
         let info, statusData;
 
-        if (App.state.cachedMediaInfo && App.state.cachedMediaInfo.id === rule.id) {
+        if (State.cachedMediaInfo && State.cachedMediaInfo.id === rule.id) {
           Log.info('UI using cached data');
-          info = App.state.cachedMediaInfo;
+          info = State.cachedMediaInfo;
           statusData = info.mediaListEntry;
         } else {
           info = await AniListAPI.getMediaAndStatus(rule.id);
           statusData = info.mediaListEntry;
-          App.state.cachedMediaInfo = info;
+          State.cachedMediaInfo = info;
         }
 
-        App.state.userStatus = statusData;
+        State.userStatus = statusData;
         UI.updateNav(CONSTANTS.STATUS.BOUND);
 
         const settings = CONSTANTS.ANI_STATUS;
@@ -1298,9 +1326,9 @@
           this.disabled = true;
           try {
             const newS = await AniListAPI.updateUserStatus(rule.id, s);
-            App.state.userStatus = newS;
-            if (App.state.cachedMediaInfo && App.state.cachedMediaInfo.id === rule.id) {
-              App.state.cachedMediaInfo.mediaListEntry = newS;
+            State.userStatus = newS;
+            if (State.cachedMediaInfo && State.cachedMediaInfo.id === rule.id) {
+              State.cachedMediaInfo.mediaListEntry = newS;
             }
             UI.showToast('✅ 狀態已更新');
             UI.loadTabContent('home');
@@ -1317,13 +1345,13 @@
 
         _.$('#btn-unbind', container).addEventListener('click', () => {
           if (confirm('確定要解除此作品的所有綁定嗎？')) {
-            GM_deleteValue(`${CONSTANTS.STORAGE_PREFIX}${App.state.bahaSn}`);
+            GM_deleteValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`);
             location.reload();
           }
         });
 
         _.$('#btn-refresh-data', container)?.addEventListener('click', function () {
-          App.state.cachedMediaInfo = null;
+          State.cachedMediaInfo = null;
           UI.loadTabContent('home');
         });
       } catch (e) {
@@ -1331,12 +1359,12 @@
       }
     },
     renderHomeUnbound(container) {
-      const data = App.state.bahaData || {};
-      container.innerHTML = Templates.homeUnbound(App.state.candidate, data.nameJp);
+      const data = State.bahaData || {};
+      container.innerHTML = Templates.homeUnbound(State.candidate, data.nameJp);
 
-      if (App.state.candidate) {
+      if (State.candidate) {
         _.$('#btn-quick', container).addEventListener('click', () =>
-          App.bindSeries(App.state.candidate.id, App.state.candidate.title.native),
+          App.bindSeries(State.candidate.id, State.candidate.title.native),
         );
       }
 
@@ -1373,8 +1401,8 @@
     async renderSeries(container) {
       container.innerHTML = '<div style="padding:20px;text-align:center;">讀取系列資訊中...</div>';
 
-      const activeRules = App.state.rules;
-      let baseRule = App.state.activeRule;
+      const activeRules = State.rules;
+      let baseRule = State.activeRule;
 
       // 如果 activeRule 不在 rules 列表裡，或者根本沒 activeRule
       if (!baseRule || !activeRules.find((r) => r.id === baseRule.id)) {
@@ -1391,12 +1419,12 @@
 
       try {
         let chain;
-        if (App.state.cachedSeriesChain && App.state.cachedSeriesBaseId === searchId) {
-          chain = App.state.cachedSeriesChain;
+        if (State.cachedSeriesChain && State.cachedSeriesBaseId === searchId) {
+          chain = State.cachedSeriesChain;
         } else {
           chain = await AniListAPI.getSequelChain(searchId);
-          App.state.cachedSeriesChain = chain;
-          App.state.cachedSeriesBaseId = searchId;
+          State.cachedSeriesChain = chain;
+          State.cachedSeriesBaseId = searchId;
         }
 
         // 1. 取得頁面現況範圍
@@ -1410,7 +1438,7 @@
 
         let rowsHtml = '';
         chain.forEach((m) => {
-          const existing = App.state.rules.find((r) => r.id === m.id);
+          const existing = State.rules.find((r) => r.id === m.id);
           const isActive = !!existing;
 
           let isOut = true;
@@ -1524,7 +1552,7 @@
         });
 
         _.$('#btn-refresh-series', container).addEventListener('click', async function () {
-          App.state.cachedSeriesChain = null;
+          State.cachedSeriesChain = null;
           UI.renderSeries(container);
         });
 
@@ -1548,8 +1576,8 @@
           });
           if (newRules.length === 0) return UI.showToast('❌ 至少需要設定一個起始集數');
           newRules.sort((a, b) => b.start - a.start);
-          App.state.rules = newRules;
-          GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${App.state.bahaSn}`, newRules);
+          State.rules = newRules;
+          GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`, newRules);
           App.determineActiveRule();
           UI.updateNav(CONSTANTS.STATUS.BOUND);
           UI.showToast('✅ 系列設定已儲存');
@@ -1593,7 +1621,7 @@
     },
     init() {
       Utils.validatePage(); //檢查CSS選擇器
-      if (!this.state.token) Log.warn('Token 未設定');
+      if (!GM_getValue(CONSTANTS.KEYS.TOKEN)) Log.warn('Token 未設定');
       this.waitForNavbar();
       this.startMonitor();
       this.handleTimeUpdate = this.handleTimeUpdate.bind(this);
@@ -1619,44 +1647,44 @@
       if (!location.href.includes(CONSTANTS.URLS.VIDEO_PAGE)) return;
       const params = new URLSearchParams(location.search);
       const newSn = params.get('sn');
-      if (newSn && newSn !== this.state.currentUrlSn) {
-        this.state.currentUrlSn = newSn;
+      if (newSn && newSn !== State.currentUrlSn) {
+        State.currentUrlSn = newSn;
         this.resetEpisodeState();
         this.loadEpisodeData();
         this.startVideoHunt();
       }
     },
     resetEpisodeState() {
-      if (this.state.huntTimer) clearInterval(this.state.huntTimer);
+      if (State.huntTimer) clearInterval(State.huntTimer);
       const video = document.querySelector(CONSTANTS.SELECTORS.PAGE.videoElement);
       if (video) video.removeEventListener('timeupdate', this.handleTimeUpdate);
-      this.state.huntTimer = null;
-      this.state.hasSynced = false;
-      this.state.isHunting = false;
-      this.state.stopSync = false;
-      this.state.tokenErrorCount = 0;
-      this.state.lastTimeUpdate = 0;
+      State.huntTimer = null;
+      State.hasSynced = false;
+      State.isHunting = false;
+      State.stopSync = false;
+      State.tokenErrorCount = 0;
+      State.lastTimeUpdate = 0;
     },
     async loadEpisodeData() {
       const acgLink = this.getAcgLink();
       if (!acgLink) return;
-      this.state.bahaSn = new URLSearchParams(acgLink.split('?')[1]).get('s');
-      if (!this.state.bahaData) this.state.bahaData = await this.fetchBahaData(acgLink);
-      const savedRules = GM_getValue(`${CONSTANTS.STORAGE_PREFIX}${this.state.bahaSn}`);
+      State.bahaSn = new URLSearchParams(acgLink.split('?')[1]).get('s');
+      if (!State.bahaData) State.bahaData = await this.fetchBahaData(acgLink);
+      const savedRules = GM_getValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`);
       if (savedRules) {
-        if (Array.isArray(savedRules)) this.state.rules = savedRules;
+        if (Array.isArray(savedRules)) State.rules = savedRules;
         else
-          this.state.rules = [
+          State.rules = [
             {
               start: 1,
               id: savedRules.id || savedRules,
               title: savedRules.title || 'Unknown',
             },
           ];
-        this.state.rules.sort((a, b) => b.start - a.start);
+        State.rules.sort((a, b) => b.start - a.start);
       } else {
-        this.state.rules = [];
-        if (this.state.token) this.tryAutoBind();
+        State.rules = [];
+        if (GM_getValue(CONSTANTS.KEYS.TOKEN)) this.tryAutoBind();
       }
       await this.determineActiveRule();
       this.updateUIStatus();
@@ -1670,30 +1698,29 @@
       return alt ? alt.getAttribute('href') : null;
     },
     async determineActiveRule() {
-      if (this.state.rules.length === 0) {
-        this.state.activeRule = null;
+      if (State.rules.length === 0) {
+        State.activeRule = null;
         return;
       }
       const currentEp = EpisodeCalculator.getRawCurrent();
 
       // 如果 currentEp 是 null，則不套用任何規則
       if (currentEp !== null) {
-        this.state.activeRule =
-          this.state.rules.find((r) => currentEp >= r.start) ||
-          this.state.rules[this.state.rules.length - 1];
+        State.activeRule =
+          State.rules.find((r) => currentEp >= r.start) || State.rules[State.rules.length - 1];
       } else {
         // 正在看小數點集數，暫時不對應規則
-        this.state.activeRule = null;
+        State.activeRule = null;
       }
-      if (this.state.activeRule && this.state.token) {
+      if (State.activeRule && GM_getValue(CONSTANTS.KEYS.TOKEN)) {
         try {
-          const data = await AniListAPI.getMediaAndStatus(this.state.activeRule.id);
+          const data = await AniListAPI.getMediaAndStatus(State.activeRule.id);
           if (data.mediaListEntry) {
-            this.state.userStatus = data.mediaListEntry;
+            State.userStatus = data.mediaListEntry;
           } else {
-            this.state.userStatus = null;
+            State.userStatus = null;
           }
-          this.state.cachedMediaInfo = data;
+          State.cachedMediaInfo = data;
           this.updateUIStatus();
         } catch (e) {
           Log.error('Fetch status error:', e);
@@ -1701,39 +1728,39 @@
       }
     },
     startVideoHunt() {
-      if (this.state.isHunting) return;
-      this.state.isHunting = true;
-      if (this.state.rules.length > 0) UI.updateNav(CONSTANTS.STATUS.SYNCING, '搜尋播放器...');
-      this.state.syncSettings = {
+      if (State.isHunting) return;
+      State.isHunting = true;
+      if (State.rules.length > 0) UI.updateNav(CONSTANTS.STATUS.SYNCING, '搜尋播放器...');
+      State.syncSettings = {
         mode: GM_getValue(CONSTANTS.KEYS.SYNC_MODE, 'instant'),
         custom: GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, 60),
       };
       let attempts = 0;
-      this.state.huntTimer = setInterval(() => {
+      State.huntTimer = setInterval(() => {
         const video = document.querySelector(CONSTANTS.SELECTORS.PAGE.videoElement);
         attempts++;
-        if (video && video.dataset.alHooked !== this.state.currentUrlSn) {
-          video.dataset.alHooked = this.state.currentUrlSn;
+        if (video && video.dataset.alHooked !== State.currentUrlSn) {
+          video.dataset.alHooked = State.currentUrlSn;
           video.addEventListener('timeupdate', this.handleTimeUpdate);
-          clearInterval(this.state.huntTimer);
-          this.state.huntTimer = null;
-          this.state.isHunting = false;
-          if (this.state.rules.length > 0) UI.updateNav(CONSTANTS.STATUS.BOUND);
+          clearInterval(State.huntTimer);
+          State.huntTimer = null;
+          State.isHunting = false;
+          if (State.rules.length > 0) UI.updateNav(CONSTANTS.STATUS.BOUND);
         } else if (attempts > 50) {
-          clearInterval(this.state.huntTimer);
-          this.state.huntTimer = null;
-          this.state.isHunting = false;
+          clearInterval(State.huntTimer);
+          State.huntTimer = null;
+          State.isHunting = false;
         }
       }, 200);
     },
     handleTimeUpdate(e) {
-      if (this.state.hasSynced || this.state.stopSync) return;
+      if (State.hasSynced || State.stopSync) return;
       const now = Date.now();
-      if (now - this.state.lastTimeUpdate < 1000) return;
-      this.state.lastTimeUpdate = now;
+      if (now - State.lastTimeUpdate < 1000) return;
+      State.lastTimeUpdate = now;
 
       const video = e.target;
-      const { mode, custom } = this.state.syncSettings;
+      const { mode, custom } = State.syncSettings;
       let shouldSync = false;
 
       if (mode === CONSTANTS.SYNC_MODES.INSTANT.value) {
@@ -1747,7 +1774,7 @@
       }
 
       if (shouldSync) {
-        this.state.hasSynced = true;
+        State.hasSynced = true;
         this.syncProgress();
       }
     },
@@ -1756,9 +1783,9 @@
       const rawEp = EpisodeCalculator.getRawCurrent();
 
       // 2. 如果是 null或沒規則，直接結束，不同步
-      if (rawEp === null || !this.state.activeRule) return;
+      if (rawEp === null || !State.activeRule) return;
 
-      const rule = this.state.activeRule;
+      const rule = State.activeRule;
 
       // 3. 讀取設定值
       const bahaStart = rule.bahaStart !== undefined ? rule.bahaStart : rule.start;
@@ -1775,13 +1802,13 @@
         let data;
 
         // 1. 優先從快取讀取資料
-        if (this.state.cachedMediaInfo && this.state.cachedMediaInfo.id === rule.id) {
-          data = this.state.cachedMediaInfo;
+        if (State.cachedMediaInfo && State.cachedMediaInfo.id === rule.id) {
+          data = State.cachedMediaInfo;
           Log.info('Sync using cached data');
         } else {
           // 2. 沒有快取發送合併請求
           data = await AniListAPI.getMediaAndStatus(rule.id);
-          this.state.cachedMediaInfo = data;
+          State.cachedMediaInfo = data;
         }
 
         const maxEp = data.episodes;
@@ -1807,15 +1834,15 @@
         }
 
         let result = await AniListAPI.updateUserProgress(rule.id, progress);
-        if (this.state.cachedMediaInfo) {
-          this.state.cachedMediaInfo.mediaListEntry = result;
+        if (State.cachedMediaInfo) {
+          State.cachedMediaInfo.mediaListEntry = result;
         }
-        this.state.userStatus = result;
+        State.userStatus = result;
 
         if (maxEp && progress === maxEp && result.status !== CONSTANTS.ANI_STATUS.COMPLETED.value) {
           Log.info('Auto completing media...');
           result = await AniListAPI.updateUserStatus(rule.id, CONSTANTS.ANI_STATUS.COMPLETED.value);
-          this.state.userStatus = result; // 若有自動完結，再次更新狀態
+          State.userStatus = result; // 若有自動完結，再次更新狀態
           UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress} (完結)`);
         } else {
           UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress}`);
@@ -1824,26 +1851,26 @@
         const errStr = e.message;
         UI.updateNav(CONSTANTS.STATUS.ERROR, '同步失敗');
         if (errStr.includes('Token') || errStr.includes('401')) {
-          this.state.tokenErrorCount++;
-          if (this.state.tokenErrorCount >= 3) this.state.stopSync = true;
+          State.tokenErrorCount++;
+          if (State.tokenErrorCount >= 3) State.stopSync = true;
           UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
         } else if (errStr.includes('Too Many Requests')) {
-          this.state.stopSync = true;
+          State.stopSync = true;
           UI.showToast('⚠️ 請求過於頻繁，已暫停同步');
         } else {
           setTimeout(() => {
-            this.state.hasSynced = false;
+            State.hasSynced = false;
           }, CONSTANTS.SYNC_DEBOUNCE_MS);
         }
       }
     },
     async tryAutoBind() {
-      if (!this.state.bahaData) return;
+      if (!State.bahaData) return;
 
       UI.updateNav(CONSTANTS.STATUS.SYNCING, '自動匹配中...');
 
       const context = {
-        data: this.state.bahaData,
+        data: State.bahaData,
         api: AniListAPI,
         utils: Utils,
       };
@@ -1861,8 +1888,8 @@
                 const res = await ctx.api.search(term);
                 const list = res.data.Page.media || [];
 
-                if (list.length > 0 && !App.state.candidate) {
-                  App.state.candidate = list[0];
+                if (list.length > 0 && !State.candidate) {
+                  State.candidate = list[0];
                 }
 
                 const match = list.find((media) => {
@@ -1930,7 +1957,7 @@
         await this.bindSeries(match.id, match.title.native || match.title.romaji);
       } else {
         UI.updateNav(CONSTANTS.STATUS.UNBOUND);
-        if (this.state.candidate) UI.showToast('🧐 找到可能的作品，請點擊確認');
+        if (State.candidate) UI.showToast('🧐 找到可能的作品，請點擊確認');
       }
     },
     async bindSeries(id, title) {
@@ -2009,8 +2036,8 @@
 
       newRules.sort((a, b) => b.start - a.start);
 
-      this.state.rules = newRules;
-      GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${this.state.bahaSn}`, this.state.rules);
+      State.rules = newRules;
+      GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`, State.rules);
 
       await this.determineActiveRule();
       UI.updateNav(CONSTANTS.STATUS.BOUND);
@@ -2018,7 +2045,7 @@
 
       _.fadeOut(_.$('#al-modal'));
 
-      if (CONSTANTS.SYNC_ON_BIND && !this.state.isHunting) {
+      if (CONSTANTS.SYNC_ON_BIND && !State.isHunting) {
         this.syncProgress();
       }
     },
@@ -2086,8 +2113,8 @@
       }
     },
     updateUIStatus() {
-      if (!this.state.token) UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
-      else if (this.state.rules.length === 0) UI.updateNav(CONSTANTS.STATUS.UNBOUND);
+      if (!GM_getValue(CONSTANTS.KEYS.TOKEN)) UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
+      else if (State.rules.length === 0) UI.updateNav(CONSTANTS.STATUS.UNBOUND);
       else UI.updateNav(CONSTANTS.STATUS.BOUND);
     },
   };
