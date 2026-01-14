@@ -1,23 +1,23 @@
 // ==UserScript==
-// @name         Bahamut Anime to AniList Sync
-// @namespace    https://github.com/downwarjers/WebTweaks
-// @version      6.7
-// @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
-// @author       downwarjers
-// @license      MIT
-// @match        https://ani.gamer.com.tw/*
-// @connect      acg.gamer.com.tw
-// @connect      graphql.anilist.co
-// @icon         https://ani.gamer.com.tw/apple-touch-icon-144.jpg
+// @name         Bahamut Anime to AniList Sync
+// @namespace    https://github.com/downwarjers/WebTweaks
+// @version      6.7.3
+// @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
+// @author       downwarjers
+// @license      MIT
+// @match        https://ani.gamer.com.tw/*
+// @connect      acg.gamer.com.tw
+// @connect      graphql.anilist.co
+// @icon         https://ani.gamer.com.tw/apple-touch-icon-144.jpg
 // @noframes
-// @grant        GM_xmlhttpRequest
-// @grant        GM_setValue
-// @grant        GM_getValue
-// @grant        GM_deleteValue
-// @grant        GM_addStyle
-// @require      https://code.jquery.com/jquery-3.6.0.min.js
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js
+// @grant        GM_xmlhttpRequest
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @grant        GM_deleteValue
+// @grant        GM_addStyle
+// @require      https://code.jquery.com/jquery-3.6.0.min.js
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js
 // ==/UserScript==
 
 (function () {
@@ -110,42 +110,69 @@
 
   // #region ================= [DOM] 輔助函式庫 =================
   const _ = {
-    $: (s, p = document) => p.querySelector(s),
-    $$: (s, p = document) => [...p.querySelectorAll(s)],
-    on: (el, events, handler) =>
-      events.split(' ').forEach((evt) => el && el.addEventListener(evt, handler)),
+    $: (s, p = document) => {
+      return p.querySelector(s);
+    },
+    $$: (s, p = document) => {
+      return [...p.querySelectorAll(s)];
+    },
+    on: (el, events, handler) => {
+      return events.split(' ').forEach((evt) => {
+        return el && el.addEventListener(evt, handler);
+      });
+    },
     html: (str) => {
       const tmp = document.createElement('div');
       tmp.innerHTML = str.trim();
       return tmp.firstElementChild;
     },
     fadeIn: (el, display = 'block') => {
-      if (!el) return;
+      if (!el) {
+        return;
+      }
       el.style.opacity = 0;
       el.style.display = display;
       el.style.transition = 'opacity 0.2s ease-in-out';
-      requestAnimationFrame(() => (el.style.opacity = 1));
+      requestAnimationFrame(() => {
+        return (el.style.opacity = 1);
+      });
     },
     fadeOut: (el) => {
-      if (!el) return;
+      if (!el) {
+        return;
+      }
       el.style.opacity = 0;
-      setTimeout(() => (el.style.display = 'none'), 200);
+      setTimeout(() => {
+        return (el.style.display = 'none');
+      }, 200);
     },
   };
   // #endregion
 
   // #region ================= [Utils] 工具函式與 Logger =================
   const Log = {
-    info: (...args) =>
-      CONSTANTS.DEBUG && console.log('%c[AniList]', 'color:#3db4f2;font-weight:bold;', ...args),
-    warn: (...args) =>
-      CONSTANTS.DEBUG && console.warn('%c[AniList]', 'color:#ffca28;font-weight:bold;', ...args),
-    error: (...args) =>
-      console.error('%c[AniList Error]', 'color:#ff5252;font-weight:bold;', ...args),
-    group: (...args) =>
-      CONSTANTS.DEBUG &&
-      console.group('%c[AniList Check]', 'color:#3db4f2;font-weight:bold;', ...args),
-    groupEnd: () => CONSTANTS.DEBUG && console.groupEnd(),
+    info: (...args) => {
+      return (
+        CONSTANTS.DEBUG && console.log('%c[AniList]', 'color:#3db4f2;font-weight:bold;', ...args)
+      );
+    },
+    warn: (...args) => {
+      return (
+        CONSTANTS.DEBUG && console.warn('%c[AniList]', 'color:#ffca28;font-weight:bold;', ...args)
+      );
+    },
+    error: (...args) => {
+      return console.error('%c[AniList Error]', 'color:#ff5252;font-weight:bold;', ...args);
+    },
+    group: (...args) => {
+      return (
+        CONSTANTS.DEBUG &&
+        console.group('%c[AniList Check]', 'color:#3db4f2;font-weight:bold;', ...args)
+      );
+    },
+    groupEnd: () => {
+      return CONSTANTS.DEBUG && console.groupEnd();
+    },
   };
 
   const Utils = {
@@ -158,27 +185,41 @@
           '"': '&quot;',
           "'": '&#039;',
         };
-        return input.replace(/[&<>"']/g, (m) => map[m]);
+        return input.replace(/[&<>"']/g, (m) => {
+          return map[m];
+        });
       }
-      if (Array.isArray(input)) return input.map(Utils.deepSanitize);
+      if (Array.isArray(input)) {
+        return input.map(Utils.deepSanitize);
+      }
       if (typeof input === 'object' && input !== null) {
         const newObj = {};
-        for (const key in input) newObj[key] = Utils.deepSanitize(input[key]);
+        for (const key in input) {
+          newObj[key] = Utils.deepSanitize(input[key]);
+        }
         return newObj;
       }
       return input;
     },
-    jsDateToInt: (d) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(),
-    dateToInt: (dObj) =>
-      !dObj || !dObj.year ? 0 : dObj.year * 10000 + (dObj.month || 1) * 100 + (dObj.day || 1),
-    formatDate: (dObj) =>
-      !dObj || !dObj.year
+    jsDateToInt: (d) => {
+      return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+    },
+    dateToInt: (dObj) => {
+      return !dObj || !dObj.year
+        ? 0
+        : dObj.year * 10000 + (dObj.month || 1) * 100 + (dObj.day || 1);
+    },
+    formatDate: (dObj) => {
+      return !dObj || !dObj.year
         ? '日期未定'
         : `${dObj.year}/${String(dObj.month || 1).padStart(2, '0')}/${String(
             dObj.day || 1,
-          ).padStart(2, '0')}`,
+          ).padStart(2, '0')}`;
+    },
     getFuzzyDateRange(dateObj, toleranceDays) {
-      if (!dateObj || !dateObj.year) return null;
+      if (!dateObj || !dateObj.year) {
+        return null;
+      }
       const target = new Date(dateObj.year, (dateObj.month || 1) - 1, dateObj.day || 1);
       const min = new Date(target);
       min.setDate(min.getDate() - toleranceDays);
@@ -188,19 +229,24 @@
     },
     isDateCloseEnough(targetObj, checkObj) {
       const range = this.getFuzzyDateRange(targetObj, CONSTANTS.MATCH_TOLERANCE_DAYS);
-      if (!range || !checkObj || !checkObj.year) return false;
+      if (!range || !checkObj || !checkObj.year) {
+        return false;
+      }
       const checkInt = this.dateToInt(checkObj);
       return checkInt >= range.start && checkInt <= range.end;
     },
     parseDateStr(str) {
-      if (!str || typeof str !== 'string') return null;
+      if (!str || typeof str !== 'string') {
+        return null;
+      }
       const match = str.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-      if (match)
+      if (match) {
         return {
           year: parseInt(match[1]),
           month: parseInt(match[2]),
           day: parseInt(match[3]),
         };
+      }
       return null;
     },
     extractDomain(url) {
@@ -218,7 +264,9 @@
 
       for (const [key, selector] of Object.entries(selectors)) {
         // 例外處理：playing 是動態 class，初始檢查時可能不存在，標記為警告但不算錯誤
-        if (key === 'playing') continue;
+        if (key === 'playing') {
+          continue;
+        }
 
         const el = scope.querySelector(selector);
         if (el) {
@@ -288,9 +336,11 @@
     GET_USER_STATUS: `query ($id:Int){Media(id:$id){mediaListEntry{status progress}}}`,
     UPDATE_PROGRESS: `mutation ($id:Int,$p:Int){SaveMediaListEntry(mediaId:$id,progress:$p){id progress status}}`,
     UPDATE_STATUS: `mutation ($id:Int,$status:MediaListStatus){SaveMediaListEntry(mediaId:$id,status:$status){id progress status}}`,
-    SEQUEL_CHAIN: (fields) => `
+    SEQUEL_CHAIN: (fields) => {
+      return `
             query ($id: Int) {
-                Media(id: $id) { ${fields} relations { edges { relationType(version: 2) node { ${fields} relations { edges { relationType(version: 2) node { ${fields} relations { edges { relationType(version: 2) node { ${fields} } } } } } } } } } } }`,
+                Media(id: $id) { ${fields} relations { edges { relationType(version: 2) node { ${fields} relations { edges { relationType(version: 2) node { ${fields} relations { edges { relationType(version: 2) node { ${fields} } } } } } } } } } } }`;
+    },
     GET_MEDIA_AND_STATUS: `query ($id: Int) {
         Media(id: $id) {
             id title { romaji native } coverImage { medium } episodes seasonYear startDate { year month day } format
@@ -340,16 +390,39 @@
     .al-justify-between { justify-content: space-between; }
     .al-justify-center { justify-content: center; }
     .al-shrink-0 { flex-shrink: 0; }
+    .al-w-full { width: 100%; }
+
     .al-gap-2 { gap: 8px; }
     .al-gap-3 { gap: 12px; }
-    .al-w-full { width: 100%; }
     
+    /* Padding */
+    .al-p-1 { padding: 4px; }
+    .al-pt-1 { padding-top: 4px; } .al-pb-1 { padding-bottom: 4px; }
+    .al-pl-1 { padding-left: 4px; } .al-pr-1 { padding-right: 4px; }
+    .al-p-2 { padding: 8px; }
+    .al-pt-2 { padding-top: 8px; } .al-pb-2 { padding-bottom: 8px; }
+    .al-pl-2 { padding-left: 8px; } .al-pr-2 { padding-right: 8px; }
+    .al-p-3 { padding: 12px; }
+    .al-pt-3 { padding-top: 12px; } .al-pb-3 { padding-bottom: 12px; }
+    .al-pl-3 { padding-left: 12px; } .al-pr-3 { padding-right: 12px; }
     .al-p-4 { padding: 16px; }
-    .al-mt-2 { margin-top: 8px; }
-    .al-mt-3 { margin-top: 12px; }
-    .al-mt-4 { margin-top: 24px; } /* 加大區塊間距 */
-    .al-mb-1 { margin-bottom: 4px; }
-    .al-my-3 { margin-top: 12px; margin-bottom: 12px; }
+    .al-pt-4 { padding-top: 16px; } .al-pb-4 { padding-bottom: 16px; }
+    .al-pl-4 { padding-left: 16px; } .al-pr-4 { padding-right: 16px; }
+    .al-p-5 { padding: 20px; }
+
+    /* Margin */
+    .al-m-1 { margin: 4px; }
+    .al-mt-1 { margin-top: 4px; } .al-mb-1 { margin-bottom: 4px; }
+    .al-ml-1 { margin-left: 4px; } .al-mr-1 { margin-right: 4px; }
+    .al-m-2 { margin: 8px; }
+    .al-mt-2 { margin-top: 8px; } .al-mb-2 { margin-bottom: 8px; }
+    .al-ml-2 { margin-left: 8px; } .al-mr-2 { margin-right: 8px; }
+    .al-m-3 { margin: 12px; }
+    .al-mt-3 { margin-top: 12px; } .al-mb-3 { margin-bottom: 12px; }
+    .al-ml-3 { margin-left: 12px; } .al-mr-3 { margin-right: 12px; }
+    .al-m-4 { margin: 16px; }
+    .al-mt-4 { margin-top: 16px; } .al-mb-4 { margin-bottom: 16px; }
+    .al-ml-4 { margin-left: 16px; } .al-mr-4 { margin-right: 16px; }
 
     /* 3. 文字與連結 */
     .al-text-sm { font-size: 13px; }
@@ -444,7 +517,7 @@
 
     .al-nav-item { float: left; }
     .al-nav-link { display: flex; align-items: center; color: #ccc; cursor: pointer; font-size: 13px; transition: 0.2s; }
-    .al-nav-link:hover { color: #fff; }
+    .al-nav-link:hover { color: var(--al-primary); }
     #al-user-status, #al-title { border-left: 1px solid #666; padding-left: 8px; margin-left: 8px; }
     .al-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1f2937; color: #fff; padding: 8px 20px; border-radius: 99px; font-size: 13px; z-index: 100000; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
     
@@ -479,7 +552,9 @@
       // 2. 如果有按鈕，照舊讀取
       if (targetLi) {
         const text = targetLi.textContent.trim();
-        if (text.includes('.') || !/\d/.test(text)) return null; // 過濾小數點
+        if (text.includes('.') || !/\d/.test(text)) {
+          return null;
+        } // 過濾小數點
         return parseInt(text, 10);
       }
 
@@ -487,7 +562,9 @@
       const titleEp = this.parseFromTitle();
       if (titleEp !== null) {
         // 同樣過濾小數點
-        if (!Number.isInteger(titleEp)) return null;
+        if (!Number.isInteger(titleEp)) {
+          return null;
+        }
         return titleEp;
       }
 
@@ -506,7 +583,9 @@
             const t = li.textContent.trim();
             if (!t.includes('.') && /\d/.test(t)) {
               const v = parseInt(t, 10);
-              if (minEp === null || v < minEp) minEp = v;
+              if (minEp === null || v < minEp) {
+                minEp = v;
+              }
             }
           });
         });
@@ -537,7 +616,9 @@
           const t = li.textContent.trim();
           if (!t.includes('.') && /\d/.test(t)) {
             const v = parseInt(t, 10);
-            if (v > maxEp) maxEp = v;
+            if (v > maxEp) {
+              maxEp = v;
+            }
           }
         });
       });
@@ -555,7 +636,9 @@
      */
     calculateOffsets(chain, targetId, anchorStart) {
       // 1. 找出錨點位置
-      let anchorIndex = chain.findIndex((m) => m.id === targetId);
+      let anchorIndex = chain.findIndex((m) => {
+        return m.id === targetId;
+      });
 
       // 如果鏈中沒有目標 ID，手動加入
       if (anchorIndex === -1 && targetId) {
@@ -571,7 +654,9 @@
       for (let i = anchorIndex - 1; i >= 0; i--) {
         const next = chain[i + 1];
         const current = chain[i];
-        if (next.calculatedStart === undefined) break;
+        if (next.calculatedStart === undefined) {
+          break;
+        }
         const epCount = current.episodes || 12; // 若無集數資料，預設 12 (避免無限回推錯誤)
         current.calculatedStart = next.calculatedStart - epCount;
       }
@@ -582,7 +667,9 @@
         const current = chain[i];
 
         // 前作如果是連載中 (episodes: null) 或是計算中斷，則停止推算
-        if (!prev.episodes || prev.calculatedStart === undefined) break;
+        if (!prev.episodes || prev.calculatedStart === undefined) {
+          break;
+        }
 
         current.calculatedStart = prev.calculatedStart + prev.episodes;
       }
@@ -594,10 +681,14 @@
 
   // #region ================= [API] AniList 通訊層 =================
   const AniListAPI = {
-    getToken: () => GM_getValue(CONSTANTS.KEYS.TOKEN),
+    getToken: () => {
+      return GM_getValue(CONSTANTS.KEYS.TOKEN);
+    },
     async request(query, variables, retryCount = 0) {
       const token = this.getToken();
-      if (!token && !query.includes('search')) throw new Error('Token 未設定');
+      if (!token && !query.includes('search')) {
+        throw new Error('Token 未設定');
+      }
 
       if (retryCount > 0) {
         Log.warn(`API 重試中 (${retryCount}/${CONSTANTS.API_MAX_RETRIES})...`);
@@ -632,10 +723,13 @@
             const strategies = [
               {
                 name: 'Maintenance',
-                match: (r) =>
-                  r.status >= 500 ||
-                  r.responseText.includes('temporarily disabled') ||
-                  r.responseText.includes('stability issues'),
+                match: (r) => {
+                  return (
+                    r.status >= 500 ||
+                    r.responseText.includes('temporarily disabled') ||
+                    r.responseText.includes('stability issues')
+                  );
+                },
                 execute: () => {
                   const info = 'AniList 維護中';
                   UI.updateNav(CONSTANTS.STATUS.ERROR, info);
@@ -646,7 +740,9 @@
               },
               {
                 name: 'RateLimit',
-                match: (r) => r.status === 429,
+                match: (r) => {
+                  return r.status === 429;
+                },
                 execute: () => {
                   if (retryCount < CONSTANTS.API_MAX_RETRIES) {
                     const delay = CONSTANTS.RETRY_DELAY_MS * Math.pow(2, retryCount);
@@ -667,7 +763,9 @@
               },
               {
                 name: 'AuthError',
-                match: (r) => r.status === 401 || r.responseText.includes('Invalid token'),
+                match: (r) => {
+                  return r.status === 401 || r.responseText.includes('Invalid token');
+                },
                 execute: () => {
                   UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
                   UI.showToast('❌ Token 無效或過期，請重新設定');
@@ -676,7 +774,9 @@
               },
               {
                 name: 'Success',
-                match: () => true,
+                match: () => {
+                  return true;
+                },
                 execute: () => {
                   const d = JSON.parse(r.responseText);
                   if (d.errors) {
@@ -691,7 +791,9 @@
             ];
 
             try {
-              const activeStrategy = strategies.find((s) => s.match(r));
+              const activeStrategy = strategies.find((s) => {
+                return s.match(r);
+              });
               if (activeStrategy) {
                 Log.info(`Executing Strategy: ${activeStrategy.name}`);
                 activeStrategy.execute();
@@ -731,22 +833,44 @@
         });
       });
     },
-    search: (term) => AniListAPI.request(GQL.SEARCH, { s: term }),
-    searchByDateRange: (start, end) => AniListAPI.request(GQL.SEARCH_RANGE, { start, end }),
-    getMedia: (id) => AniListAPI.request(GQL.GET_MEDIA, { id }).then((d) => d.data.Media),
-    getMediaAndStatus: (id) =>
-      AniListAPI.request(GQL.GET_MEDIA_AND_STATUS, { id }).then((d) => d.data.Media),
-    getUserStatus: (id) =>
-      AniListAPI.request(GQL.GET_USER_STATUS, { id }).then((d) => d.data.Media.mediaListEntry),
-    updateUserProgress: (id, p) =>
-      AniListAPI.request(GQL.UPDATE_PROGRESS, { id, p }).then((d) => d.data.SaveMediaListEntry),
-    updateUserStatus: (id, status) =>
-      AniListAPI.request(GQL.UPDATE_STATUS, { id, status }).then((d) => d.data.SaveMediaListEntry),
+    search: (term) => {
+      return AniListAPI.request(GQL.SEARCH, { s: term });
+    },
+    searchByDateRange: (start, end) => {
+      return AniListAPI.request(GQL.SEARCH_RANGE, { start, end });
+    },
+    getMedia: (id) => {
+      return AniListAPI.request(GQL.GET_MEDIA, { id }).then((d) => {
+        return d.data.Media;
+      });
+    },
+    getMediaAndStatus: (id) => {
+      return AniListAPI.request(GQL.GET_MEDIA_AND_STATUS, { id }).then((d) => {
+        return d.data.Media;
+      });
+    },
+    getUserStatus: (id) => {
+      return AniListAPI.request(GQL.GET_USER_STATUS, { id }).then((d) => {
+        return d.data.Media.mediaListEntry;
+      });
+    },
+    updateUserProgress: (id, p) => {
+      return AniListAPI.request(GQL.UPDATE_PROGRESS, { id, p }).then((d) => {
+        return d.data.SaveMediaListEntry;
+      });
+    },
+    updateUserStatus: (id, status) => {
+      return AniListAPI.request(GQL.UPDATE_STATUS, { id, status }).then((d) => {
+        return d.data.SaveMediaListEntry;
+      });
+    },
     async getSequelChain(id) {
       const query = GQL.SEQUEL_CHAIN(GQL.MEDIA_FIELDS);
       const data = await this.request(query, { id });
       const root = data.data.Media;
-      if (!root) return [];
+      if (!root) {
+        return [];
+      }
 
       // 1. 設定目標格式
       const rootFormat = root.format;
@@ -765,17 +889,21 @@
       const targetRelations = ['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF'];
 
       const traverse = (node) => {
-        if (!node || visited.has(node.id)) return;
+        if (!node || visited.has(node.id)) {
+          return;
+        }
 
         visited.set(node.id, node);
 
         if (node.relations?.edges) {
-          const relatedEdges = node.relations.edges.filter((e) =>
-            targetRelations.includes(e.relationType),
-          );
+          const relatedEdges = node.relations.edges.filter((e) => {
+            return targetRelations.includes(e.relationType);
+          });
 
           relatedEdges.forEach((edge) => {
-            if (edge.node) traverse(edge.node);
+            if (edge.node) {
+              traverse(edge.node);
+            }
           });
         }
       };
@@ -784,15 +912,17 @@
       traverse(root);
 
       // 3. 轉為陣列並過濾格式
-      let resultChain = Array.from(visited.values()).filter((media) =>
-        targetFormats.includes(media.format),
-      );
+      let resultChain = Array.from(visited.values()).filter((media) => {
+        return targetFormats.includes(media.format);
+      });
 
       resultChain.sort((a, b) => {
         const dateA = Utils.dateToInt(a.startDate);
         const dateB = Utils.dateToInt(b.startDate);
         // 日期一樣或缺漏，用 ID 排序當備案
-        if (dateA === dateB) return a.id - b.id;
+        if (dateA === dateB) {
+          return a.id - b.id;
+        }
         return dateA - dateB;
       });
 
@@ -803,7 +933,8 @@
 
   // #region ================= [UI] 畫面渲染與事件 =================
   const Templates = {
-    tabs: (activeTab, isVideo, hasRules) => `
+    tabs: (activeTab, isVideo, hasRules) => {
+      return `
       <div class="al-tabs-nav">
         <button class="al-tab-item ${activeTab === 'home' ? 'active' : ''}" 
           data-tab="home" ${!isVideo ? 'disabled' : ''}>主頁 / 狀態</button>
@@ -815,13 +946,15 @@
       <div id="tab-home" class="al-tab-pane ${activeTab === 'home' ? 'active' : ''}"></div>
       <div id="tab-series" class="al-tab-pane ${activeTab === 'series' ? 'active' : ''}"></div>
       <div id="tab-settings" class="al-tab-pane ${activeTab === 'settings' ? 'active' : ''}"></div>
-    `,
+    `;
+    },
     settings: (token, mode, clientId, customSec) => {
       const optionsHtml = Object.values(CONSTANTS.SYNC_MODES)
-        .map(
-          (m) =>
-            `<option value="${m.value}" ${mode === m.value ? 'selected' : ''}>${m.label}</option>`,
-        )
+        .map((m) => {
+          return `<option value="${m.value}" ${mode === m.value ? 'selected' : ''}>${
+            m.label
+          }</option>`;
+        })
         .join('');
 
       return `
@@ -848,10 +981,10 @@
           <button id="save-set" class="al-btn al-btn-success al-btn-block al-mt-2">儲存設定</button>
 
           <div class="al-card al-mt-2 al-text-sm al-text-sub">
-            <div class="al-font-bold al-text al-mb-1" style="border-bottom:1px solid var(--al-border); padding-bottom:5px;">如何取得 Token?</div>
+            <div class="al-font-bold al-text al-mb-1 al-pb-2" style="border-bottom:1px solid var(--al-border);">如何取得 Token?</div>
             <div class="al-flex al-gap-2 al-mt-2">
               <span class="al-font-bold al-text-primary">1.</span>
-              <div>登入 <a href="https://anilist.co/" target="_blank" class="al-link">AniList</a> 後，前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">開發者設定</a> 新增 Client。</div>
+              <span>登入 <a href="https://anilist.co/" target="_blank" class="al-link">AniList</a> 後，前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">開發者設定</a> 新增 Client。</span>
             </div>
             <div class="al-flex al-items-center al-gap-2 al-mt-2">
               <span class="al-font-bold al-text-primary">2.</span>
@@ -861,13 +994,14 @@
             </div>
             <div class="al-flex al-gap-2 al-mt-2">
               <span class="al-font-bold al-text-primary">3.</span>
-              <div>點擊 Authorize，將網址列或頁面上的 Access Token 複製貼回上方。</div>
+              <span>點擊 Authorize，將網址列或頁面上的 Access Token 複製貼回上方。</span>
             </div>
           </div>
         </div>
       `;
     },
-    homeBound: (rule, info, statusData, statusOptions) => `
+    homeBound: (rule, info, statusData, statusOptions) => {
+      return `
       <div class="al-p-4 al-flex-col al-gap-3">
         <div class="al-flex al-justify-between al-items-center">
           <label class="al-text-sub al-font-bold al-text-xs">目前綁定作品</label>
@@ -893,18 +1027,18 @@
                   ${Utils.formatDate(info.startDate)}</div>
               </div>
             </div>
-            <div class="al-text-success al-text-sm" style="border-top:1px dashed var(--al-border); padding-top:6px;">
+            <div class="al-text-success al-text-sm al-pt-2" style="border-top:1px dashed var(--al-border);">
               AniList 進度: ${statusData?.progress || 0} / ${info.episodes || '?'}
             </div>
           </div>
         </div>
 
-        <div class="al-mt-4" style="border-top:1px solid var(--al-border); padding-top:16px;">
+        <div class="al-mt-4 al-pt-4" style="border-top:1px solid var(--al-border);">
           <label class="al-text-sub al-font-bold al-text-xs al-mb-1" style="display:block;">切換狀態</label>
           <select id="home-status" class="al-input">${statusOptions}</select>
         </div>
 
-        <div class="al-my-3">
+        <div class="al-mb-3 al-mt-3">
           <label class="al-text-sub al-font-bold al-text-xs al-mb-1" style="display:block;">手動修改 ID</label>
           <div class="al-flex al-gap-2">
             <input type="number" id="home-edit-id" class="al-input" value="${rule.id}">
@@ -914,7 +1048,8 @@
 
         <button id="btn-unbind" class="al-btn al-btn-danger al-btn-block al-mt-4">解除所有綁定</button>
       </div>
-    `,
+    `;
+    },
     homeUnbound: (candidate, searchName) => {
       let suggestionHtml = '';
       if (candidate) {
@@ -955,8 +1090,9 @@
         </div>
       `;
     },
-    searchResult: (m) => `
-      <div class="al-flex al-gap-3 al-items-center" style="border-bottom:1px solid var(--al-border); padding-bottom:8px;">
+    searchResult: (m) => {
+      return `
+      <div class="al-flex al-gap-3 al-items-center al-p-2" style="border-bottom:1px solid var(--al-border);">
         <a href="https://anilist.co/anime/${m.id}" target="_blank">
           <img src="${m.coverImage.medium}" class="al-cover al-cover-sm">
         </a>
@@ -977,7 +1113,8 @@
           data-id="${m.id}" 
           data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">綁定</button>
       </div>
-    `,
+    `;
+    },
     seriesRow: (m, isActive, isSuggestion, isOut, bahaVal, aniVal) => {
       const displayStart = m.calculatedStart !== undefined ? m.calculatedStart : '';
       let statusHtml, rowClass, btnTxt, btnClass;
@@ -1005,8 +1142,11 @@
       }
 
       let defaultAniVal = '';
-      if (isActive) defaultAniVal = aniVal;
-      else if (isSuggestion) defaultAniVal = 1;
+      if (isActive) {
+        defaultAniVal = aniVal;
+      } else if (isSuggestion) {
+        defaultAniVal = 1;
+      }
 
       return `
         <tr class="series-row ${rowClass}" data-id="${m.id}" data-title="${Utils.deepSanitize(
@@ -1026,7 +1166,7 @@
                <div style="min-width:0;">
                  <a href="https://anilist.co/anime/${
                    m.id
-                 }" target="_blank" class="al-link al-text-sm al-font-bold" style="display:block; line-height:1.3; margin-bottom:4px;">
+                 }" target="_blank" class="al-link al-text-sm al-font-bold al-mb-1" style="display:block; line-height:1.3;">
                    ${m.title.native || m.title.romaji}
                  </a>
                  <div class="al-text-sub al-text-xs">
@@ -1056,18 +1196,24 @@
     statusTimer: null,
     showToast(msg) {
       const old = _.$('.al-toast');
-      if (old) old.remove();
+      if (old) {
+        old.remove();
+      }
       const t = _.html(`<div class="al-toast">${msg}</div>`);
       document.body.appendChild(t);
       _.fadeIn(t, 'block');
       setTimeout(() => {
         _.fadeOut(t);
-        setTimeout(() => t.remove(), 300);
+        setTimeout(() => {
+          return t.remove();
+        }, 300);
       }, 2500);
     },
     checkTheme() {
       const modalContent = _.$('.al-modal-content');
-      if (!modalContent) return;
+      if (!modalContent) {
+        return;
+      }
 
       const moonBtn = document.getElementById('darkmode-moon');
       // 如果月亮按鈕存在且被勾選，則加入 dark class
@@ -1078,13 +1224,17 @@
       }
     },
     initNavbar(nav) {
-      if (_.$('#al-trigger')) return;
+      if (_.$('#al-trigger')) {
+        return;
+      }
       const li = _.html(
         `<li class="al-nav-item"><a class="al-nav-link" id="al-trigger"><span id="al-icon">⚪</span><span id="al-text">AniList</span><span id="al-user-status" class="al-user-status"></span><span id="al-title" class="al-nav-title" style="display:none;"></span></a></li>`,
       );
       nav.appendChild(li);
 
-      _.$('#al-trigger').addEventListener('click', () => this.openModal());
+      _.$('#al-trigger').addEventListener('click', () => {
+        return this.openModal();
+      });
 
       // Modal 結構建立
       const modal = _.html(
@@ -1092,15 +1242,21 @@
       );
       document.body.appendChild(modal);
 
-      _.$('.al-close-btn', modal).addEventListener('click', () => _.fadeOut(modal));
+      _.$('.al-close-btn', modal).addEventListener('click', () => {
+        return _.fadeOut(modal);
+      });
       modal.addEventListener('click', (e) => {
-        if (e.target.id === 'al-modal') _.fadeOut(modal);
+        if (e.target.id === 'al-modal') {
+          _.fadeOut(modal);
+        }
       });
 
       // 深色模式切換按鈕
       const themeRadios = document.querySelectorAll('input[name="darkmode"]');
       themeRadios.forEach((radio) => {
-        radio.addEventListener('change', () => this.checkTheme());
+        radio.addEventListener('change', () => {
+          return this.checkTheme();
+        });
       });
 
       // 初始化時檢查一次主題
@@ -1112,7 +1268,9 @@
         $title = _.$('#al-title'),
         $uStatus = _.$('#al-user-status');
 
-      if (!$icon || !$text || !$title || !$uStatus) return;
+      if (!$icon || !$text || !$title || !$uStatus) {
+        return;
+      }
 
       if (this.statusTimer) {
         clearTimeout(this.statusTimer);
@@ -1135,12 +1293,16 @@
           const { status, progress } = State.userStatus;
           const statusConfig = CONSTANTS.ANI_STATUS[status];
           let stTxt = statusConfig ? statusConfig.display : '';
-          if (progress > 0) stTxt += `【Ep.${progress}】`;
+          if (progress > 0) {
+            stTxt += `【Ep.${progress}】`;
+          }
           if (stTxt) {
             $uStatus.textContent = stTxt;
             $uStatus.style.display = 'inline-block';
           }
-        } else $uStatus.style.display = 'none';
+        } else {
+          $uStatus.style.display = 'none';
+        }
       } else {
         $title.style.display = 'none';
         $uStatus.style.display = 'none';
@@ -1163,7 +1325,9 @@
         this.statusTimer = setTimeout(() => {
           $icon.textContent = '✅';
           $text.textContent = '已連動';
-          if (State.userStatus) $uStatus.style.display = 'inline-block';
+          if (State.userStatus) {
+            $uStatus.style.display = 'inline-block';
+          }
         }, 1500);
       }
     },
@@ -1185,12 +1349,20 @@
 
       _.$$('.al-tab-item', body).forEach((btn) => {
         btn.addEventListener('click', () => {
-          if (btn.disabled || btn.classList.contains('active')) return;
-          _.$$('.al-tab-item').forEach((b) => b.classList.remove('active'));
+          if (btn.disabled || btn.classList.contains('active')) {
+            return;
+          }
+          _.$$('.al-tab-item').forEach((b) => {
+            return b.classList.remove('active');
+          });
           btn.classList.add('active');
-          _.$$('.al-tab-pane').forEach((c) => c.classList.remove('active'));
+          _.$$('.al-tab-pane').forEach((c) => {
+            return c.classList.remove('active');
+          });
           const targetPane = _.$(`#tab-${btn.dataset.tab}`);
-          if (targetPane) targetPane.classList.add('active');
+          if (targetPane) {
+            targetPane.classList.add('active');
+          }
           UI.loadTabContent(btn.dataset.tab);
         });
       });
@@ -1200,11 +1372,16 @@
     loadTabContent(tabName) {
       const container = _.$(`#tab-${tabName}`);
       container.innerHTML = '';
-      if (tabName === 'settings') this.renderSettings(container);
-      else if (tabName === 'series') this.renderSeries(container);
-      else {
-        if (State.rules.length > 0) this.renderHomeBound(container);
-        else this.renderHomeUnbound(container);
+      if (tabName === 'settings') {
+        this.renderSettings(container);
+      } else if (tabName === 'series') {
+        this.renderSeries(container);
+      } else {
+        if (State.rules.length > 0) {
+          this.renderHomeBound(container);
+        } else {
+          this.renderHomeUnbound(container);
+        }
       }
     },
     renderSettings(container) {
@@ -1254,18 +1431,25 @@
         const newToken = _.$('#set-token', container).value.trim();
         const newMode = _.$('#set-mode', container).value;
         const customSec = parseInt(_.$('#set-custom-sec', container).value);
-        if (!newToken) return UI.showToast('❌ 請輸入 Token');
-        if (newMode === 'custom' && (isNaN(customSec) || customSec < 1))
+        if (!newToken) {
+          return UI.showToast('❌ 請輸入 Token');
+        }
+        if (newMode === 'custom' && (isNaN(customSec) || customSec < 0)) {
           return UI.showToast('❌ 請輸入有效的秒數');
+        }
         GM_setValue(CONSTANTS.KEYS.TOKEN, newToken);
         GM_setValue(CONSTANTS.KEYS.SYNC_MODE, newMode);
-        if (!isNaN(customSec)) GM_setValue(CONSTANTS.KEYS.CUSTOM_SEC, customSec);
+        if (!isNaN(customSec)) {
+          GM_setValue(CONSTANTS.KEYS.CUSTOM_SEC, customSec);
+        }
         UI.showToast('✅ 設定已儲存，重新整理中...');
-        setTimeout(() => location.reload(), 800);
+        setTimeout(() => {
+          return location.reload();
+        }, 800);
       });
     },
     async renderHomeBound(container) {
-      container.innerHTML = '<div style="padding:20px;">讀取中...</div>';
+      container.innerHTML = '<div class=".al-p-4">讀取中...</div>';
 
       let rule = State.activeRule;
       let isUnknownEp = false;
@@ -1309,8 +1493,9 @@
           opts += `<option value="${setting.value}" ${isSelected}>${setting.label}</option>`;
         });
 
+        isUnknownEp = true;
         const warningHtml = isUnknownEp
-          ? `<div style="background:#fff3cd; color:#856404; padding:8px 12px; margin-bottom:10px; border-radius:4px; font-size:12px; border:1px solid #ffeeba;">
+          ? `<div class="al-p-3 al-mb-3" style="background:#fff3cd; color:#856404; border-radius:4px; font-size:12px; border:1px solid #ffeeba;">
                  ⚠️ 當前集數無法判定 (如小數點集數或特別篇)，<b>已暫停自動同步</b>，但您仍可手動管理狀態。
                </div>`
           : '';
@@ -1322,7 +1507,9 @@
 
         _.$('#home-status', container).addEventListener('change', async function () {
           const s = this.value;
-          if (s === 'NOT_IN_LIST') return;
+          if (s === 'NOT_IN_LIST') {
+            return;
+          }
           this.disabled = true;
           try {
             const newS = await AniListAPI.updateUserStatus(rule.id, s);
@@ -1340,7 +1527,9 @@
 
         _.$('#home-save-id', container).addEventListener('click', () => {
           const nid = parseInt(_.$('#home-edit-id', container).value);
-          if (nid) App.bindSeries(nid, '手動更新');
+          if (nid) {
+            App.bindSeries(nid, '手動更新');
+          }
         });
 
         _.$('#btn-unbind', container).addEventListener('click', () => {
@@ -1355,7 +1544,7 @@
           UI.loadTabContent('home');
         });
       } catch (e) {
-        container.innerHTML = `<div style="padding:20px; color:red;">Error: ${e.message}</div>`;
+        container.innerHTML = `<div class=".al-p-4" style="color:red;">Error: ${e.message}</div>`;
       }
     },
     renderHomeUnbound(container) {
@@ -1363,9 +1552,9 @@
       container.innerHTML = Templates.homeUnbound(State.candidate, data.nameJp);
 
       if (State.candidate) {
-        _.$('#btn-quick', container).addEventListener('click', () =>
-          App.bindSeries(State.candidate.id, State.candidate.title.native),
-        );
+        _.$('#btn-quick', container).addEventListener('click', () => {
+          return App.bindSeries(State.candidate.id, State.candidate.title.native);
+        });
       }
 
       const doSearch = async () => {
@@ -1375,12 +1564,13 @@
           const res = await AniListAPI.search(_.$('#search-in', container).value);
           let html = '';
           const list = res.data.Page.media || [];
-          if (list.length === 0)
+          if (list.length === 0) {
             html = '<div style="text-align:center;color:#666;">找不到結果</div>';
-          else
+          } else {
             list.forEach((m) => {
               html += Templates.searchResult(m);
             });
+          }
           resContainer.innerHTML = html;
           _.$$('.bind-it', resContainer).forEach((btn) => {
             btn.addEventListener('click', function () {
@@ -1394,24 +1584,34 @@
 
       _.$('#btn-search', container).addEventListener('click', doSearch);
       _.$('#search-in', container).addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') doSearch();
+        if (e.key === 'Enter') {
+          doSearch();
+        }
       });
-      if (data.nameJp) doSearch();
+      if (data.nameJp) {
+        doSearch();
+      }
     },
     async renderSeries(container) {
-      container.innerHTML = '<div style="padding:20px;text-align:center;">讀取系列資訊中...</div>';
+      container.innerHTML =
+        '<div class=".al-p-4" style="text-align:center;">讀取系列資訊中...</div>';
 
       const activeRules = State.rules;
       let baseRule = State.activeRule;
 
       // 如果 activeRule 不在 rules 列表裡，或者根本沒 activeRule
-      if (!baseRule || !activeRules.find((r) => r.id === baseRule.id)) {
+      if (
+        !baseRule ||
+        !activeRules.find((r) => {
+          return r.id === baseRule.id;
+        })
+      ) {
         baseRule = activeRules.length > 0 ? activeRules[0] : null;
       }
 
       if (!baseRule && activeRules.length === 0) {
         container.innerHTML =
-          '<div style="padding:20px;text-align:center;color:#999;">請先在主頁綁定作品</div>';
+          '<div class=".al-p-4" style="text-align:center;color:#999;">請先在主頁綁定作品</div>';
         return;
       }
 
@@ -1438,7 +1638,9 @@
 
         let rowsHtml = '';
         chain.forEach((m) => {
-          const existing = State.rules.find((r) => r.id === m.id);
+          const existing = State.rules.find((r) => {
+            return r.id === m.id;
+          });
           const isActive = !!existing;
 
           let isOut = true;
@@ -1472,8 +1674,8 @@
           rowsHtml += Templates.seriesRow(m, isActive, isSuggestion, isOut, bahaVal, aniVal);
         });
         container.innerHTML = `
-          <div style="padding:15px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <div class="al-p-4">
+              <div class="al-mb-3" style="display:flex; justify-content:space-between; align-items:center;">
                   <span class="al-font-bold al-text-sub">系列作設定 (本頁範圍: 
                     ${pageMin || '?'}~${pageMax || '?'})</span>
                   <button id="btn-refresh-series" class="al-btn al-btn-outline al-btn-sm" title="強制重新抓取">
@@ -1521,8 +1723,12 @@
             btn.classList.add('al-btn-danger'); // 紅色按鈕
 
             // 自動填入建議值
-            if (val !== undefined && val !== '') inp.value = val;
-            if (inpAni.value === '') inpAni.value = 1;
+            if (val !== undefined && val !== '') {
+              inp.value = val;
+            }
+            if (inpAni.value === '') {
+              inpAni.value = 1;
+            }
           } else {
             statusSpan.textContent = '未用';
             statusSpan.classList.add('default'); // 灰色標籤
@@ -1538,16 +1744,22 @@
           btn.addEventListener('click', function () {
             const row = this.closest('tr');
             const cb = _.$('.cb-active', row);
-            if (cb.checked) updateRow(row, false);
-            else updateRow(row, true, this.dataset.suggested || '');
+            if (cb.checked) {
+              updateRow(row, false);
+            } else {
+              updateRow(row, true, this.dataset.suggested || '');
+            }
           });
         });
 
         _.$$('.inp-start', container).forEach((inp) => {
           inp.addEventListener('input', function () {
             const row = this.closest('tr');
-            if (this.value) updateRow(row, true);
-            else updateRow(row, false);
+            if (this.value) {
+              updateRow(row, true);
+            } else {
+              updateRow(row, false);
+            }
           });
         });
 
@@ -1574,8 +1786,12 @@
               });
             }
           });
-          if (newRules.length === 0) return UI.showToast('❌ 至少需要設定一個起始集數');
-          newRules.sort((a, b) => b.start - a.start);
+          if (newRules.length === 0) {
+            return UI.showToast('❌ 至少需要設定一個起始集數');
+          }
+          newRules.sort((a, b) => {
+            return b.start - a.start;
+          });
           State.rules = newRules;
           GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`, newRules);
           App.determineActiveRule();
@@ -1584,7 +1800,7 @@
           _.fadeOut(_.$('#al-modal'));
         });
       } catch (e) {
-        container.innerHTML = `<div style="padding:20px;color:red;">載入失敗: ${e.message}</div>`;
+        container.innerHTML = `<div class=".al-p-4" style="color:red;">載入失敗: ${e.message}</div>`;
       }
     },
   };
@@ -1621,7 +1837,9 @@
     },
     init() {
       Utils.validatePage(); //檢查CSS選擇器
-      if (!GM_getValue(CONSTANTS.KEYS.TOKEN)) Log.warn('Token 未設定');
+      if (!GM_getValue(CONSTANTS.KEYS.TOKEN)) {
+        Log.warn('Token 未設定');
+      }
       this.waitForNavbar();
       this.startMonitor();
       this.handleTimeUpdate = this.handleTimeUpdate.bind(this);
@@ -1641,10 +1859,14 @@
     },
     startMonitor() {
       this.checkUrlChange();
-      setInterval(() => this.checkUrlChange(), 1000);
+      setInterval(() => {
+        return this.checkUrlChange();
+      }, 1000);
     },
     checkUrlChange() {
-      if (!location.href.includes(CONSTANTS.URLS.VIDEO_PAGE)) return;
+      if (!location.href.includes(CONSTANTS.URLS.VIDEO_PAGE)) {
+        return;
+      }
       const params = new URLSearchParams(location.search);
       const newSn = params.get('sn');
       if (newSn && newSn !== State.currentUrlSn) {
@@ -1655,9 +1877,13 @@
       }
     },
     resetEpisodeState() {
-      if (State.huntTimer) clearInterval(State.huntTimer);
+      if (State.huntTimer) {
+        clearInterval(State.huntTimer);
+      }
       const video = document.querySelector(CONSTANTS.SELECTORS.PAGE.videoElement);
-      if (video) video.removeEventListener('timeupdate', this.handleTimeUpdate);
+      if (video) {
+        video.removeEventListener('timeupdate', this.handleTimeUpdate);
+      }
       State.huntTimer = null;
       State.hasSynced = false;
       State.isHunting = false;
@@ -1667,13 +1893,18 @@
     },
     async loadEpisodeData() {
       const acgLink = this.getAcgLink();
-      if (!acgLink) return;
+      if (!acgLink) {
+        return;
+      }
       State.bahaSn = new URLSearchParams(acgLink.split('?')[1]).get('s');
-      if (!State.bahaData) State.bahaData = await this.fetchBahaData(acgLink);
+      if (!State.bahaData) {
+        State.bahaData = await this.fetchBahaData(acgLink);
+      }
       const savedRules = GM_getValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`);
       if (savedRules) {
-        if (Array.isArray(savedRules)) State.rules = savedRules;
-        else
+        if (Array.isArray(savedRules)) {
+          State.rules = savedRules;
+        } else {
           State.rules = [
             {
               start: 1,
@@ -1681,20 +1912,27 @@
               title: savedRules.title || 'Unknown',
             },
           ];
-        State.rules.sort((a, b) => b.start - a.start);
+        }
+        State.rules.sort((a, b) => {
+          return b.start - a.start;
+        });
       } else {
         State.rules = [];
-        if (GM_getValue(CONSTANTS.KEYS.TOKEN)) this.tryAutoBind();
+        if (GM_getValue(CONSTANTS.KEYS.TOKEN)) {
+          this.tryAutoBind();
+        }
       }
       await this.determineActiveRule();
       this.updateUIStatus();
     },
     getAcgLink() {
       const el = document.querySelector(CONSTANTS.SELECTORS.PAGE.acgLink);
-      if (el) return el.getAttribute('href');
-      const alt = [...document.querySelectorAll(CONSTANTS.SELECTORS.PAGE.acgLinkAlt)].find((a) =>
-        a.textContent.includes('作品資料'),
-      );
+      if (el) {
+        return el.getAttribute('href');
+      }
+      const alt = [...document.querySelectorAll(CONSTANTS.SELECTORS.PAGE.acgLinkAlt)].find((a) => {
+        return a.textContent.includes('作品資料');
+      });
       return alt ? alt.getAttribute('href') : null;
     },
     async determineActiveRule() {
@@ -1707,7 +1945,9 @@
       // 如果 currentEp 是 null，則不套用任何規則
       if (currentEp !== null) {
         State.activeRule =
-          State.rules.find((r) => currentEp >= r.start) || State.rules[State.rules.length - 1];
+          State.rules.find((r) => {
+            return currentEp >= r.start;
+          }) || State.rules[State.rules.length - 1];
       } else {
         // 正在看小數點集數，暫時不對應規則
         State.activeRule = null;
@@ -1728,9 +1968,13 @@
       }
     },
     startVideoHunt() {
-      if (State.isHunting) return;
+      if (State.isHunting) {
+        return;
+      }
       State.isHunting = true;
-      if (State.rules.length > 0) UI.updateNav(CONSTANTS.STATUS.SYNCING, '搜尋播放器...');
+      if (State.rules.length > 0) {
+        UI.updateNav(CONSTANTS.STATUS.SYNCING, '搜尋播放器...');
+      }
       State.syncSettings = {
         mode: GM_getValue(CONSTANTS.KEYS.SYNC_MODE, 'instant'),
         custom: GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, 60),
@@ -1745,7 +1989,9 @@
           clearInterval(State.huntTimer);
           State.huntTimer = null;
           State.isHunting = false;
-          if (State.rules.length > 0) UI.updateNav(CONSTANTS.STATUS.BOUND);
+          if (State.rules.length > 0) {
+            UI.updateNav(CONSTANTS.STATUS.BOUND);
+          }
         } else if (attempts > 50) {
           clearInterval(State.huntTimer);
           State.huntTimer = null;
@@ -1754,9 +2000,13 @@
       }, 200);
     },
     handleTimeUpdate(e) {
-      if (State.hasSynced || State.stopSync) return;
+      if (State.hasSynced || State.stopSync) {
+        return;
+      }
       const now = Date.now();
-      if (now - State.lastTimeUpdate < 1000) return;
+      if (now - State.lastTimeUpdate < 1000) {
+        return;
+      }
       State.lastTimeUpdate = now;
 
       const video = e.target;
@@ -1783,7 +2033,9 @@
       const rawEp = EpisodeCalculator.getRawCurrent();
 
       // 2. 如果是 null或沒規則，直接結束，不同步
-      if (rawEp === null || !State.activeRule) return;
+      if (rawEp === null || !State.activeRule) {
+        return;
+      }
 
       const rule = State.activeRule;
 
@@ -1852,7 +2104,9 @@
         UI.updateNav(CONSTANTS.STATUS.ERROR, '同步失敗');
         if (errStr.includes('Token') || errStr.includes('401')) {
           State.tokenErrorCount++;
-          if (State.tokenErrorCount >= 3) State.stopSync = true;
+          if (State.tokenErrorCount >= 3) {
+            State.stopSync = true;
+          }
           UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
         } else if (errStr.includes('Too Many Requests')) {
           State.stopSync = true;
@@ -1865,7 +2119,9 @@
       }
     },
     async tryAutoBind() {
-      if (!State.bahaData) return;
+      if (!State.bahaData) {
+        return;
+      }
 
       UI.updateNav(CONSTANTS.STATUS.SYNCING, '自動匹配中...');
 
@@ -1899,7 +2155,9 @@
                   );
                 });
 
-                if (match) return match;
+                if (match) {
+                  return match;
+                }
               } catch (e) {
                 Log.warn(`[AutoBind] NameSearch Error (${term}):`, e);
               }
@@ -1912,23 +2170,27 @@
           name: 'DateRangeDomainSearch',
           execute: async (ctx) => {
             const { dateJP, dateTW, site } = ctx.data;
-            if (!site) return null;
+            if (!site) {
+              return null;
+            }
 
             const range = ctx.utils.getFuzzyDateRange(
               dateJP.obj || dateTW.obj,
               CONSTANTS.SEARCH_RANGE_DAYS,
             );
 
-            if (!range) return null;
+            if (!range) {
+              return null;
+            }
 
             try {
               const res = await ctx.api.searchByDateRange(range.start, range.end);
               const list = res.data.Page.media || [];
 
               return list.find((media) => {
-                const domainMatch = media.externalLinks?.some((l) =>
-                  ctx.utils.extractDomain(l.url)?.includes(site),
-                );
+                const domainMatch = media.externalLinks?.some((l) => {
+                  return ctx.utils.extractDomain(l.url)?.includes(site);
+                });
                 // 雙重確認：網域對了，日期也要大致對
                 const dateMatch =
                   ctx.utils.isDateCloseEnough(dateJP.obj, media.startDate) ||
@@ -1957,7 +2219,9 @@
         await this.bindSeries(match.id, match.title.native || match.title.romaji);
       } else {
         UI.updateNav(CONSTANTS.STATUS.UNBOUND);
-        if (State.candidate) UI.showToast('🧐 找到可能的作品，請點擊確認');
+        if (State.candidate) {
+          UI.showToast('🧐 找到可能的作品，請點擊確認');
+        }
       }
     },
     async bindSeries(id, title) {
@@ -1979,7 +2243,9 @@
       try {
         const chain = await AniListAPI.getSequelChain(targetId);
 
-        const exists = chain.find((m) => m.id === targetId);
+        const exists = chain.find((m) => {
+          return m.id === targetId;
+        });
         if (!exists) {
           chain.push({ id: targetId, title: { native: title }, episodes: 12, format: 'TV' });
         }
@@ -1990,11 +2256,15 @@
 
         SeriesLogic.calculateOffsets(chain, targetId, anchorStart);
 
-        const targetMedia = chain.find((x) => x.id === targetId);
+        const targetMedia = chain.find((x) => {
+          return x.id === targetId;
+        });
         const targetStart = targetMedia ? targetMedia.calculatedStart : null;
 
         chain.forEach((m) => {
-          if (m.calculatedStart === undefined) return;
+          if (m.calculatedStart === undefined) {
+            return;
+          }
 
           const mStart = m.calculatedStart;
           const mEnd = m.episodes ? mStart + m.episodes : 999999;
@@ -2034,7 +2304,9 @@
         });
       }
 
-      newRules.sort((a, b) => b.start - a.start);
+      newRules.sort((a, b) => {
+        return b.start - a.start;
+      });
 
       State.rules = newRules;
       GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`, State.rules);
@@ -2051,14 +2323,16 @@
     },
     async fetchBahaData(url) {
       try {
-        const html = await new Promise((r, j) =>
-          GM_xmlhttpRequest({
+        const html = await new Promise((r, j) => {
+          return GM_xmlhttpRequest({
             method: 'GET',
             url,
-            onload: (x) => r(x.responseText),
+            onload: (x) => {
+              return r(x.responseText);
+            },
             onerror: j,
-          }),
-        );
+          });
+        });
         const doc = new DOMParser().parseFromString(html, 'text/html');
         if (CONSTANTS.DEBUG) {
           Utils.validateParser(doc);
@@ -2074,8 +2348,12 @@
         const titleEn = titles.length > 1 ? titles[1].textContent.trim() : '';
 
         const getTextFromList = (items, keyword) => {
-          const found = items.find((el) => el.textContent.includes(keyword));
-          if (!found) return null;
+          const found = items.find((el) => {
+            return el.textContent.includes(keyword);
+          });
+          if (!found) {
+            return null;
+          }
           const parts = found.textContent.split('：');
           return parts.length > 1 ? parts[1].trim() : null;
         };
@@ -2086,7 +2364,9 @@
 
         let siteDomain = '';
         const offLinkEl = [...doc.querySelectorAll('.ACG-box1listB > li')]
-          .find((el) => el.textContent.includes('官方網站'))
+          .find((el) => {
+            return el.textContent.includes('官方網站');
+          })
           ?.querySelector('a');
 
         if (offLinkEl) {
@@ -2113,11 +2393,17 @@
       }
     },
     updateUIStatus() {
-      if (!GM_getValue(CONSTANTS.KEYS.TOKEN)) UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
-      else if (State.rules.length === 0) UI.updateNav(CONSTANTS.STATUS.UNBOUND);
-      else UI.updateNav(CONSTANTS.STATUS.BOUND);
+      if (!GM_getValue(CONSTANTS.KEYS.TOKEN)) {
+        UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
+      } else if (State.rules.length === 0) {
+        UI.updateNav(CONSTANTS.STATUS.UNBOUND);
+      } else {
+        UI.updateNav(CONSTANTS.STATUS.BOUND);
+      }
     },
   };
   // #endregion
-  setTimeout(() => App.init(), 500);
+  setTimeout(() => {
+    return App.init();
+  }, 500);
 })();
