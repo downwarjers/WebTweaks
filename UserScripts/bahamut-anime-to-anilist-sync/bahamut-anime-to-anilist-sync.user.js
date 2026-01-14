@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bahamut Anime to AniList Sync
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      6.5
+// @version      6.6
 // @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @author       downwarjers
 // @license      MIT
@@ -91,7 +91,7 @@
       CUSTOM: { value: 'custom', label: '⚙️ 自訂時間' },
     },
 
-    // --- AniList 狀態集中管理設定 ---
+    // --- AniList 狀態 ---
     ANI_STATUS: {
       CURRENT: { value: 'CURRENT', label: 'Watching', display: '📺 觀看中' },
       COMPLETED: { value: 'COMPLETED', label: 'Completed', display: '🎉 已看完' },
@@ -103,8 +103,8 @@
   };
 
   const ICONS = {
-    EYE_OPEN: `<svg class="al-icon" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`,
-    EYE_OFF: `<svg class="al-icon" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07-2.3 2.3"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`,
+    EYE_OPEN: `<svg class="al-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`,
+    EYE_OFF: `<svg class="al-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07-2.3 2.3"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`,
   };
 
   // ================= DOM 輔助函式庫 =================
@@ -209,17 +209,6 @@
         return null;
       }
     },
-    showToast(msg) {
-      const old = _.$('.al-toast');
-      if (old) old.remove();
-      const t = _.html(`<div class="al-toast">${msg}</div>`);
-      document.body.appendChild(t);
-      _.fadeIn(t, 'block');
-      setTimeout(() => {
-        _.fadeOut(t);
-        setTimeout(() => t.remove(), 300);
-      }, 2500);
-    },
     // 選擇器檢查
     _validateGroup(scope, selectors, groupName) {
       Log.group(`🔍 Selector 檢查: ${groupName}`);
@@ -280,205 +269,290 @@
 
   // ================= [Styles] CSS =================
   GM_addStyle(`
-    /* =========================================
-		0. Theme Variables (主題變數)
-		========================================= */
+    /* 1. 變數與主題 */
     /* 亮色模式 */
     :root {
-      --al-bg-color: #ffffff;
-      --al-bg-sec: #f5f5f5;
-      --al-text-color: #333333;
-      --al-text-muted: #666666;
-      --al-text-label: #444444;
-      --al-border-color: #dddddd;
-      --al-input-bg: #ffffff;
-      --al-hover-bg: #f0f0f0;
-      --al-header-bg: #eeeeee;
-      --al-accent: #3db4f2;
-      --al-shadow: rgba(0,0,0,0.15);
-      --al-row-active: #e8f5e9;
-      --al-row-suggest: #fff8e1;
+      --al-bg: #ffffff;
+      --al-bg-sec: #f8f9fa;
+      --al-bg-hover: #f1f5f9;
+      --al-text: #1f2937;
+      --al-text-sub: #6b7280;
+      --al-border: #e2e8f0;
+      --al-primary: #3db4f2;
+      --al-primary-h: #0ea5e9;
+      --al-danger: #ef4444;
+      --al-danger-h: #dc2626;
+      --al-success: #10b981;
+      --al-warn: #f59e0b;
+      --al-radius: 6px;
+      --al-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
 
-    /* 深色模式 */
+    /* 暗色模式 */
     .al-theme-dark {
-      --al-bg-color: #1b1b1b;
+      --al-bg: #1b1b1b;
       --al-bg-sec: #222222;
-      --al-text-color: #eeeeee;
-      --al-text-muted: #aaaaaa;
-      --al-text-label: #cccccc;
-      --al-border-color: #333333;
-      --al-input-bg: #333333;
-      --al-hover-bg: #2a2a2a;
-      --al-header-bg: #222222;
-      --al-accent: #3db4f2;
-      --al-shadow: rgba(0,0,0,0.8);
-      --al-row-active: #1b2e1b;
-      --al-row-suggest: #3e3315;
+      --al-bg-hover: #374151;
+      --al-text: #f9fafb;
+      --al-text-sub: #9ca3af;
+      --al-border: #374151;
+      --al-primary: #3db4f2;
+      --al-primary-h: #7dd3fc;
     }
 
-		/* =========================================
-		1. Navigation Bar (導覽列)
-		========================================= */
-		.al-nav-item { margin-left: 3px; padding-left: 3px; border-left: none; display: inline-flex; height: 100%; vertical-align: middle; }
-		.al-nav-link { color: #ccc; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; text-decoration: none !important; transition: 0.2s; }
-		.al-nav-link:hover { color: #fff; }
-		.al-nav-title { color: #888; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-		.al-user-status { color: #4caf50; font-size: 12px; margin-left: 8px; padding-left: 8px; border-left: 1px solid #666; display: none; }
-		
-		@media (max-width: 1200px) { .al-nav-title { max-width: 150px; } }
-		@media (max-width: 768px) { .al-nav-title, .al-user-status { display: none; } }
-
-		/* =========================================
-		2. Modal Window (彈出視窗)
-		========================================= */
-		.al-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 99999; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.2s ease-in-out; }
-		
-    /* 應用變數到 Modal Content */
-    .al-modal-content { 
-      background: var(--al-bg-color); 
-      color: var(--al-text-color); 
-      width: 750px; max-height: 90vh; border-radius: 8px; display: flex; flex-direction: column; 
-      border: 1px solid var(--al-border-color); 
-      box-shadow: 0 10px 25px var(--al-shadow); 
-    }
-
-		.al-modal-header { padding: 15px; background: var(--al-header-bg); border-bottom: 1px solid var(--al-border-color); display: flex; justify-content: space-between; align-items: center; }
-		.al-modal-body { overflow-y: auto; flex: 1; padding: 0; min-height: 300px; background: var(--al-bg-color); }
-		.al-close-btn { color: #ff5252; font-weight: bold; font-size: 24px; background: none; border: none; cursor: pointer; }
-
-		/* =========================================
-		3. Tabs System (分頁切換)
-		========================================= */
-		.al-tabs-header { display: flex; border-bottom: 1px solid var(--al-border-color); background: var(--al-bg-sec); }
-		.al-tab-btn { flex: 1; padding: 12px; cursor: pointer; border: none; background: var(--al-bg-sec); color: var(--al-text-muted); font-weight: bold; transition: 0.2s; border-bottom: 3px solid transparent;}
-		.al-tab-btn:hover { background: var(--al-hover-bg); color: var(--al-accent); }
-		.al-tab-btn.active { color: var(--al-accent); border-bottom-color: var(--al-accent); background: var(--al-bg-color); }
-		.al-tab-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-		.al-tab-content { display: none; padding: 15px; animation: al-fadein 0.2s; }
-		.al-tab-content.active { display: block; }
-
-		/* =========================================
-		4. Buttons (按鈕樣式)
-		========================================= */
-		.al-bind-btn { background: var(--al-accent); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; transition: 0.2s; }
-		.al-bind-btn:hover { background: #2a9bd6; }
-		.al-btn-grey { background: #d32f2f; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 15px; }
-		.al-toggle-btn { font-size: 12px; padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; color: white; width: 100%; }
-		.al-toggle-btn.enable { background-color: #388e3c; }
-		.al-toggle-btn.disable { background-color: #d32f2f; }
-
-		/* =========================================
-		5. Forms & Inputs (表單與輸入框)
-		========================================= */
-		.al-input { padding: 8px; border: 1px solid var(--al-border-color); border-radius: 4px; background: var(--al-input-bg); color: var(--al-text-color); width: 100%; box-sizing: border-box; }
-		.al-input:focus { border-color: var(--al-accent); outline: none; }
-		.al-input-group { display: flex; gap: 10px; align-items: center; }
-		.al-input-group-wrap { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-		.al-input-sm { width: 80px; text-align: center; }
-		
-		/* =========================================
-		6. Search Results & Lists (搜尋與列表)
-		========================================= */
-		.al-result-item { padding: 12px; border-bottom: 1px solid var(--al-border-color); display: flex; gap: 15px; align-items: center; transition: background 0.2s; }
-		.al-result-item:hover { background: var(--al-hover-bg); }
-		
-		/* =========================================
-		7. Tables & Mapping (表格與對照)
-		========================================= */
-		.al-map-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-		.al-map-table th { background: var(--al-hover-bg); padding: 10px; text-align: left; border-bottom: 2px solid var(--al-border-color); color: var(--al-text-muted); }
-		.al-map-table td { padding: 8px; border-bottom: 1px solid var(--al-border-color); vertical-align: middle; }
-		.series-row.active { background-color: var(--al-row-active); }
-		.series-row.suggestion { background-color: var(--al-row-suggest); }
-
-		/* =========================================
-		8. Steps & Instructions (教學步驟)
-		========================================= */
-		.al-step-card { font-size: 13px; color: var(--al-text-muted); margin-top: 15px; background: var(--al-bg-sec); padding: 12px 15px; border-radius: 6px; border: 1px solid var(--al-border-color); }
-		.al-step-title { margin: 0 0 10px 0; font-weight: bold; color: var(--al-text-color); font-size: 14px; border-bottom: 1px solid var(--al-border-color); padding-bottom: 6px; }
-		.al-step-item { display: flex; align-items: flex-start; margin-bottom: 8px; line-height: 1.6; }
-		.al-step-num { flex-shrink: 0; width: 20px; font-weight: bold; color: var(--al-accent); }
-		.al-step-content { flex: 1; }
-
-		/* =========================================
-		9. General Layout & Typography (通用排版)
-		========================================= */
-		.al-settings-container { padding: 20px; }
-		.al-label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; color: var(--al-text-color); }
-		.al-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--al-border-color); }
-		.al-text-muted { font-size: 13px; color: var(--al-text-muted); }
-		.al-link { color: #81d4fa; text-decoration: none; font-weight: bold; }
+    /* 2. 排版工具 */
+    .al-flex { display: flex; }
+    .al-flex-col { flex-direction: column; }
+    .al-items-center { align-items: center; }
+    .al-justify-between { justify-content: space-between; }
+    .al-justify-center { justify-content: center; }
+    .al-shrink-0 { flex-shrink: 0; }
+    .al-gap-2 { gap: 8px; }
+    .al-gap-3 { gap: 12px; }
+    .al-w-full { width: 100%; }
     
-    :root .al-link { color: #0288d1; }
-    .al-theme-dark .al-link { color: #81d4fa; }
+    .al-p-4 { padding: 16px; }
+    .al-mt-2 { margin-top: 8px; }
+    .al-mt-3 { margin-top: 12px; }
+    .al-mt-4 { margin-top: 24px; } /* 加大區塊間距 */
+    .al-mb-1 { margin-bottom: 4px; }
+    .al-my-3 { margin-top: 12px; margin-bottom: 12px; }
 
-		.al-link:hover { text-decoration: underline; }
-		.al-icon { width: 20px; height: 20px; stroke: var(--al-text-muted); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    /* 3. 文字與連結 */
+    .al-text-sm { font-size: 13px; }
+    .al-text-xs { font-size: 12px; }
+    .al-font-bold { font-weight: 600; }
+    .al-text-sub { color: var(--al-text-sub); }
+    .al-text-primary { color: var(--al-primary); }
+    .al-text-success { color: var(--al-success); font-weight: bold; }
+    .al-link { color: var(--al-primary); text-decoration: none; cursor: pointer; }
+    .al-link:hover { text-decoration: underline; }
 
-		/* =========================================
-		10. Notifications & Animations (通知與動畫)
-		========================================= */
-		.al-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(20,20,20,0.95); border: 1px solid #444; color: #fff; padding: 10px 20px; border-radius: 20px; z-index: 100000; box-shadow: 0 4px 10px rgba(0,0,0,0.5); pointer-events: none; opacity: 0; transition: opacity 0.2s; }
-		@keyframes al-fadein { from { opacity: 0; } to { opacity: 1; } }
-	`);
+    /* 4. 元件 - 按鈕 */
+    .al-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 6px 12px; font-size: 13px; font-weight: 500;
+      border-radius: var(--al-radius); border: 1px solid transparent;
+      cursor: pointer; transition: 0.15s; background: var(--al-bg-sec); color: var(--al-text);
+      white-space: nowrap;
+    }
+    .al-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .al-btn:active { transform: translateY(0); }
+    .al-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .al-btn-primary { background: var(--al-primary); color: #fff; }
+    .al-btn-success { background: var(--al-success); color: #fff; }
+    
+    /* 紅色按鈕 (用於取消/解除綁定) */
+    .al-btn-danger { background: var(--al-danger); color: #fff; }
+    .al-btn-danger:hover { background: var(--al-danger-h); }
 
+    /* 線框按鈕 (預設狀態) */
+    .al-btn-outline { background: transparent; border-color: var(--al-border); color: var(--al-text-sub); }
+    .al-btn-outline:hover { border-color: var(--al-text-sub); color: var(--al-text); background: var(--al-bg-hover); }
+    
+    .al-btn-sm { padding: 4px 10px; font-size: 12px; height: 28px; }
+    .al-btn-block { width: 100%; display: flex; }
+
+    /* 5. 元件 - 輸入框 */
+    .al-input {
+      background: var(--al-bg); color: var(--al-text);
+      border: 1px solid var(--al-border); border-radius: var(--al-radius);
+      padding: 8px; width: 100%; box-sizing: border-box; transition: 0.2s;
+    }
+    .al-input:focus { outline: none; border-color: var(--al-primary); box-shadow: 0 0 0 2px rgba(61, 180, 242, 0.2); }
+    .al-input-sm { padding: 4px; text-align: center; height: 30px; }
+
+    /* 6. 元件 - 圖片 */
+    .al-cover { object-fit: cover; border-radius: 4px; background: var(--al-bg-hover); display: block; }
+    .al-cover-lg { width: 85px; height: 120px; }
+    .al-cover-md { width: 60px; height: 85px; }
+    .al-cover-sm { width: 50px; height: 70px; min-width: 50px; } 
+    .al-icon { width: 16px; height: 16px; vertical-align: middle; }
+
+    /* 7. 卡片與容器 */
+    .al-card { background: var(--al-bg-sec); border: 1px solid var(--al-border); border-radius: var(--al-radius); padding: 12px; }
+    .al-card-suggest { background: #fffbeb; border-color: #fcd34d; }
+    .al-theme-dark .al-card-suggest { background: #451a03; border-color: #78350f; }
+
+    /* 8. 表格 (系列設定) */
+    .al-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; table-layout: fixed; }
+    .al-table th { text-align: left; padding: 10px 8px; border-bottom: 2px solid var(--al-border); color: var(--al-text-sub); font-size: 12px; white-space: nowrap; }
+    .al-table td { padding: 8px; border-bottom: 1px solid var(--al-border); vertical-align: middle; height: 80px; }
+    
+    .al-row-active { background-color: rgba(61, 180, 242, 0.08); } 
+    .al-row-suggest { background-color: rgba(245, 158, 11, 0.08); }
+
+    /* 9. 狀態標籤 */
+    .al-tag { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; white-space: nowrap; line-height: 1; }
+    .al-tag.success { background: #d1fae5; color: #059669; }
+    .al-tag.warn { background: #fef3c7; color: #d97706; }
+    .al-tag.error { background: #fee2e2; color: #dc2626; }
+    .al-tag.default { background: #e5e7eb; color: #6b7280; }
+    
+    .al-theme-dark .al-tag.success { background: #064e3b; color: #6ee7b7; }
+    .al-theme-dark .al-tag.warn { background: #451a03; color: #fcd34d; }
+    .al-theme-dark .al-tag.error { background: #7f1d1d; color: #fca5a5; }
+    .al-theme-dark .al-tag.default { background: #374151; color: #9ca3af; }
+
+    /* Modal & Tabs & Nav (維持不變) */
+    .al-modal-overlay { position: fixed; inset: 0; z-index: 99999; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+    .al-modal-content { background: var(--al-bg); color: var(--al-text); width: 750px; max-height: 90vh; display: flex; flex-direction: column; border-radius: 8px; box-shadow: var(--al-shadow); border: 1px solid var(--al-border); }
+    .al-modal-header { padding: 12px 16px; border-bottom: 1px solid var(--al-border); display: flex; justify-content: space-between; align-items: center; background: var(--al-bg-sec); border-radius: 8px 8px 0 0; }
+    .al-modal-body { overflow-y: auto; flex: 1; padding: 0; min-height: 300px; }
+    .al-close-btn { background: none; border: none; font-size: 20px; color: var(--al-text-sub); cursor: pointer; }
+
+    .al-tabs-nav { display: flex; border-bottom: 1px solid var(--al-border); background: var(--al-bg-sec); }
+    .al-tab-item { flex: 1; padding: 12px; text-align: center; cursor: pointer; color: var(--al-text-sub); font-weight: 600; font-size: 13px; border-bottom: 2px solid transparent; transition: 0.2s; background: none; border: none; }
+    .al-tab-item.active { color: var(--al-primary); border-bottom-color: var(--al-primary); background: var(--al-bg); }
+    .al-tab-item:disabled { opacity: 0.5; cursor: not-allowed; }
+    .al-tab-pane { display: none; animation: al-fadein 0.2s; }
+    .al-tab-pane.active { display: block; }
+
+    .al-nav-item { float: left; }
+    .al-nav-link { display: flex; align-items: center; color: #ccc; cursor: pointer; font-size: 13px; transition: 0.2s; }
+    .al-nav-link:hover { color: #fff; }
+    #al-user-status, #al-title { border-left: 1px solid #666; padding-left: 8px; margin-left: 8px; }
+    .al-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1f2937; color: #fff; padding: 8px 20px; border-radius: 99px; font-size: 13px; z-index: 100000; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+    
+    @keyframes al-fadein { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 768px) { #al-title, #al-user-status { display: none !important; } }
+  `);
   // ================= [Logic] 集數計算核心 =================
   const EpisodeCalculator = {
-    calculateFromList(listUl, targetLi = null) {
-      let currentListEp = 0;
-      let lastEpNum = null;
-      let resultEp = null;
-      let found = false;
-
-      const listItems = listUl.querySelectorAll('li');
-      for (const li of listItems) {
-        if (found && targetLi) break;
-        const text = li.textContent.trim();
-
-        // 移除 text === "0" 的過濾，允許第 0 集
-        if (text.includes('.') || !/\d/.test(text)) continue;
-
-        const currentTextNum = parseInt(text, 10);
-        if (lastEpNum === null || isNaN(currentTextNum)) {
-          currentListEp++;
-        } else {
-          const gap = currentTextNum - lastEpNum;
-          currentListEp += gap > 1 ? gap : 1;
-        }
-
-        if (!isNaN(currentTextNum)) lastEpNum = currentTextNum;
-
-        if (targetLi && li === targetLi) {
-          resultEp = currentListEp;
-          found = true;
-          break;
-        }
+    // 網頁標題中抓取集數
+    parseFromTitle() {
+      const title = document.title;
+      const match = title.match(/\[(\d+(?:\.\d+)?)\]/); // 抓取 [] 內的數字
+      if (match) {
+        return parseFloat(match[1]); // 這裡回傳數字 (支援小數點)
       }
-      return targetLi ? resultEp : currentListEp;
+      return 1;
     },
-    getCurrent() {
+
+    getRawCurrent() {
       const urlParams = new URLSearchParams(location.search);
       const currentSn = urlParams.get('sn');
+
+      // 1. 優先嘗試：尋找按鈕
       let anchor = _.$(`${CONSTANTS.SELECTORS.PAGE.seasonList} a[href*="sn=${currentSn}"]`);
       let targetLi = anchor ? anchor.closest('li') : null;
       if (!targetLi) {
         targetLi = _.$(`${CONSTANTS.SELECTORS.PAGE.seasonList}${CONSTANTS.SELECTORS.PAGE.playing}`);
       }
-      if (!targetLi) {
-        return location.href.includes(CONSTANTS.URLS.VIDEO_PAGE) ? 1 : null;
+
+      // 2. 如果有按鈕，照舊讀取
+      if (targetLi) {
+        const text = targetLi.textContent.trim();
+        if (text.includes('.') || !/\d/.test(text)) return null; // 過濾小數點
+        return parseInt(text, 10);
       }
-      return this.calculateFromList(targetLi.closest('ul'), targetLi);
+
+      // 3. 如果沒按鈕 (只有一集/連載中)，改抓標題
+      const titleEp = this.parseFromTitle();
+      if (titleEp !== null) {
+        // 同樣過濾小數點
+        if (!Number.isInteger(titleEp)) return null;
+        return titleEp;
+      }
+
+      return null;
     },
+
+    // 用於自動綁定：抓頁面最小集數
+    getMin() {
+      // 優先嘗試掃描列表
+      const seasonUls = _.$$(CONSTANTS.SELECTORS.PAGE.seasonUl);
+      let minEp = null;
+
+      if (seasonUls.length > 0) {
+        seasonUls.forEach((ul) => {
+          ul.querySelectorAll('li').forEach((li) => {
+            const t = li.textContent.trim();
+            if (!t.includes('.') && /\d/.test(t)) {
+              const v = parseInt(t, 10);
+              if (minEp === null || v < minEp) minEp = v;
+            }
+          });
+        });
+      }
+
+      // 如果沒列表 (minEp 還是 null)，抓標題當作唯一集數
+      if (minEp === null) {
+        const titleEp = this.parseFromTitle();
+        if (titleEp !== null && Number.isInteger(titleEp)) {
+          minEp = titleEp;
+        }
+      }
+
+      return minEp;
+    },
+
     getMax() {
       const seasonUls = _.$$(CONSTANTS.SELECTORS.PAGE.seasonUl);
-      if (seasonUls.length === 0) return location.href.includes(CONSTANTS.URLS.VIDEO_PAGE) ? 1 : 0;
+      // 加入無按鈕時的備案
+      if (seasonUls.length === 0) {
+        const t = this.parseFromTitle();
+        return t !== null && Number.isInteger(t) ? t : 0;
+      }
+
       let maxEp = 0;
       seasonUls.forEach((ul) => {
-        const listEp = EpisodeCalculator.calculateFromList(ul, null);
-        if (listEp > maxEp) maxEp = listEp;
+        ul.querySelectorAll('li').forEach((li) => {
+          const t = li.textContent.trim();
+          if (!t.includes('.') && /\d/.test(t)) {
+            const v = parseInt(t, 10);
+            if (v > maxEp) maxEp = v;
+          }
+        });
       });
       return maxEp;
+    },
+  };
+
+  const SeriesLogic = {
+    /**
+     * 計算系列作中每一部作品的起始集數
+     * @param {Array} chain - AniList 的系列作列表
+     * @param {Number} targetId - 定錨的作品 ID (使用者當前選中或綁定的 ID)
+     * @param {Number} anchorStart - 定錨作品在巴哈的起始集數
+     * @returns {Array} 處理過的 chain，每個物件會多一個 calculatedStart 屬性
+     */
+    calculateOffsets(chain, targetId, anchorStart) {
+      // 1. 找出錨點位置
+      let anchorIndex = chain.findIndex((m) => m.id === targetId);
+
+      // 如果鏈中沒有目標 ID，手動加入
+      if (anchorIndex === -1 && targetId) {
+        return chain;
+      }
+
+      // 2. 絕對定錨
+      if (chain[anchorIndex]) {
+        chain[anchorIndex].calculatedStart = anchorStart;
+      }
+
+      // 3. 向前推算 (Pre-quels)
+      for (let i = anchorIndex - 1; i >= 0; i--) {
+        const next = chain[i + 1];
+        const current = chain[i];
+        if (next.calculatedStart === undefined) break;
+        const epCount = current.episodes || 12; // 若無集數資料，預設 12 (避免無限回推錯誤)
+        current.calculatedStart = next.calculatedStart - epCount;
+      }
+
+      // 4. 向後推算 (Sequels)
+      for (let i = anchorIndex + 1; i < chain.length; i++) {
+        const prev = chain[i - 1];
+        const current = chain[i];
+
+        // 前作如果是連載中 (episodes: null) 或是計算中斷，則停止推算
+        if (!prev.episodes || prev.calculatedStart === undefined) break;
+
+        current.calculatedStart = prev.calculatedStart + prev.episodes;
+      }
+
+      return chain;
     },
   };
 
@@ -488,8 +562,7 @@
     async request(query, variables, retryCount = 0) {
       const token = this.getToken();
       if (!token && !query.includes('search')) throw new Error('Token 未設定');
-      console.log('AniListAPI:' + query);
-      // Log: 如果是重試，顯示警告顏色
+
       if (retryCount > 0) {
         Log.warn(`API 重試中 (${retryCount}/${CONSTANTS.API_MAX_RETRIES})...`);
       } else {
@@ -530,7 +603,7 @@
                 execute: () => {
                   const info = 'AniList 維護中';
                   UI.updateNav(CONSTANTS.STATUS.ERROR, info);
-                  Utils.showToast('⚠️ 伺服器維護中，API 暫時關閉，詳情請至 AniList Discord 查看');
+                  UI.showToast('⚠️ 伺服器維護中，API 暫時關閉，詳情請至 AniList Discord 查看');
                   Log.error('AniList Maintenance Mode Detected');
                   reject(new Error(info));
                 },
@@ -561,7 +634,7 @@
                 match: (r) => r.status === 401 || r.responseText.includes('Invalid token'),
                 execute: () => {
                   UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
-                  Utils.showToast('❌ Token 無效或過期，請重新設定');
+                  UI.showToast('❌ Token 無效或過期，請重新設定');
                   reject(new Error('Invalid Token'));
                 },
               },
@@ -653,21 +726,18 @@
       // 2. 遍歷鏈條
       const visited = new Map(); // 使用 Map 來避免重複並儲存節點
       // 定義要抓取的關聯類型
-      const targetRelations = ['SEQUEL', 'SIDE_STORY', 'SPIN_OFF'];
+      const targetRelations = ['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF'];
 
       const traverse = (node) => {
         if (!node || visited.has(node.id)) return;
 
-        // 先記錄當前節點
         visited.set(node.id, node);
 
         if (node.relations?.edges) {
-          // 找出所有符合類型的關聯
           const relatedEdges = node.relations.edges.filter((e) =>
             targetRelations.includes(e.relationType),
           );
 
-          // 繼續往下找
           relatedEdges.forEach((edge) => {
             if (edge.node) traverse(edge.node);
           });
@@ -685,7 +755,7 @@
       resultChain.sort((a, b) => {
         const dateA = Utils.dateToInt(a.startDate);
         const dateB = Utils.dateToInt(b.startDate);
-        // 如果日期一樣或缺漏，則用 ID 排序當備案
+        // 日期一樣或缺漏，用 ID 排序當備案
         if (dateA === dateB) return a.id - b.id;
         return dateA - dateB;
       });
@@ -697,272 +767,267 @@
   // ================= [UI] 畫面渲染與事件 =================
   const Templates = {
     tabs: (activeTab, isVideo, hasRules) => `
-      <div class="al-tabs-header">
-        <button class="al-tab-btn ${activeTab === 'home' ? 'active' : ''}" 
+      <div class="al-tabs-nav">
+        <button class="al-tab-item ${activeTab === 'home' ? 'active' : ''}" 
           data-tab="home" ${!isVideo ? 'disabled' : ''}>主頁 / 狀態</button>
-        <button class="al-tab-btn ${activeTab === 'series' ? 'active' : ''}" 
+        <button class="al-tab-item ${activeTab === 'series' ? 'active' : ''}" 
           data-tab="series" ${!hasRules ? 'disabled' : ''}>系列設定</button>
-        <button class="al-tab-btn ${activeTab === 'settings' ? 'active' : ''}" 
+        <button class="al-tab-item ${activeTab === 'settings' ? 'active' : ''}" 
           data-tab="settings">設定</button>
-        </div>
-          <div id="tab-home" class="al-tab-content ${activeTab === 'home' ? 'active' : ''}"></div>
-          <div id="tab-series" class="al-tab-content 
-            ${activeTab === 'series' ? 'active' : ''}"></div>
-          <div id="tab-settings" class="al-tab-content 
-            ${activeTab === 'settings' ? 'active' : ''}">
-        </div>
+      </div>
+      <div id="tab-home" class="al-tab-pane ${activeTab === 'home' ? 'active' : ''}"></div>
+      <div id="tab-series" class="al-tab-pane ${activeTab === 'series' ? 'active' : ''}"></div>
+      <div id="tab-settings" class="al-tab-pane ${activeTab === 'settings' ? 'active' : ''}"></div>
     `,
     settings: (token, mode, clientId, customSec) => {
       const optionsHtml = Object.values(CONSTANTS.SYNC_MODES)
-        .map((m) => {
-          const isSelected = mode === m.value ? 'selected' : '';
-          return `<option value="${m.value}" ${isSelected}>${m.label}</option>`;
-        })
+        .map(
+          (m) =>
+            `<option value="${m.value}" ${mode === m.value ? 'selected' : ''}>${m.label}</option>`,
+        )
         .join('');
 
       return `
-        <div class="al-settings-container">
-          <div>
-            <label class="al-label">AniList Access Token</label>
-            <div class="al-input-group">
-              <input type="password" id="set-token" class="al-input" value="${token}" placeholder="請貼上 Token" style="flex:1;">
-              <button id="toggle-token-btn" class="al-bind-btn" style="background:#333; border:1px solid #555; padding:4px 10px; height:35px; display:flex; align-items:center;">
-                ${ICONS.EYE_OFF}
-              </button>
+        <div class="al-p-4 al-flex-col al-gap-3">
+          <div class="al-card al-mt-2">
+            <label class="al-font-bold al-mb-1 al-text-sm" style="display:block;">AniList Access Token</label>
+            <div class="al-flex al-gap-2">
+              <input type="password" id="set-token" class="al-input" value="${token}" placeholder="請貼上 Token">
+              <button id="toggle-token-btn" class="al-btn al-btn-outline" style="width:40px;">${ICONS.EYE_OFF}</button>
             </div>
           </div>
 
-          <div class="al-section">
-            <label class="al-label">同步觸發時機</label>
-            <select id="set-mode" class="al-input">${optionsHtml} </select>
+          <div class="al-card al-mt-2">
+            <label class="al-font-bold al-mb-1 al-text-sm" style="display:block;">同步觸發時機</label>
+            <select id="set-mode" class="al-input">${optionsHtml}</select>
             
-            <div id="custom-sec-group" class="al-input-group" style="margin-top:10px; display:none;">
-              <span class="al-text-muted">播放超過：</span>
-              <input type="number" id="set-custom-sec" class="al-input al-input-sm" value="${customSec}" min="1">
-              <span class="al-text-muted">秒後同步</span>
+            <div id="custom-sec-group" class="al-flex al-items-center al-gap-2 al-mt-2" style="display:none;">
+              <span class="al-text-sub al-text-sm">播放超過：</span>
+              <input type="number" id="set-custom-sec" class="al-input al-input-sm" value="${customSec}" min="1" style="width:80px;">
+              <span class="al-text-sub al-text-sm">秒後同步</span>
             </div>
           </div>
 
-          <button id="save-set" class="al-bind-btn" style="width:100%; margin-top:20px; background:#388e3c;">儲存設定</button>
+          <button id="save-set" class="al-btn al-btn-success al-btn-block al-mt-2">儲存設定</button>
 
-          <div class="al-step-card">
-            <p class="al-step-title">如何取得 Token?</p>
-            <div class="al-step-item">
-              <span class="al-step-num">1.</span>
-              <div class="al-step-content">
-                登入 <a href="https://anilist.co/" target="_blank" class="al-link">AniList</a> 後，前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">開發者設定</a>，新增 API Client。
-              </div>
+          <div class="al-card al-mt-2 al-text-sm al-text-sub">
+            <div class="al-font-bold al-text al-mb-1" style="border-bottom:1px solid var(--al-border); padding-bottom:5px;">如何取得 Token?</div>
+            <div class="al-flex al-gap-2 al-mt-2">
+              <span class="al-font-bold al-text-primary">1.</span>
+              <div>登入 <a href="https://anilist.co/" target="_blank" class="al-link">AniList</a> 後，前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">開發者設定</a> 新增 Client。</div>
             </div>
-            <div class="al-step-item" style="align-items:center;">
-              <span class="al-step-num">2.</span>
-              <div class="al-step-content al-input-group-wrap">
-                <span>輸入 Client ID：</span>
-                <input id="client-id" class="al-input" style="width:100px; text-align:center;" value="${clientId}" placeholder="ID">
-                <a id="auth-link" href="#" target="_blank" class="al-bind-btn">前往授權</a>
-              </div>
+            <div class="al-flex al-items-center al-gap-2 al-mt-2">
+              <span class="al-font-bold al-text-primary">2.</span>
+              <span>輸入 Client ID：</span>
+              <input id="client-id" class="al-input al-input-sm" style="width:80px;" value="${clientId}" placeholder="ID">
+              <a id="auth-link" href="#" target="_blank" class="al-btn al-btn-primary al-btn-sm">前往授權</a>
             </div>
-            <div class="al-step-item">
-              <span class="al-step-num">3.</span>
-              <div class="al-step-content">點擊 Authorize，將網址列或頁面上的 Access Token 複製貼回上方。</div>
+            <div class="al-flex al-gap-2 al-mt-2">
+              <span class="al-font-bold al-text-primary">3.</span>
+              <div>點擊 Authorize，將網址列或頁面上的 Access Token 複製貼回上方。</div>
             </div>
           </div>
         </div>
       `;
     },
     homeBound: (rule, info, statusData, statusOptions) => `
-      <div style="padding:15px;">
-        
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-            <label style="font-weight:bold; color:var(--al-text-label); font-size:13px;">作品資料:</label>
-            <button id="btn-refresh-data" class="al-bind-btn" style="padding:2px 8px; font-size:12px; background:var(--al-hover-bg); color:var(--al-text-muted); border:1px solid var(--al-border-color);" title="強制重新整理">
-              🔄 刷新
-            </button>
+      <div class="al-p-4 al-flex-col al-gap-3">
+        <div class="al-flex al-justify-between al-items-center">
+          <label class="al-text-sub al-font-bold al-text-xs">目前綁定作品</label>
+          <button id="btn-refresh-data" class="al-btn al-btn-outline al-btn-sm">🔄 刷新</button>
         </div>
 
-        <div class="al-result-item" style="background:var(--al-bg-sec); border:1px solid var(--al-border-color); border-radius:5px; align-items:stretch;">
-          <a href="https://anilist.co/anime/${rule.id}" target="_blank" style="flex-shrink:0;">
-            <img src="${info.coverImage.medium}" 
-              style="width:80px;height:110px;object-fit:cover;border-radius:4px;display:block;">
+        <div class="al-card al-flex al-gap-3">
+          <a href="https://anilist.co/anime/${rule.id}" target="_blank" class="al-shrink-0">
+            <img src="${info.coverImage.medium}" class="al-cover al-cover-lg">
           </a>
-
-          <div style="flex:1; display:flex; flex-direction:column; justify-content:space-between; overflow:hidden; padding-left:5px;">
-            
+          <div class="al-flex al-flex-col al-justify-between al-flex-1" style="overflow:hidden;">
             <div>
-                <a href="https://anilist.co/anime/${rule.id}" 
-                  target="_blank" class="al-link" style="font-size:15px; font-weight:bold; line-height:1.3; display:block; margin-bottom:4px;">
-                  ${rule.title}
-                </a>
-                
-                <div style="font-size:12px;color:var(--al-text-muted); line-height:1.4;">
-                  <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${
-                    info.title.romaji
-                  }</div>
-                  <div>ID: ${rule.id} | ${info.format}</div>
-                  <div>開播: ${Utils.formatDate(info.startDate) || '-'}</div>
-                </div>
+              <a href="https://anilist.co/anime/${
+                rule.id
+              }" target="_blank" class="al-link al-font-bold" style="font-size:15px; display:block;">
+                ${rule.title}
+              </a>
+              <div class="al-text-sub al-text-xs al-mt-2">
+                <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${
+                  info.title.romaji
+                }</div>
+                <div>ID: ${rule.id} | ${info.format} | 開播: 
+                  ${Utils.formatDate(info.startDate)}</div>
+              </div>
             </div>
-
-            <div style="border-top:1px dashed var(--al-border-color); padding-top:6px; margin-top:6px; color:#4caf50; font-weight:bold; font-size:13px;">
-               AniList 進度: ${statusData?.progress || 0} / ${info.episodes || '?'}
+            <div class="al-text-success al-text-sm" style="border-top:1px dashed var(--al-border); padding-top:6px;">
+              AniList 進度: ${statusData?.progress || 0} / ${info.episodes || '?'}
             </div>
-
           </div>
         </div>
 
-        <div style="margin-top:15px;">
-          <label style="font-weight:bold;color:var(--al-text-label);font-size:13px;">切換狀態:</label>
-          <select id="home-status" class="al-input" style="margin-top:5px;">${statusOptions}</select>
+        <div class="al-mt-4" style="border-top:1px solid var(--al-border); padding-top:16px;">
+          <label class="al-text-sub al-font-bold al-text-xs al-mb-1" style="display:block;">切換狀態</label>
+          <select id="home-status" class="al-input">${statusOptions}</select>
         </div>
 
-        <div style="margin-top:15px; border-top:1px solid var(--al-border-color); padding-top:15px;">
-          <label style="font-weight:bold;color:var(--al-text-label);font-size:13px;">手動修改 ID:</label>
-          <div style="display:flex; gap:10px; margin-top:5px;">
+        <div class="al-my-3">
+          <label class="al-text-sub al-font-bold al-text-xs al-mb-1" style="display:block;">手動修改 ID</label>
+          <div class="al-flex al-gap-2">
             <input type="number" id="home-edit-id" class="al-input" value="${rule.id}">
-            <button id="home-save-id" class="al-bind-btn" style="background:#555;">更新</button>
+            <button id="home-save-id" class="al-btn al-btn-outline">更新</button>
           </div>
         </div>
 
-        <button id="btn-unbind" class="al-btn-grey">解除所有綁定</button>
+        <button id="btn-unbind" class="al-btn al-btn-danger al-btn-block al-mt-4">解除所有綁定</button>
       </div>
     `,
     homeUnbound: (candidate, searchName) => {
       let suggestionHtml = '';
       if (candidate) {
         suggestionHtml = `
-          <div style="background:var(--al-row-suggest); padding:10px; margin-bottom:15px; border-radius:5px; border:1px solid var(--al-border-color);">
-            <div style="font-weight:bold;color:var(--al-accent);font-size:13px;margin-bottom:5px;">💡 建議匹配</div>
-              <div style="display:flex;gap:10px;align-items:flex-start;">
-                <a href="https://anilist.co/anime/${candidate.id}" target="_blank">
-                  <img src="${candidate.coverImage.medium}" 
-                    style="height:70px;border-radius:3px;">
+          <div class="al-card al-card-suggest al-mb-3">
+            <div class="al-font-bold al-text-warn al-text-xs al-mb-1">💡 建議匹配</div>
+            <div class="al-flex al-gap-3">
+              <a href="https://anilist.co/anime/${candidate.id}" target="_blank">
+                <img src="${candidate.coverImage.medium}" class="al-cover al-cover-md">
+              </a>
+              <div class="al-flex-1">
+                <a href="https://anilist.co/anime/${
+                  candidate.id
+                }" target="_blank" class="al-link al-font-bold">
+                  ${candidate.title.native}
                 </a>
-                <div style="flex:1;">
-                  <a href="https://anilist.co/anime/${candidate.id}" 
-                    target="_blank" class="al-link" style="font-weight:bold;">
-                    ${candidate.title.native}
-                  </a>
-                  <div style="font-size:12px;color:#aaa;">${candidate.title.romaji}</div>
-                  <div style="font-size:12px;color:#888;">
-                    ${Utils.formatDate(candidate.startDate) || '-'} | ${candidate.format}
-                  </div>
+                <div class="al-text-sub al-text-xs">${candidate.title.romaji}</div>
+                <div class="al-text-sub al-text-xs al-mt-2">
+                   ${Utils.formatDate(candidate.startDate)} | ${candidate.format}
                 </div>
-                <button id="btn-quick" class="al-bind-btn" style="align-self:center;">綁定</button>
               </div>
+              <button id="btn-quick" class="al-btn al-btn-primary al-btn-sm" style="align-self:center;">綁定</button>
+            </div>
           </div>
         `;
       }
 
       return `
-        <div style="padding:15px;">
+        <div class="al-p-4">
           ${suggestionHtml}
-          <div style="display:flex;gap:5px;">
-            <input id="search-in" class="al-input" value="${searchName || ''}" 
-              placeholder="搜尋...">
-            <button id="btn-search" class="al-bind-btn">搜尋</button>
+          <div class="al-flex al-gap-2">
+            <input id="search-in" class="al-input" value="${
+              searchName || ''
+            }" placeholder="搜尋作品...">
+            <button id="btn-search" class="al-btn al-btn-primary">搜尋</button>
           </div>
-          <div id="search-res" style="margin-top:15px;"></div>
+          <div id="search-res" class="al-mt-4 al-flex-col al-gap-2"></div>
         </div>
       `;
     },
     searchResult: (m) => `
-      <div class="al-result-item">
-			  <a href="https://anilist.co/anime/${m.id}" target="_blank">
-          <img src="${m.coverImage.medium}" 
-            style="width:50px;height:75px;object-fit:cover;border-radius:3px;">
+      <div class="al-flex al-gap-3 al-items-center" style="border-bottom:1px solid var(--al-border); padding-bottom:8px;">
+        <a href="https://anilist.co/anime/${m.id}" target="_blank">
+          <img src="${m.coverImage.medium}" class="al-cover al-cover-sm">
         </a>
-        <div style="flex:1;overflow:hidden;">
-        <a href="https://anilist.co/anime/${m.id}" 
-          target="_blank" class="al-link" style="font-weight:bold;">
-          ${m.title.native || m.title.romaji}</a>
-        <div style="font-size:12px;color:var(--al-text-muted);">${m.title.romaji}</div>
-        <div style="font-size:12px;color:var(--al-text-muted);">
-          ${Utils.formatDate(m.startDate) || '-'} | 
-          ${m.format} | ${m.episodes || '?'}集</div>
+        <div class="al-flex-1" style="overflow:hidden;">
+          <a href="https://anilist.co/anime/${
+            m.id
+          }" target="_blank" class="al-link al-font-bold al-text-sm">
+            ${m.title.native || m.title.romaji}
+          </a>
+          <div class="al-text-sub al-text-xs" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            ${m.title.romaji}
+          </div>
+          <div class="al-text-sub al-text-xs">
+            ${Utils.formatDate(m.startDate)} | ${m.format} | ${m.episodes || '?'}集
+          </div>
         </div>
-        <button class="al-bind-btn bind-it" data-id="${m.id}" 
+        <button class="al-btn al-btn-primary al-btn-sm bind-it" 
+          data-id="${m.id}" 
           data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">綁定</button>
       </div>
     `,
-    // Templates 物件
     seriesRow: (m, isActive, isSuggestion, isOut, bahaVal, aniVal) => {
-      let statusText, statusColor, rowClass, btnTxt, btnClass;
+      const displayStart = m.calculatedStart !== undefined ? m.calculatedStart : '';
+      let statusHtml, rowClass, btnTxt, btnClass;
+
       if (isActive) {
-        statusText = '✅ 使用中';
-        statusColor = '#66bb6a';
-        rowClass = 'active';
+        statusHtml = `<span class="al-tag success">使用中</span>`;
+        rowClass = 'al-row-active';
         btnTxt = '取消';
-        btnClass = 'disable';
+        btnClass = 'al-btn-danger al-btn-sm';
       } else if (isSuggestion) {
-        statusText = '💡 建議';
-        statusColor = '#ffca28';
-        rowClass = 'suggestion';
+        statusHtml = `<span class="al-tag warn">建議</span>`;
+        rowClass = 'al-row-suggest';
         btnTxt = '套用';
-        btnClass = 'enable';
+        btnClass = 'al-btn-primary al-btn-sm';
       } else if (isOut) {
-        statusText = '🚫 非本頁';
-        statusColor = '#d32f2f';
+        statusHtml = `<span class="al-tag error">非本頁</span>`;
         rowClass = '';
         btnTxt = '啟用';
-        btnClass = 'enable';
+        btnClass = 'al-btn-outline al-btn-sm';
       } else {
-        statusText = '⚪ 未使用';
-        statusColor = '#777';
+        statusHtml = `<span class="al-tag default">未用</span>`;
         rowClass = '';
         btnTxt = '啟用';
-        btnClass = 'enable';
+        btnClass = 'al-btn-outline al-btn-sm';
       }
 
       let defaultAniVal = '';
-      if (isActive) {
-        defaultAniVal = aniVal;
-      } else if (isSuggestion) {
-        defaultAniVal = 1;
-      }
+      if (isActive) defaultAniVal = aniVal;
+      else if (isSuggestion) defaultAniVal = 1;
 
       return `
-				<tr class="series-row ${rowClass}" data-id="${m.id}" 
-          data-title="${Utils.deepSanitize(m.title.native || m.title.romaji)}">
-					<td style="width:80px; text-align:center;">
-						<span class="status-label" style="color:${statusColor};font-weight:bold;">${statusText}</span>
-						<input type="checkbox" class="cb-active" style="display:none;" ${isActive ? 'checked' : ''}>
-					</td>
-					<td>
-						<div style="display:flex; gap:10px; align-items:center;">
-							<a href="https://anilist.co/anime/${m.id}" target="_blank" style="flex-shrink:0;">
-								<img src="${m.coverImage.medium}" 
-                  style="width:40px;height:60px;object-fit:cover;border-radius:3px;">
-							</a>
-							<div style="display:flex; flex-direction:column; gap:4px;">
-								<a href="https://anilist.co/anime/${m.id}" 
-                  target="_blank" class="al-link" style="line-height:1.2;">
-                    ${m.title.native || m.title.romaji}</a>
-								<div style="font-size:11px;color:var(--al-text-muted);">
-                  ${Utils.formatDate(m.startDate) || '-'} | ${m.format}</div>
-							</div>
-						</div>
-					</td>
-					<td style="text-align:center;width:60px;">${m.episodes || '?'}</td>
-					
-					<td style="width:70px;">
-						<input type="number" class="inp-start al-input" placeholder="巴哈" style="padding:4px;text-align:center;" 
-              value="${bahaVal !== undefined ? bahaVal : ''}">
-					</td>
-					<td style="width:20px;text-align:center;color:#666;">⮕</td>
-					<td style="width:70px;">
-						<input type="number" class="inp-ani-start al-input" placeholder="AniList" style="padding:4px;text-align:center;" value="${defaultAniVal}">
-					</td>
-					
-					<td style="width:70px;text-align:center;">
-						<button class="al-toggle-btn btn-toggle ${btnClass}" 
-              data-suggested="${m.suggestedStart}">${btnTxt}</button>
-					</td>
-				</tr>
-			`;
+        <tr class="series-row ${rowClass}" data-id="${m.id}" data-title="${Utils.deepSanitize(
+        m.title.native || m.title.romaji,
+      )}">
+          <td style="text-align:center; width:80px;">
+             ${statusHtml}
+             <input type="checkbox" class="cb-active" style="display:none;" ${
+               isActive ? 'checked' : ''
+             }>
+          </td>
+          <td>
+            <div class="al-flex al-gap-3 al-items-center">
+               <a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-shrink-0">
+                 <img src="${m.coverImage.medium}" class="al-cover al-cover-sm">
+               </a>
+               <div style="min-width:0;">
+                 <a href="https://anilist.co/anime/${
+                   m.id
+                 }" target="_blank" class="al-link al-text-sm al-font-bold" style="display:block; line-height:1.3; margin-bottom:4px;">
+                   ${m.title.native || m.title.romaji}
+                 </a>
+                 <div class="al-text-sub al-text-xs">
+                  ${Utils.formatDate(m.startDate)} | ${m.format}</div>
+               </div>
+            </div>
+          </td>
+          <td style="text-align:center; width:50px;">${m.episodes || '?'}</td>
+          <td style="text-align:center; width:70px;">
+             <input type="number" class="inp-start al-input al-input-sm" placeholder="巴哈" 
+               value="${bahaVal !== undefined ? bahaVal : ''}" style="width:100%;">
+          </td>
+          <td style="text-align:center; width:20px; color:var(--al-text-sub);">⮕</td>
+          <td style="text-align:center; width:70px;">
+             <input type="number" class="inp-ani-start al-input al-input-sm" placeholder="Ani" 
+               value="${defaultAniVal}" style="width:100%;">
+          </td>
+          <td style="text-align:center; width:80px;">
+             <button class="al-btn btn-toggle ${btnClass}" data-suggested="${displayStart}">${btnTxt}</button>
+          </td>
+        </tr>
+      `;
     },
   };
 
   const UI = {
     statusTimer: null,
+    showToast(msg) {
+      const old = _.$('.al-toast');
+      if (old) old.remove();
+      const t = _.html(`<div class="al-toast">${msg}</div>`);
+      document.body.appendChild(t);
+      _.fadeIn(t, 'block');
+      setTimeout(() => {
+        _.fadeOut(t);
+        setTimeout(() => t.remove(), 300);
+      }, 2500);
+    },
     checkTheme() {
       const modalContent = _.$('.al-modal-content');
       if (!modalContent) return;
@@ -1073,21 +1138,26 @@
       const isVideo = location.href.includes(CONSTANTS.URLS.VIDEO_PAGE);
       const hasRules = App.state.rules.length > 0;
       const hasToken = !!App.state.token;
+
+      // 邏輯：有 Token 且在看影片 -> 預設 Home，否則預設 Settings
       let activeTab = hasToken ? (isVideo ? 'home' : 'settings') : 'settings';
 
       const body = _.$('#al-modal-body');
+
       body.innerHTML = Templates.tabs(activeTab, isVideo, hasRules);
 
-      _.$$('.al-tab-btn', body).forEach((btn) => {
+      _.$$('.al-tab-item', body).forEach((btn) => {
         btn.addEventListener('click', () => {
           if (btn.disabled || btn.classList.contains('active')) return;
-          _.$$('.al-tab-btn').forEach((b) => b.classList.remove('active'));
+          _.$$('.al-tab-item').forEach((b) => b.classList.remove('active'));
           btn.classList.add('active');
-          _.$$('.al-tab-content').forEach((c) => c.classList.remove('active'));
-          _.$(`#tab-${btn.dataset.tab}`).classList.add('active');
+          _.$$('.al-tab-pane').forEach((c) => c.classList.remove('active'));
+          const targetPane = _.$(`#tab-${btn.dataset.tab}`);
+          if (targetPane) targetPane.classList.add('active');
           UI.loadTabContent(btn.dataset.tab);
         });
       });
+
       this.loadTabContent(activeTab);
     },
     loadTabContent(tabName) {
@@ -1147,20 +1217,33 @@
         const newToken = _.$('#set-token', container).value.trim();
         const newMode = _.$('#set-mode', container).value;
         const customSec = parseInt(_.$('#set-custom-sec', container).value);
-        if (!newToken) return Utils.showToast('❌ 請輸入 Token');
+        if (!newToken) return UI.showToast('❌ 請輸入 Token');
         if (newMode === 'custom' && (isNaN(customSec) || customSec < 1))
-          return Utils.showToast('❌ 請輸入有效的秒數');
+          return UI.showToast('❌ 請輸入有效的秒數');
         GM_setValue(CONSTANTS.KEYS.TOKEN, newToken);
         GM_setValue(CONSTANTS.KEYS.SYNC_MODE, newMode);
         if (!isNaN(customSec)) GM_setValue(CONSTANTS.KEYS.CUSTOM_SEC, customSec);
         App.state.token = newToken;
-        Utils.showToast('✅ 設定已儲存，請重新整理');
+        UI.showToast('✅ 設定已儲存，請重新整理');
         setTimeout(() => location.reload(), 800);
       });
     },
     async renderHomeBound(container) {
       container.innerHTML = '<div style="padding:20px;">讀取中...</div>';
-      const rule = App.state.activeRule;
+
+      let rule = App.state.activeRule;
+      let isUnknownEp = false;
+
+      // 如果當前集數沒有對應規則，則借用第一條規則的 ID 來顯示資訊
+      if (!rule) {
+        if (App.state.rules.length > 0) {
+          rule = App.state.rules[0]; // 借用系列 ID
+          isUnknownEp = true; // 標記為未知集數
+        } else {
+          return this.renderHomeUnbound(container);
+        }
+      }
+
       try {
         let info, statusData;
 
@@ -1171,7 +1254,6 @@
         } else {
           info = await AniListAPI.getMediaAndStatus(rule.id);
           statusData = info.mediaListEntry;
-          // 更新快取
           App.state.cachedMediaInfo = info;
         }
 
@@ -1191,7 +1273,16 @@
           opts += `<option value="${setting.value}" ${isSelected}>${setting.label}</option>`;
         });
 
-        container.innerHTML = Templates.homeBound(rule, info, statusData, opts);
+        const warningHtml = isUnknownEp
+          ? `<div style="background:#fff3cd; color:#856404; padding:8px 12px; margin-bottom:10px; border-radius:4px; font-size:12px; border:1px solid #ffeeba;">
+                 ⚠️ 當前集數無法判定 (如小數點集數或特別篇)，<b>已暫停自動同步</b>，但您仍可手動管理狀態。
+               </div>`
+          : '';
+
+        container.innerHTML = `
+            ${warningHtml}
+            ${Templates.homeBound(rule, info, statusData, opts)}
+        `;
 
         _.$('#home-status', container).addEventListener('change', async function () {
           const s = this.value;
@@ -1203,10 +1294,10 @@
             if (App.state.cachedMediaInfo && App.state.cachedMediaInfo.id === rule.id) {
               App.state.cachedMediaInfo.mediaListEntry = newS;
             }
-            Utils.showToast('✅ 狀態已更新');
+            UI.showToast('✅ 狀態已更新');
             UI.loadTabContent('home');
           } catch (e) {
-            Utils.showToast('❌ 更新失敗: ' + e.message);
+            UI.showToast('❌ 更新失敗: ' + e.message);
             this.disabled = false;
           }
         });
@@ -1273,106 +1364,136 @@
     },
     async renderSeries(container) {
       container.innerHTML = '<div style="padding:20px;text-align:center;">讀取系列資訊中...</div>';
-      const baseId =
-        App.state.rules.length > 0 ? App.state.rules[App.state.rules.length - 1].id : null;
-      if (!baseId) {
+
+      const activeRules = App.state.rules;
+      let baseRule = App.state.activeRule;
+
+      // 如果 activeRule 不在 rules 列表裡，或者根本沒 activeRule
+      if (!baseRule || !activeRules.find((r) => r.id === baseRule.id)) {
+        baseRule = activeRules.length > 0 ? activeRules[0] : null;
+      }
+
+      if (!baseRule && activeRules.length === 0) {
         container.innerHTML =
           '<div style="padding:20px;text-align:center;color:#999;">請先在主頁綁定作品</div>';
         return;
       }
+
+      const searchId = baseRule ? baseRule.id : null;
+
       try {
         let chain;
-        if (App.state.cachedSeriesChain && App.state.cachedSeriesBaseId === baseId) {
+        if (App.state.cachedSeriesChain && App.state.cachedSeriesBaseId === searchId) {
           chain = App.state.cachedSeriesChain;
         } else {
-          chain = await AniListAPI.getSequelChain(baseId);
+          chain = await AniListAPI.getSequelChain(searchId);
           App.state.cachedSeriesChain = chain;
-          App.state.cachedSeriesBaseId = baseId;
+          App.state.cachedSeriesBaseId = searchId;
         }
-        const maxPageEp = EpisodeCalculator.getMax();
-        chain.forEach((media, index) => {
-          if (index === 0) media.suggestedStart = 1;
-          else {
-            const prev = chain[index - 1];
-            media.suggestedStart = prev.suggestedStart + (prev.episodes || 12);
-          }
-        });
+
+        // 1. 取得頁面現況範圍
+        const pageMin = EpisodeCalculator.getMin();
+        const pageMax = EpisodeCalculator.getMax();
+
+        // 如果有綁定過，用綁定的值當錨點；否則用頁面最小值
+        const anchorStart = baseRule ? baseRule.bahaStart || baseRule.start : pageMin || 1;
+
+        SeriesLogic.calculateOffsets(chain, searchId, anchorStart);
+
         let rowsHtml = '';
         chain.forEach((m) => {
           const existing = App.state.rules.find((r) => r.id === m.id);
-          const isOut = m.suggestedStart > maxPageEp;
           const isActive = !!existing;
-          const isSuggestion = !isActive && !isOut && m.suggestedStart >= 1; // 允許大於等於1
 
-          // 取得現有設定值 (Baha 和 AniList)
-          const bahaVal = existing
-            ? existing.bahaStart !== undefined
-              ? existing.bahaStart
-              : existing.start
-            : isSuggestion
-            ? m.suggestedStart
-            : '';
+          let isOut = true;
+
+          if (m.suggestedStart !== undefined) {
+            const mEnd = m.episodes ? m.suggestedStart + m.episodes - 1 : 999999;
+            isOut = pageMax > 0 ? m.suggestedStart > pageMax || mEnd < pageMin : false;
+          }
+
+          const isSuggestion = !isActive && !isOut;
+
+          let bahaVal;
+          if (existing) {
+            if (existing.bahaStart !== undefined) {
+              // 優先使用 bahaStart
+              bahaVal = existing.bahaStart;
+            } else {
+              // 否則使用 start
+              bahaVal = existing.start;
+            }
+          } else if (isSuggestion) {
+            // 沒有 existing，但有建議
+            bahaVal = m.suggestedStart;
+          } else {
+            // 都沒有
+            bahaVal = '';
+          }
+
           const aniVal = existing ? (existing.aniStart !== undefined ? existing.aniStart : 1) : 1;
 
-          rowsHtml += Templates.seriesRow(
-            m,
-            isActive,
-            isSuggestion,
-            isOut,
-            bahaVal, // 傳入 bahaVal
-            aniVal, // 傳入 aniVal
-          );
+          rowsHtml += Templates.seriesRow(m, isActive, isSuggestion, isOut, bahaVal, aniVal);
         });
         container.innerHTML = `
-            <div style="padding:15px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <span style="font-weight:bold; color:var(--al-text-label);">系列作設定</span>
-                    <button id="btn-refresh-series" class="al-bind-btn" style="flex-shrink:0; padding:4px 8px; font-size:12px; background:var(--al-hover-bg); color:var(--al-text-muted); border:1px solid var(--al-border-color);" title="強制重新抓取系列清單">
-                      🔄 刷新
-                    </button>
-                </div>
-                <table class="al-map-table">
-                    <thead>
-                        <tr>
-                            <th style="width:80px; text-align:center;">狀態</th>
-                            <th>作品</th>
-                            <th style="width:60px; text-align:center; white-space:nowrap;">總集數</th>
-                            <th style="width:70px; text-align:center; white-space:nowrap;">巴哈對應<br>集數起始</th>
-                            <th style="width:20px;"></th>
-                            <th style="width:70px; text-align:center; white-space:nowrap;">AniList對應<br>集數起始</th>
-                            <th style="width:70px; text-align:center;">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody>${rowsHtml}</tbody>
-                </table>
-                <button id="save-series" class="al-bind-btn" style="width:100%;margin-top:15px;padding:10px;">儲存系列設定</button>
-            </div>
-        `;
+          <div style="padding:15px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                  <span class="al-font-bold al-text-sub">系列作設定 (本頁範圍: 
+                    ${pageMin || '?'}~${pageMax || '?'})</span>
+                  <button id="btn-refresh-series" class="al-btn al-btn-outline al-btn-sm" title="強制重新抓取">
+                    🔄 刷新
+                  </button>
+              </div>
+              <table class="al-table">
+                  <thead>
+                      <tr>
+                          <th style="width:80px; text-align:center;">狀態</th>
+                          <th>作品</th>
+                          <th style="width:50px; text-align:center;">總集</th>
+                          <th style="width:70px; text-align:center;">巴哈起始</th>
+                          <th style="width:20px;"></th>
+                          <th style="width:70px; text-align:center;">Ani起始</th>
+                          <th style="width:70px; text-align:center;">操作</th>
+                      </tr>
+                  </thead>
+                  <tbody>${rowsHtml}</tbody>
+              </table>
+              <button id="save-series" class="al-btn al-btn-success al-btn-block al-mt-4">儲存系列設定</button>
+          </div>
+      `;
 
         const updateRow = (row, active, val) => {
           const btn = _.$('.btn-toggle', row);
-          const statusLbl = _.$('.status-label', row);
+          const statusSpan = _.$('.al-tag', row);
           const cb = _.$('.cb-active', row);
           const inp = _.$('.inp-start', row);
           const inpAni = _.$('.inp-ani-start', row);
 
           cb.checked = active;
+          row.classList.remove('al-row-active', 'al-row-suggest');
+          statusSpan.classList.remove('success', 'warn', 'error', 'default');
+          btn.classList.remove('al-btn-primary', 'al-btn-danger', 'al-btn-outline');
+          btn.classList.add('al-btn', 'btn-toggle', 'al-btn-sm');
+
           if (active) {
-            row.classList.add('active');
-            row.classList.remove('suggestion');
+            row.classList.add('al-row-active');
+
+            statusSpan.textContent = '使用中';
+            statusSpan.classList.add('success'); // 綠色標籤
+
             btn.textContent = '取消';
-            btn.classList.replace('enable', 'disable');
-            statusLbl.textContent = '✅ 使用中';
-            statusLbl.style.color = '#66bb6a';
-            if (val !== undefined) inp.value = val;
+            btn.classList.add('al-btn-danger'); // 紅色按鈕
+
+            // 自動填入建議值
             if (val !== undefined && val !== '') inp.value = val;
-            if (inpAni.value === '') inpAni.value = 1; // 啟用時預設填入 1
+            if (inpAni.value === '') inpAni.value = 1;
           } else {
-            row.classList.remove('active');
+            statusSpan.textContent = '未用';
+            statusSpan.classList.add('default'); // 灰色標籤
+
             btn.textContent = '啟用';
-            btn.classList.replace('disable', 'enable');
-            statusLbl.textContent = '⚪ 未用';
-            statusLbl.style.color = '#777';
+            btn.classList.add('al-btn-outline'); // 線框按鈕
+
             inp.value = '';
           }
         };
@@ -1417,13 +1538,13 @@
               });
             }
           });
-          if (newRules.length === 0) return Utils.showToast('❌ 至少需要設定一個起始集數');
+          if (newRules.length === 0) return UI.showToast('❌ 至少需要設定一個起始集數');
           newRules.sort((a, b) => b.start - a.start);
           App.state.rules = newRules;
           GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${App.state.bahaSn}`, newRules);
           App.determineActiveRule();
           UI.updateNav(CONSTANTS.STATUS.BOUND);
-          Utils.showToast('✅ 系列設定已儲存');
+          UI.showToast('✅ 系列設定已儲存');
           _.fadeOut(_.$('#al-modal'));
         });
       } catch (e) {
@@ -1544,15 +1665,17 @@
         this.state.activeRule = null;
         return;
       }
-      const currentEp = EpisodeCalculator.getCurrent();
-      if (currentEp) {
+      const currentEp = EpisodeCalculator.getRawCurrent();
+
+      // 如果 currentEp 是 null，則不套用任何規則
+      if (currentEp !== null) {
         this.state.activeRule =
           this.state.rules.find((r) => currentEp >= r.start) ||
           this.state.rules[this.state.rules.length - 1];
       } else {
-        this.state.activeRule = this.state.rules[0];
+        // 正在看小數點集數，暫時不對應規則
+        this.state.activeRule = null;
       }
-
       if (this.state.activeRule && this.state.token) {
         try {
           const data = await AniListAPI.getMediaAndStatus(this.state.activeRule.id);
@@ -1620,15 +1743,21 @@
       }
     },
     async syncProgress() {
-      const ep = EpisodeCalculator.getCurrent();
-      if (ep === null || !this.state.activeRule) return;
+      // 1. 取得按鈕上的原始數字
+      const rawEp = EpisodeCalculator.getRawCurrent();
+
+      // 2. 如果是 null或沒規則，直接結束，不同步
+      if (rawEp === null || !this.state.activeRule) return;
 
       const rule = this.state.activeRule;
 
+      // 3. 讀取設定值
       const bahaStart = rule.bahaStart !== undefined ? rule.bahaStart : rule.start;
       const aniStart = rule.aniStart !== undefined ? rule.aniStart : 1;
 
-      let progress = ep - bahaStart + aniStart;
+      // 4. 公式：按鈕數字 - 巴哈起始 + AniList起始
+      // 範例：第80集 (80 - 1 + 1 = 80)、第0集 (0 - 0 + 1 = 1)
+      let progress = rawEp - bahaStart + aniStart;
 
       UI.updateNav(CONSTANTS.STATUS.SYNCING, `同步 Ep.${progress}...`);
       Log.info(`Syncing progress: Ep.${progress} for media ${rule.id}`);
@@ -1641,7 +1770,7 @@
           data = this.state.cachedMediaInfo;
           Log.info('Sync using cached data');
         } else {
-          // 2. 萬一沒有快取 (極少見)，才發送合併請求
+          // 2. 沒有快取發送合併請求
           data = await AniListAPI.getMediaAndStatus(rule.id);
           this.state.cachedMediaInfo = data;
         }
@@ -1691,7 +1820,7 @@
           UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
         } else if (errStr.includes('Too Many Requests')) {
           this.state.stopSync = true;
-          Utils.showToast('⚠️ 請求過於頻繁，已暫停同步');
+          UI.showToast('⚠️ 請求過於頻繁，已暫停同步');
         } else {
           setTimeout(() => {
             this.state.hasSynced = false;
@@ -1792,7 +1921,7 @@
         await this.bindSeries(match.id, match.title.native || match.title.romaji);
       } else {
         UI.updateNav(CONSTANTS.STATUS.UNBOUND);
-        if (this.state.candidate) Utils.showToast('🧐 找到可能的作品，請點擊確認');
+        if (this.state.candidate) UI.showToast('🧐 找到可能的作品，請點擊確認');
       }
     },
     async bindSeries(id, title) {
@@ -1805,22 +1934,49 @@
           title = 'Unknown Title';
         }
       }
-      UI.updateNav(CONSTANTS.STATUS.SYNCING, '計算系列集數...');
+
+      UI.updateNav(CONSTANTS.STATUS.SYNCING, '分析系列作結構...');
+
       let newRules = [];
+      const targetId = parseInt(id);
+
       try {
-        const chain = await AniListAPI.getSequelChain(id);
-        const maxPageEp = EpisodeCalculator.getMax();
-        chain.forEach((media, index) => {
-          if (index === 0) media.suggestedStart = 1;
-          else {
-            const prev = chain[index - 1];
-            media.suggestedStart = prev.suggestedStart + (prev.episodes || 12);
-          }
-        });
+        const chain = await AniListAPI.getSequelChain(targetId);
+
+        const exists = chain.find((m) => m.id === targetId);
+        if (!exists) {
+          chain.push({ id: targetId, title: { native: title }, episodes: 12, format: 'TV' });
+        }
+
+        const pageMin = EpisodeCalculator.getMin();
+        const pageMax = EpisodeCalculator.getMax();
+        const anchorStart = pageMin !== null ? pageMin : 1;
+
+        SeriesLogic.calculateOffsets(chain, targetId, anchorStart);
+
+        const targetMedia = chain.find((x) => x.id === targetId);
+        const targetStart = targetMedia ? targetMedia.calculatedStart : null;
+
         chain.forEach((m) => {
-          if (m.id === parseInt(id) || m.suggestedStart <= maxPageEp) {
+          if (m.calculatedStart === undefined) return;
+
+          const mStart = m.calculatedStart;
+          const mEnd = m.episodes ? mStart + m.episodes : 999999;
+
+          let isOverlapping = pageMax > 0 ? mStart <= pageMax && mEnd >= pageMin : false;
+
+          // 如果目標本身就是頁面起始，則前面的作品不算重疊
+          if (targetStart !== null && targetStart === pageMin) {
+            if (mStart < targetStart) {
+              isOverlapping = false;
+            }
+          }
+
+          if (m.id === targetId || isOverlapping) {
             newRules.push({
-              start: m.suggestedStart,
+              start: mStart,
+              bahaStart: mStart,
+              aniStart: 1,
               id: m.id,
               title: m.title.native || m.title.romaji,
             });
@@ -1830,26 +1986,29 @@
         Log.warn('Series Bind Failed:', e);
       }
 
-      if (newRules.length === 0) newRules.push({ start: 1, id: parseInt(id), title: title });
-      else {
-        const uniqueRules = [];
-        const seenIds = new Set();
-        newRules.forEach((r) => {
-          if (!seenIds.has(r.id)) {
-            seenIds.add(r.id);
-            uniqueRules.push(r);
-          }
+      // 防呆保險
+      if (newRules.length === 0) {
+        const fallback = EpisodeCalculator.getMin() || 1;
+        newRules.push({
+          start: fallback,
+          bahaStart: fallback,
+          aniStart: 1,
+          id: targetId,
+          title: title,
         });
-        newRules = uniqueRules;
       }
 
       newRules.sort((a, b) => b.start - a.start);
+
       this.state.rules = newRules;
       GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${this.state.bahaSn}`, this.state.rules);
+
       await this.determineActiveRule();
       UI.updateNav(CONSTANTS.STATUS.BOUND);
-      Utils.showToast(`✅ 綁定成功！(已自動設定 ${newRules.length} 個系列作)`);
+      UI.showToast(`✅ 綁定成功！(已自動設定 ${newRules.length} 個系列作)`);
+
       _.fadeOut(_.$('#al-modal'));
+
       if (CONSTANTS.SYNC_ON_BIND && !this.state.isHunting) {
         this.syncProgress();
       }
