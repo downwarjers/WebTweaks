@@ -15,6 +15,7 @@
 // @grant        GM_getValue
 // @grant        GM_deleteValue
 // @grant        GM_addStyle
+// @grant        GM_setClipboard
 // @require      https://code.jquery.com/jquery-3.6.0.min.js
 // @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js
 // @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js
@@ -982,18 +983,22 @@
 
           <div class="al-card al-mt-2 al-text-sm al-text-sub">
             <div class="al-font-bold al-text al-mb-1 al-pb-2" style="border-bottom:1px solid var(--al-border);">如何取得 Token?</div>
-            <div class="al-flex al-gap-2 al-mt-2">
+            <div class="al-flex al-gap-2 al-pt-2 al-pb-2"> 
               <span class="al-font-bold al-text-primary">1.</span>
               <span>登入 <a href="https://anilist.co/" target="_blank" class="al-link">AniList</a> 後，前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">開發者設定</a> 新增 Client。</span>
             </div>
-            <div class="al-flex al-items-center al-gap-2 al-mt-2">
+            <div class="al-flex al-gap-2 al-pt-2 al-pb-2">
               <span class="al-font-bold al-text-primary">2.</span>
+              <span>輸入任意名稱，Redirect URL設定為 <code id="ref-url-btn" class="al-link al-row-active al-p-1" title="點擊複製">https://anilist.co/api/v2/oauth/pin</code> ，儲存後可取得Client ID</span>
+            </div>
+            <div class="al-flex al-gap-2 al-pt-2 al-pb-2 al-items-center">
+              <span class="al-font-bold al-text-primary">3.</span>
               <span>輸入 Client ID：</span>
               <input id="client-id" class="al-input al-input-sm" style="width:80px;" value="${clientId}" placeholder="ID">
               <a id="auth-link" href="#" target="_blank" class="al-btn al-btn-primary al-btn-sm">前往授權</a>
             </div>
-            <div class="al-flex al-gap-2 al-mt-2">
-              <span class="al-font-bold al-text-primary">3.</span>
+            <div class="al-flex al-gap-2 al-pt-2 al-pb-2">
+              <span class="al-font-bold al-text-primary">4.</span>
               <span>點擊 Authorize，將網址列或頁面上的 Access Token 複製貼回上方。</span>
             </div>
           </div>
@@ -1135,7 +1140,7 @@
         btnTxt = '啟用';
         btnClass = 'al-btn-outline al-btn-sm';
       } else {
-        statusHtml = `<span class="al-tag default">未用</span>`;
+        statusHtml = `<span class="al-tag default">未使用</span>`;
         rowClass = '';
         btnTxt = '啟用';
         btnClass = 'al-btn-outline al-btn-sm';
@@ -1427,6 +1432,10 @@
       _.$('#client-id', container).addEventListener('input', updateAuth);
       updateAuth();
 
+      _.$('#ref-url-btn', container).addEventListener('click', function () {
+        GM_setClipboard('https://anilist.co/api/v2/oauth/pin');
+        UI.showToast('✅ 網址已複製！');
+      });
       _.$('#save-set', container).addEventListener('click', () => {
         const newToken = _.$('#set-token', container).value.trim();
         const newMode = _.$('#set-mode', container).value;
