@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         電子發票平台 - 年度發票儀表板
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.3
+// @version      3.3.1
 // @description  自動查詢近 7 個月區間發票
 // @author       downwarjers
 // @license      MIT
@@ -113,14 +113,18 @@
     return originalXHROpen.apply(this, arguments);
   };
   XMLHttpRequest.prototype.setRequestHeader = function (header, value) {
-    if (this._capturedHeaders) this._capturedHeaders[header.toLowerCase()] = value;
+    if (this._capturedHeaders) {
+      this._capturedHeaders[header.toLowerCase()] = value;
+    }
     return originalXHRSetHeader.apply(this, arguments);
   };
   XMLHttpRequest.prototype.send = function (body) {
     if (this._url && this._url.includes(API_KEYWORD_JWT)) {
       try {
         saveConfig(this._capturedHeaders, JSON.parse(body), this._url);
-      } catch (e) {}
+      } catch (e) {
+        console.error('[Dashboard] 設定儲存失敗', e);
+      }
     }
     return originalXHRSend.apply(this, arguments);
   };
@@ -131,10 +135,17 @@
     if (urlStr.includes(API_KEYWORD_JWT) && options && options.method === 'POST') {
       try {
         let headers = {};
-        if (options.headers instanceof Headers) options.headers.forEach((v, k) => (headers[k] = v));
-        else headers = { ...options.headers };
+        if (options.headers instanceof Headers) {
+          options.headers.forEach((v, k) => {
+            return (headers[k] = v);
+          });
+        } else {
+          headers = { ...options.headers };
+        }
         saveConfig(headers, JSON.parse(options.body), urlStr);
-      } catch (e) {}
+      } catch (e) {
+        console.error('[Dashboard] 設定儲存失敗', e);
+      }
     }
     return originalFetch(url, options);
   };
@@ -152,8 +163,11 @@
       const y = targetFirstDay.getFullYear();
       const m = targetFirstDay.getMonth();
       let targetLastDay;
-      if (i === 0) targetLastDay = now;
-      else targetLastDay = new Date(y, m + 1, 0, 23, 59, 59);
+      if (i === 0) {
+        targetLastDay = now;
+      } else {
+        targetLastDay = new Date(y, m + 1, 0, 23, 59, 59);
+      }
 
       ranges.push({
         y: y,
@@ -169,7 +183,9 @@
   // 🚀 UI 介面
   // ==========================================
   function createFloatingButton() {
-    if (document.getElementById('floating-trigger')) return;
+    if (document.getElementById('floating-trigger')) {
+      return;
+    }
 
     const btn = document.createElement('a');
     btn.id = 'floating-trigger';
@@ -208,11 +224,15 @@
   }
 
   function updateButtonStatus(ready) {
-    if (!document.getElementById('floating-trigger')) createFloatingButton();
+    if (!document.getElementById('floating-trigger')) {
+      createFloatingButton();
+    }
     const configStr = localStorage.getItem(STORAGE_KEY);
     const el = document.getElementById('floating-trigger');
 
-    if (!el) return;
+    if (!el) {
+      return;
+    }
 
     if (ready || configStr) {
       // 判斷是否為 Fallback 模式來決定顯示文字還是純圖示
@@ -235,7 +255,9 @@
   }
 
   function openDashboard() {
-    if (document.getElementById('dashboard-overlay')) return;
+    if (document.getElementById('dashboard-overlay')) {
+      return;
+    }
     const overlay = document.createElement('div');
     overlay.id = 'dashboard-overlay';
     overlay.innerHTML = `
@@ -269,9 +291,13 @@
             </div>
         `;
     document.body.appendChild(overlay);
-    document.getElementById('btn-close-dash').onclick = () => overlay.remove();
+    document.getElementById('btn-close-dash').onclick = () => {
+      return overlay.remove();
+    };
     document.getElementById('btn-run-scan').onclick = startScanning;
-    document.getElementById('btn-export-csv').onclick = () => exportToCSV(window._fetchedData);
+    document.getElementById('btn-export-csv').onclick = () => {
+      return exportToCSV(window._fetchedData);
+    };
   }
 
   // ==========================================
@@ -279,7 +305,9 @@
   // ==========================================
   async function startScanning() {
     const cached = localStorage.getItem(STORAGE_KEY);
-    if (!cached) return alert('❌ 設定遺失，請重新查詢激活。');
+    if (!cached) {
+      return alert('❌ 設定遺失，請重新查詢激活。');
+    }
 
     const config = JSON.parse(cached);
     const ranges = getSmartDateRanges();
@@ -312,7 +340,9 @@
     );
 
     for (let i = 0; i < ranges.length; i++) {
-      if (isErrorStop) break;
+      if (isErrorStop) {
+        break;
+      }
 
       const range = ranges[i];
       const progress = Math.round((i / ranges.length) * 100);
@@ -332,11 +362,14 @@
           body: JSON.stringify(jwtPayload),
         });
 
-        if (!tokenRes.ok) throw new Error(`HTTP ${tokenRes.status}`);
+        if (!tokenRes.ok) {
+          throw new Error(`HTTP ${tokenRes.status}`);
+        }
         const tokenText = await tokenRes.text();
 
-        if (tokenText.trim().startsWith('<') || tokenText.length < 20)
+        if (tokenText.trim().startsWith('<') || tokenText.length < 20) {
           throw new Error('Session Expired');
+        }
 
         const searchRes = await fetch(config.urlSearch, {
           method: 'POST',
@@ -344,16 +377,22 @@
           body: JSON.stringify({ token: tokenText }),
         });
 
-        if (!searchRes.ok) throw new Error(`Search HTTP ${searchRes.status}`);
+        if (!searchRes.ok) {
+          throw new Error(`Search HTTP ${searchRes.status}`);
+        }
         const data = await searchRes.json();
 
-        if (data.code && data.code !== 200) throw new Error(`API Error: ${data.msg || 'Unknown'}`);
+        if (data.code && data.code !== 200) {
+          throw new Error(`API Error: ${data.msg || 'Unknown'}`);
+        }
 
         let list = data.content || [];
         log(`✅ ${range.y}/${range.m}: ${list.length} 筆`);
 
         list.sort((a, b) => {
-          if (a.invoiceDate !== b.invoiceDate) return b.invoiceDate.localeCompare(a.invoiceDate);
+          if (a.invoiceDate !== b.invoiceDate) {
+            return b.invoiceDate.localeCompare(a.invoiceDate);
+          }
           return b.invoiceNumber.localeCompare(a.invoiceNumber);
         });
 
@@ -409,7 +448,11 @@
         }
       }
 
-      if (!isErrorStop) await new Promise((r) => setTimeout(r, 1000 + Math.random() * 800));
+      if (!isErrorStop) {
+        await new Promise((r) => {
+          return setTimeout(r, 1000 + Math.random() * 800);
+        });
+      }
     }
 
     progressFill.style.width = '100%';
@@ -426,13 +469,19 @@
   }
 
   function exportToCSV(data) {
-    if (!data || data.length === 0) return alert('無資料可匯出');
+    if (!data || data.length === 0) {
+      return alert('無資料可匯出');
+    }
     const headers = Object.keys(data[0]);
     const csvContent = [
       '\uFEFF' + headers.join(','),
-      ...data.map((row) =>
-        headers.map((key) => `"${String(row[key] || '').replace(/"/g, '""')}"`).join(','),
-      ),
+      ...data.map((row) => {
+        return headers
+          .map((key) => {
+            return `"${String(row[key] || '').replace(/"/g, '""')}"`;
+          })
+          .join(',');
+      }),
     ].join('\n');
     const link = document.createElement('a');
     link.href = URL.createObjectURL(new Blob([csvContent], { type: 'text/csv;charset=utf-8;' }));
@@ -442,6 +491,8 @@
 
   setTimeout(() => {
     createFloatingButton();
-    if (localStorage.getItem(STORAGE_KEY)) updateButtonStatus(true);
+    if (localStorage.getItem(STORAGE_KEY)) {
+      updateButtonStatus(true);
+    }
   }, 1000);
 })();

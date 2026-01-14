@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Maps Share to Notion
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.2
+// @version      3.2.1
 // @description  在 Google Maps 分享視窗嵌入 Notion 面板，自動擷取店名/地址/行政區/URL，支援重複檢查、分類選擇與備註填寫。
 // @author       downwarjers
 // @license      MIT
@@ -13,8 +13,8 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_registerMenuCommand
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/google-maps-restaurant-to-notion/google-maps-restaurant-to-notion.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/google-maps-restaurant-to-notion/google-maps-restaurant-to-notion.user.js
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/google-maps-restaurant-to-notion/google-maps-restaurant-to-notion.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/google-maps-restaurant-to-notion/google-maps-restaurant-to-notion.user.js
 // ==/UserScript==
 
 (function () {
@@ -464,9 +464,13 @@
     const currentToken = GM_getValue(CONFIG.STORAGE_KEYS.TOKEN, '');
     const currentDbId = GM_getValue(CONFIG.STORAGE_KEYS.DB_ID, '');
     const newToken = prompt('請輸入 Notion Integration Token (secret_...):', currentToken);
-    if (newToken === null) return;
+    if (newToken === null) {
+      return;
+    }
     const newDbId = prompt('請輸入 Notion Database ID:', currentDbId);
-    if (newDbId === null) return;
+    if (newDbId === null) {
+      return;
+    }
     GM_setValue(CONFIG.STORAGE_KEYS.TOKEN, newToken.trim());
     GM_setValue(CONFIG.STORAGE_KEYS.DB_ID, newDbId.trim());
     alert('✅ 設定已儲存！請重新整理頁面以套用。');
@@ -507,7 +511,9 @@
   function injectUI(modal) {
     const socialSection = modal.querySelector('.LenJEf');
     const container = socialSection?.parentNode;
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     const initialData = extractData(modal);
     const { TOKEN, DB_ID } = getSecrets();
@@ -550,13 +556,17 @@
     const defaultOption = document.createElement('option');
     defaultOption.text = '-- 請選擇 --';
     defaultOption.value = '';
-    if (CONFIG.PREFS.DEFAULT_CATEGORY === '') defaultOption.selected = true;
+    if (CONFIG.PREFS.DEFAULT_CATEGORY === '') {
+      defaultOption.selected = true;
+    }
     select.add(defaultOption);
     CONFIG.PREFS.CATEGORIES.forEach((cat) => {
       const option = document.createElement('option');
       option.text = cat;
       option.value = cat;
-      if (cat === CONFIG.PREFS.DEFAULT_CATEGORY) option.selected = true;
+      if (cat === CONFIG.PREFS.DEFAULT_CATEGORY) {
+        option.selected = true;
+      }
       select.add(option);
     });
     row2.appendChild(createLabel('分類:'));
@@ -649,7 +659,9 @@
             btn.style.backgroundColor = '#188038';
             setTimeout(() => {
               const closeBtn = modal.parentNode.querySelector('button[aria-label="關閉"]');
-              if (closeBtn) closeBtn.click();
+              if (closeBtn) {
+                closeBtn.click();
+              }
             }, 1500);
           }
         } catch (err) {
@@ -685,12 +697,20 @@
     let district = '';
 
     // 1. 抓取縣市 (使用 CONFIG.DATA.CITIES)
-    const foundCity = CONFIG.DATA.CITIES.find((c) => fullAddress.includes(c));
-    if (foundCity) city = foundCity;
+    const foundCity = CONFIG.DATA.CITIES.find((c) => {
+      return fullAddress.includes(c);
+    });
+    if (foundCity) {
+      city = foundCity;
+    }
 
     // 2. 抓取行政區 (使用 CONFIG.DATA.DISTRICTS)
-    const foundDistrict = CONFIG.DATA.DISTRICTS.find((d) => fullAddress.includes(d));
-    if (foundDistrict) district = foundDistrict;
+    const foundDistrict = CONFIG.DATA.DISTRICTS.find((d) => {
+      return fullAddress.includes(d);
+    });
+    if (foundDistrict) {
+      district = foundDistrict;
+    }
 
     return { name, address: fullAddress, url: shortUrl, city, district };
   }
@@ -713,11 +733,15 @@
           },
         }),
         onload: (response) => {
-          if (response.status === 200)
+          if (response.status === 200) {
             resolve(JSON.parse(response.responseText).results.length > 0);
-          else reject(new Error(JSON.parse(response.responseText).message || 'Query failed'));
+          } else {
+            reject(new Error(JSON.parse(response.responseText).message || 'Query failed'));
+          }
         },
-        onerror: (err) => reject(err),
+        onerror: (err) => {
+          return reject(err);
+        },
       });
     });
   }
@@ -749,8 +773,9 @@
           properties: props, // 使用上面構建的物件
         }),
         onload: (response) => {
-          if (response.status === 200) resolve(JSON.parse(response.responseText));
-          else {
+          if (response.status === 200) {
+            resolve(JSON.parse(response.responseText));
+          } else {
             try {
               const errData = JSON.parse(response.responseText);
               reject(new Error(errData.message));
@@ -759,7 +784,9 @@
             }
           }
         },
-        onerror: (err) => reject(err),
+        onerror: (err) => {
+          return reject(err);
+        },
       });
     });
   }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        Niconico Danmaku Canvas Scaler (with scaling context)
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version     1.1.3
+// @version     1.1.4
 // @description 調整 Niconico 動畫的彈幕大小。透過劫持 Canvas 的 `width`/`height` 屬性與 `getContext` 方法，提高渲染解析度，使彈幕字體相對變小/變清晰。支援快捷鍵調整縮放倍率（Shift + `+` / `-`）。
 // @author      downwarjers
 // @license     MIT
@@ -27,10 +27,16 @@
    * @returns {boolean}
    */
   function isLikelyDanmakuCanvas(canvas) {
-    if (!(canvas instanceof HTMLCanvasElement)) return false;
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      return false;
+    }
     // 針對你貼的 HTML：有 data-relingo-block 或在 data-name="comment" 底下
-    if (canvas.hasAttribute('data-relingo-block')) return true;
-    if (canvas.closest && canvas.closest('[data-name="comment"]')) return true;
+    if (canvas.hasAttribute('data-relingo-block')) {
+      return true;
+    }
+    if (canvas.closest && canvas.closest('[data-name="comment"]')) {
+      return true;
+    }
     return false;
   }
 
@@ -141,11 +147,15 @@
    * 掃描並處理所有可能的彈幕 canvas。
    */
   function scanAndScaleAll() {
-    document.querySelectorAll('canvas').forEach((canvas) => scaleOne(canvas));
+    document.querySelectorAll('canvas').forEach((canvas) => {
+      return scaleOne(canvas);
+    });
   }
 
   // 初次載入與 DOM 變動時觸發掃描
-  window.addEventListener('load', () => setTimeout(scanAndScaleAll, 500));
+  window.addEventListener('load', () => {
+    return setTimeout(scanAndScaleAll, 500);
+  });
   const mo = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
@@ -153,7 +163,9 @@
           if (isLikelyDanmakuCanvas(node)) {
             scaleOne(node);
           }
-          node.querySelectorAll('canvas').forEach((canvas) => scaleOne(canvas));
+          node.querySelectorAll('canvas').forEach((canvas) => {
+            return scaleOne(canvas);
+          });
         }
       }
     }
@@ -164,7 +176,9 @@
   //         Shift + - 減小倍率 (字變更更大)
   //         Shift + 0 回復預設
   window.addEventListener('keydown', (e) => {
-    if (!e.shiftKey) return;
+    if (!e.shiftKey) {
+      return;
+    }
     const oldScaleFactor = scaleFactor;
     if (e.key === '=' || e.key === '+') {
       scaleFactor = +(scaleFactor * 1.1).toFixed(3);

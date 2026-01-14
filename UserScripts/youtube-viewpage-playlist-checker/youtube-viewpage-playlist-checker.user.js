@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 影片頁面播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      29.10
+// @version      29.10.2
 // @description  在 YouTube 影片頁面顯示當前影片是否已加入使用者的任何自訂播放清單。透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
 // @author       downwarjers
 // @license      MIT
@@ -9,8 +9,8 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=youtube.com
 // @grant        none
 // @run-at       document-idle
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-viewpage-playlist-checker/youtube-viewpage-playlist-checker.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-viewpage-playlist-checker/youtube-viewpage-playlist-checker.user.js
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-viewpage-playlist-checker/youtube-viewpage-playlist-checker.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-viewpage-playlist-checker/youtube-viewpage-playlist-checker.user.js
 // ==/UserScript==
 
 (function () {
@@ -19,7 +19,9 @@
   // --- CSS 設定 ---
   function addStyle(css) {
     const id = 'my-playlist-checker-style';
-    if (document.getElementById(id)) return; // 已經有了就跳過
+    if (document.getElementById(id)) {
+      return;
+    } // 已經有了就跳過
     const style = document.createElement('style');
     style.id = id; // 設定 ID
     style.textContent = css;
@@ -66,7 +68,9 @@
     let div = document.getElementById('my-playlist-status');
     const targetContainer = document.querySelector('#secondary #secondary-inner');
 
-    if (!targetContainer) return;
+    if (!targetContainer) {
+      return;
+    }
 
     if (!div) {
       div = document.createElement('div');
@@ -89,7 +93,9 @@
   // ==========================================
   function waitForConfig(timeout = 5000) {
     return new Promise((resolve) => {
-      if (window.ytcfg && window.ytcfg.get) return resolve(window.ytcfg);
+      if (window.ytcfg && window.ytcfg.get) {
+        return resolve(window.ytcfg);
+      }
       const start = Date.now();
       const interval = setInterval(() => {
         if (window.ytcfg && window.ytcfg.get) {
@@ -106,19 +112,25 @@
   function getCookie(name) {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
+    if (parts.length === 2) {
+      return parts.pop().split(';').shift();
+    }
   }
 
   async function generateSAPISIDHASH() {
     const sapisid = getCookie('SAPISID');
-    if (!sapisid) return null;
+    if (!sapisid) {
+      return null;
+    }
     const timestamp = Math.floor(Date.now() / 1000);
     const origin = window.location.origin;
     const str = `${timestamp} ${sapisid} ${origin}`;
     const buffer = new TextEncoder().encode(str);
     const hashBuffer = await crypto.subtle.digest('SHA-1', buffer);
     const hashHex = Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, '0'))
+      .map((b) => {
+        return b.toString(16).padStart(2, '0');
+      })
       .join('');
     return `SAPISIDHASH ${timestamp}_${hashHex}`;
   }
@@ -127,16 +139,24 @@
   // 3. 搜尋邏輯
   // ==========================================
   function findButtonByText(obj, targetTexts, visited = new Set()) {
-    if (!obj || typeof obj !== 'object') return null;
-    if (visited.has(obj)) return null;
+    if (!obj || typeof obj !== 'object') {
+      return null;
+    }
+    if (visited.has(obj)) {
+      return null;
+    }
     visited.add(obj);
 
     let foundText = null;
-    if (obj.simpleText) foundText = obj.simpleText;
-    else if (obj.runs && obj.runs[0] && obj.runs[0].text) foundText = obj.runs[0].text;
+    if (obj.simpleText) {
+      foundText = obj.simpleText;
+    } else if (obj.runs && obj.runs[0] && obj.runs[0].text) {
+      foundText = obj.runs[0].text;
+    }
 
-    if (foundText && targetTexts.includes(foundText.trim()))
+    if (foundText && targetTexts.includes(foundText.trim())) {
       return { found: true, text: foundText };
+    }
 
     for (let k in obj) {
       if (
@@ -144,8 +164,9 @@
         k === 'frameworkUpdates' ||
         k === 'loggingContext' ||
         k === 'playerOverlays'
-      )
+      ) {
         continue;
+      }
       const result = findButtonByText(obj[k], targetTexts, visited);
       if (result) {
         if (result.found) {
@@ -156,7 +177,11 @@
             'navigationEndpoint',
             'showSheetCommand',
           ];
-          for (let key of keys) if (obj[key]) return obj[key];
+          for (let key of keys) {
+            if (obj[key]) {
+              return obj[key];
+            }
+          }
           return result;
         }
         return result;
@@ -169,7 +194,9 @@
   // 4. 主功能：背景檢查 API
   // ==========================================
   async function checkPlaylists() {
-    if (isChecking) return;
+    if (isChecking) {
+      return;
+    }
     isChecking = true;
 
     try {
@@ -194,17 +221,24 @@
         let candidate = findButtonByText(source, ['儲存', 'Save', '保存']);
         if (candidate) {
           let ep = candidate;
-          if (candidate.addToPlaylistServiceEndpoint) ep = candidate.addToPlaylistServiceEndpoint;
-          else if (candidate.command && candidate.command.addToPlaylistServiceEndpoint)
+          if (candidate.addToPlaylistServiceEndpoint) {
+            ep = candidate.addToPlaylistServiceEndpoint;
+          } else if (candidate.command && candidate.command.addToPlaylistServiceEndpoint) {
             ep = candidate.command.addToPlaylistServiceEndpoint;
-          else if (candidate.showSheetCommand && candidate.showSheetCommand.panelLoadingStrategy)
+          } else if (
+            candidate.showSheetCommand &&
+            candidate.showSheetCommand.panelLoadingStrategy
+          ) {
             ep = candidate.showSheetCommand.panelLoadingStrategy.requestTemplate;
-          else if (candidate.panelLoadingStrategy)
+          } else if (candidate.panelLoadingStrategy) {
             ep = candidate.panelLoadingStrategy.requestTemplate;
+          }
 
           if (ep && ep.params) {
             params = ep.params;
-            if (ep.videoId) videoIdFromEndpoint = ep.videoId;
+            if (ep.videoId) {
+              videoIdFromEndpoint = ep.videoId;
+            }
             break;
           }
         }
@@ -225,19 +259,25 @@
                 btn.buttonRenderer?.command ||
                 btn.flexibleActionsViewModel?.onTap?.command;
               if (ep) {
-                if (ep.addToPlaylistServiceEndpoint)
+                if (ep.addToPlaylistServiceEndpoint) {
                   params = ep.addToPlaylistServiceEndpoint.params;
-                else if (ep.showSheetCommand)
+                } else if (ep.showSheetCommand) {
                   params = ep.showSheetCommand.panelLoadingStrategy?.requestTemplate?.params;
-                else if (ep.params) params = ep.params;
+                } else if (ep.params) {
+                  params = ep.params;
+                }
               }
-              if (params) break;
+              if (params) {
+                break;
+              }
             }
           }
         }
       }
 
-      if (!params) throw new Error('API Params Not Found');
+      if (!params) {
+        throw new Error('API Params Not Found');
+      }
 
       const currentUrlId = new URLSearchParams(window.location.search).get('v');
       const finalVideoId = videoIdFromEndpoint || currentUrlId;
@@ -246,7 +286,9 @@
       const sessionIndex = ytConfig.get('SESSION_INDEX') || '0';
       const authHeader = await generateSAPISIDHASH();
 
-      if (!authHeader || !apiKey) throw new Error('Auth Failed');
+      if (!authHeader || !apiKey) {
+        throw new Error('Auth Failed');
+      }
 
       const response = await fetch(
         `https://www.youtube.com/youtubei/v1/playlist/get_add_to_playlist?key=${apiKey}`,
@@ -267,14 +309,22 @@
         },
       );
 
-      if (!response.ok) throw new Error(`API ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`API ${response.status}`);
+      }
       const json = await response.json();
 
       function findPlaylistsRecursive(obj) {
         let results = [];
-        if (!obj || typeof obj !== 'object') return results;
-        if (obj.playlistAddToOptionRenderer) results.push(obj.playlistAddToOptionRenderer);
-        for (let k in obj) results = results.concat(findPlaylistsRecursive(obj[k]));
+        if (!obj || typeof obj !== 'object') {
+          return results;
+        }
+        if (obj.playlistAddToOptionRenderer) {
+          results.push(obj.playlistAddToOptionRenderer);
+        }
+        for (let k in obj) {
+          results = results.concat(findPlaylistsRecursive(obj[k]));
+        }
         return results;
       }
 
@@ -285,7 +335,9 @@
         const title = p.title.simpleText || p.title.runs?.[0]?.text;
         const rawStatus = p.containsSelectedVideos || p.containsSelectedVideo;
         const isAdded = rawStatus === 'ALL' || rawStatus === 'TRUE' || rawStatus === true;
-        if (isAdded) added.push(title);
+        if (isAdded) {
+          added.push(title);
+        }
       });
 
       const html =
@@ -311,9 +363,13 @@
     const newVideoId = new URLSearchParams(window.location.search).get('v');
 
     const statusEl = document.getElementById('my-playlist-status');
-    if (statusEl) statusEl.remove();
+    if (statusEl) {
+      statusEl.remove();
+    }
 
-    if (!location.href.includes('/watch')) return;
+    if (!location.href.includes('/watch')) {
+      return;
+    }
 
     if (currentVideoId !== newVideoId) {
       currentVideoId = newVideoId;
@@ -335,7 +391,9 @@
   }
 
   function initSnackbarObserver() {
-    if (snackbarObserver) return;
+    if (snackbarObserver) {
+      return;
+    }
 
     const container = document.querySelector('snackbar-container');
     if (!container) {
@@ -348,11 +406,15 @@
 
       if (hasToast) {
         // Toast 出現：代表忙碌中，強制顯示同步狀態
-        if (debounceTimer) clearTimeout(debounceTimer);
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
         showStatus('⏳ 同步中...', 'syncing');
       } else {
         // Toast 消失：代表閒置，執行更新
-        if (debounceTimer) clearTimeout(debounceTimer);
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
         checkPlaylists();
       }
     });

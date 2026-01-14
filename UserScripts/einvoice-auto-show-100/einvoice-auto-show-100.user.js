@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         電子發票平台 - 自動顯示100筆
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.1
+// @version      1.1.1
 // @description  自動將列表顯示筆數切換為 100 筆並執行
 // @author       downwarjers
 // @license      MIT
@@ -22,10 +22,14 @@
     const button = document.querySelector(BTN_SELECTOR);
 
     // 1. 確保兩個元件都存在
-    if (!select || !button) return;
+    if (!select || !button) {
+      return;
+    }
 
     // 2. 如果已經是 100 就不重複執行 (避免無窮迴圈)
-    if (select.value === '100') return;
+    if (select.value === '100') {
+      return;
+    }
 
     console.log('偵測到表格控制項，自動切換為 100 筆...');
 

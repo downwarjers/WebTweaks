@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AniList to OTT Sites
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.1
+// @version      2.1.1
 // @description  AniList 清單新增外部OTT按鈕，直接跳轉搜尋作品，支援巴哈自動跳轉集數
 // @author       downwarjers
 // @license      MIT
@@ -93,7 +93,9 @@
   // ==========================================
   // === 2. 主程式 (介面渲染) ===
   // ==========================================
-  const observer = new MutationObserver(() => initButtons());
+  const observer = new MutationObserver(() => {
+    return initButtons();
+  });
   observer.observe(document.body, { childList: true, subtree: true });
 
   function initButtons() {
@@ -109,11 +111,15 @@
 
     // 列表項目
     document.querySelectorAll('.entry.row').forEach((entry) => {
-      if (entry.querySelector('.custom-links-col')) return;
+      if (entry.querySelector('.custom-links-col')) {
+        return;
+      }
 
       // 抓取標題
       const titleEl = entry.querySelector('.title a');
-      if (!titleEl) return;
+      if (!titleEl) {
+        return;
+      }
       const title = titleEl.innerText.trim();
 
       // 抓取進度
@@ -214,9 +220,11 @@
           if (targetIndex < validEpisodes.length) {
             const href = validEpisodes[targetIndex].getAttribute('href');
             let finalUrl = href;
-            if (href.startsWith('?')) finalUrl = 'https://ani.gamer.com.tw/animeVideo.php' + href;
-            else if (href.startsWith('animeVideo.php'))
+            if (href.startsWith('?')) {
+              finalUrl = 'https://ani.gamer.com.tw/animeVideo.php' + href;
+            } else if (href.startsWith('animeVideo.php')) {
               finalUrl = 'https://ani.gamer.com.tw/' + href;
+            }
 
             resetBtn(btnElement, originalText);
             GM_openInTab(finalUrl, { active: true });

@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         Twitch 精確日期轉換器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.6.2
+// @version      1.6.3
 // @description  將 Twitch 影片/剪輯列表上的相對時間（如「2小時前」、「3天前」）替換為精確的日期格式（yyyy-MM-dd）。直接讀取縮圖元素中的 `title` 屬性（原始時間戳），確保日期準確。
 // @author       downwarjers
 // @license      MIT
 // @match        *://www.twitch.tv/*
 // @grant        none
 // @run-at       document-idle
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/twitch-date-converter/twitch-date-converter.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/twitch-date-converter/twitch-date-converter.user.js
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/twitch-date-converter/twitch-date-converter.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/twitch-date-converter/twitch-date-converter.user.js
 // ==/UserScript==
 
 (function () {
@@ -57,11 +57,17 @@
    * @returns {boolean}
    */
   function isRelativeTime(text) {
-    if (!text) return false;
+    if (!text) {
+      return false;
+    }
     const lowerText = text.toLowerCase();
 
     // 1. 必須包含基礎關鍵字
-    if (!relativeTimeKeywords.some((keyword) => lowerText.includes(keyword))) {
+    if (
+      !relativeTimeKeywords.some((keyword) => {
+        return lowerText.includes(keyword);
+      })
+    ) {
       return false;
     }
 
@@ -76,7 +82,12 @@
     }
 
     // 3. 包含數字 或 特殊單字
-    return /\d/.test(text) || specialRelativeWords.some((word) => lowerText.includes(word));
+    return (
+      /\d/.test(text) ||
+      specialRelativeWords.some((word) => {
+        return lowerText.includes(word);
+      })
+    );
   }
 
   /**
@@ -88,7 +99,9 @@
       'img[data-test-selector="preview-card-thumbnail__image-selector"]:not([data-thumbnail-processed])',
     );
 
-    if (thumbnails.length === 0) return;
+    if (thumbnails.length === 0) {
+      return;
+    }
 
     thumbnails.forEach((img) => {
       img.dataset.thumbnailProcessed = 'true'; // 標記為已檢查
@@ -103,13 +116,17 @@
       const card = img.closest(
         'article, [data-a-target^="video-tower-card-"], [data-a-target="video-list-card"]',
       );
-      if (!card) return;
+      if (!card) {
+        return;
+      }
 
       // 在卡片內尋找資訊欄位
       const stats = card.querySelectorAll('.tw-media-card-stat');
 
       for (const statEl of stats) {
-        if (statEl.dataset.dateProcessed === 'true') continue;
+        if (statEl.dataset.dateProcessed === 'true') {
+          continue;
+        }
 
         if (isRelativeTime(statEl.textContent)) {
           // 使用 requestAnimationFrame 確保在下一次重繪前執行，減少畫面閃爍

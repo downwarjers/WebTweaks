@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name        ACGSecrets Bangumi 分類抓取
 // @namespace   https://github.com/downwarjers/WebTweaks
-// @version     2.3.4
+// @version     2.3.5
 // @description 針對 ACGSecrets.hk 網站，依據作品標籤（如「續作」、「新作」、「家長指引」）與名稱規則（正則表達式判斷季數、篇章），將新番列表自動分類為八大類。在頁面右下角提供「複製分類結果」與「下載 txt」按鈕。
 // @author      downwarjers
 // @license     MIT
@@ -39,8 +39,12 @@
   // 輔助函式：判斷名稱是否符合續作/特別篇模式
   function isContentSequelOrArc(name) {
     return (
-      contentSequelPatterns.some((p) => p.test(name)) ||
-      contentArcPatterns.some((p) => p.test(name))
+      contentSequelPatterns.some((p) => {
+        return p.test(name);
+      }) ||
+      contentArcPatterns.some((p) => {
+        return p.test(name);
+      })
     );
   }
 
@@ -58,10 +62,14 @@
 
     workNodes.forEach((node) => {
       const nameEl = node.querySelector('div.entity_localized_name');
-      if (!nameEl) return;
+      if (!nameEl) {
+        return;
+      }
 
       const name = nameEl.textContent.trim();
-      if (!name) return;
+      if (!name) {
+        return;
+      }
 
       let categorized = false;
 
@@ -129,7 +137,9 @@
         categorized = true;
       }
 
-      if (categorized) return;
+      if (categorized) {
+        return;
+      }
 
       // 8. 其他作品 (所有上述條件都不符合)
       others.push(name);
@@ -161,7 +171,9 @@
 
     const addSection = (title, items) => {
       if (items.length > 0) {
-        if (lines.length > 0) lines.push('');
+        if (lines.length > 0) {
+          lines.push('');
+        }
         lines.push(title);
         lines.push(...items);
       }
@@ -191,11 +203,9 @@
     }
     try {
       GM_setClipboard(text);
-      const workCount = text
-        .split('\n')
-        .filter(
-          (line) => !line.startsWith('---') && !line.startsWith('(') && line.trim() !== '',
-        ).length;
+      const workCount = text.split('\n').filter((line) => {
+        return !line.startsWith('---') && !line.startsWith('(') && line.trim() !== '';
+      }).length;
       alert(`已複製結果，共 ${workCount} 個作品名稱`);
     } catch (e) {
       console.log(e);
@@ -255,5 +265,7 @@
     };
   }
 
-  window.addEventListener('load', () => setTimeout(injectUI, 500));
+  window.addEventListener('load', () => {
+    return setTimeout(injectUI, 500);
+  });
 })();

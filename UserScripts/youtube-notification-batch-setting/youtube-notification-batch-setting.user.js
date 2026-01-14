@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         YouTube - Advanced Batch Channel Notifier (Dynamic Scroll)
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.2.3
+// @version      2.2.4
 // @description  在 YouTube 訂閱內容管理頁面新增控制面板，可批次將所有頻道的通知鈴鐺設定為「全部」、「個人化」或「無」。支援動態滾動載入 (Dynamic Scroll)，可自動處理長列表的訂閱頻道。
 // @author       downwarjers
 // @license      MIT
 // @match        https://www.youtube.com/*
 // @grant        GM_addStyle
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-notification-batch-setting/youtube-notification-batch-setting.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-notification-batch-setting/youtube-notification-batch-setting.user.js
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-notification-batch-setting/youtube-notification-batch-setting.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-notification-batch-setting/youtube-notification-batch-setting.user.js
 // ==/UserScript==
 
 (function () {
@@ -23,7 +23,11 @@
   const STATUS_ID = 'yt-batch-notify-status';
 
   // 延遲函式 (模擬人類操作)
-  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  const delay = (ms) => {
+    return new Promise((resolve) => {
+      return setTimeout(resolve, ms);
+    });
+  };
 
   // 通知模式的定義
   const NOTIFICATION_MODES = {
@@ -43,7 +47,9 @@
 
   // --- 核心處理函式 ---
   async function startProcessing() {
-    if (isRunning) return;
+    if (isRunning) {
+      return;
+    }
 
     const targetModeKey = document.getElementById(SELECT_ID).value;
     const targetMode = NOTIFICATION_MODES[targetModeKey];
@@ -78,7 +84,9 @@
 
           // 2. 處理當前頁面載入的所有頻道
           for (const channel of channels) {
-            if (!isRunning) break; // 檢查是否被中途停止
+            if (!isRunning) {
+              break;
+            } // 檢查是否被中途停止
 
             const channelName =
               channel.querySelector('#channel-title')?.textContent.trim() || '未知頻道';
@@ -133,7 +141,9 @@
           } // end for loop (處理完一批)
         }
 
-        if (!isRunning) break; // 處理完一批後檢查
+        if (!isRunning) {
+          break;
+        } // 處理完一批後檢查
 
         // 5. 滾動頁面並等待 (v2.2 核心變更)
         let currentHeight = document.documentElement.scrollHeight;
@@ -231,7 +241,9 @@
   function updateUIState(running, stopping = false) {
     const button = document.getElementById(BUTTON_ID);
     const select = document.getElementById(SELECT_ID);
-    if (!button || !select) return;
+    if (!button || !select) {
+      return;
+    }
 
     if (stopping) {
       button.textContent = '正在停止...';
@@ -265,7 +277,9 @@
 
   // 建立控制面板
   function createControlPanel() {
-    if (document.getElementById(UI_CONTAINER_ID)) return;
+    if (document.getElementById(UI_CONTAINER_ID)) {
+      return;
+    }
 
     const container = document.createElement('div');
     container.id = UI_CONTAINER_ID;

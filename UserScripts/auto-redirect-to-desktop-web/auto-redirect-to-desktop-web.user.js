@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         Auto Mobile→Desktop Redirect (Enhanced)
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.1.5
+// @version      1.1.6
 // @description  當訪問手機版網頁（如 `m.`, `mobile.` 開頭或包含 `/mobile/` 路徑）時，自動嘗試跳轉回桌面版網址。內建防無限迴圈機制（檢查 Referrer 與 SessionStorage 計數），避免在只有手機版的網站上卡死。
 // @author       downwarjers
 // @license      MIT
 // @match        *://*/*
 // @run-at       document-start
 // @grant        none
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-redirect-to-desktop-web/auto-redirect-to-desktop-web.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-redirect-to-desktop-web/auto-redirect-to-desktop-web.user.js
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-redirect-to-desktop-web/auto-redirect-to-desktop-web.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-redirect-to-desktop-web/auto-redirect-to-desktop-web.user.js
 // ==/UserScript==
 
 (function () {
@@ -26,6 +26,7 @@
   try {
     record = JSON.parse(sessionStorage.getItem(SESSION_STORAGE_KEY));
   } catch (e) {
+    console.error(e);
     record = null;
   }
 

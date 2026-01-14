@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 影片卡片清單播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      5.5
+// @version      5.5.1
 // @description  在 YouTube 透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
 // @author       downwarjers
 // @license      MIT
@@ -36,27 +36,37 @@
   function getCookie(name) {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
+    if (parts.length === 2) {
+      return parts.pop().split(';').shift();
+    }
   }
 
   async function generateSAPISIDHASH() {
     const sapisid = getCookie('SAPISID');
-    if (!sapisid) return null;
+    if (!sapisid) {
+      return null;
+    }
     const time = Math.floor(Date.now() / 1000);
     const origin = window.location.origin;
     const str = `${time} ${sapisid} ${origin}`;
     const buf = new TextEncoder().encode(str);
     const digest = await crypto.subtle.digest('SHA-1', buf);
     const hash = Array.from(new Uint8Array(digest))
-      .map((b) => b.toString(16).padStart(2, '0'))
+      .map((b) => {
+        return b.toString(16).padStart(2, '0');
+      })
       .join('');
     return `SAPISIDHASH ${time}_${hash}`;
   }
 
   function waitForConfig() {
     return new Promise((resolve) => {
-      if (window.ytcfg && window.ytcfg.get) return resolve(window.ytcfg);
-      setTimeout(() => resolve(window.ytcfg), 1000);
+      if (window.ytcfg && window.ytcfg.get) {
+        return resolve(window.ytcfg);
+      }
+      setTimeout(() => {
+        return resolve(window.ytcfg);
+      }, 1000);
     });
   }
 
@@ -70,7 +80,9 @@
       const context = ytConfig.get('INNERTUBE_CONTEXT');
       const authHeader = await generateSAPISIDHASH();
 
-      if (!authHeader) return { success: false, message: '未登入' };
+      if (!authHeader) {
+        return { success: false, message: '未登入' };
+      }
 
       const response = await fetch(
         `https://www.youtube.com/youtubei/v1/playlist/get_add_to_playlist?key=${apiKey}`,
@@ -88,12 +100,16 @@
         },
       );
 
-      if (!response.ok) throw new Error(`${response.status}`);
+      if (!response.ok) {
+        throw new Error(`${response.status}`);
+      }
       const json = await response.json();
 
       const addedLists = [];
       function scan(obj) {
-        if (!obj || typeof obj !== 'object') return;
+        if (!obj || typeof obj !== 'object') {
+          return;
+        }
         if (obj.playlistAddToOptionRenderer) {
           const p = obj.playlistAddToOptionRenderer;
           const status = p.containsSelectedVideos || p.containsSelectedVideo;
@@ -102,7 +118,9 @@
             addedLists.push(title);
           }
         }
-        for (let k in obj) scan(obj[k]);
+        for (let k in obj) {
+          scan(obj[k]);
+        }
       }
       scan(json);
 
@@ -116,7 +134,9 @@
   // 4. 佇列處理
   // ==========================================
   async function processQueue() {
-    if (isProcessing || workQueue.length === 0) return;
+    if (isProcessing || workQueue.length === 0) {
+      return;
+    }
     isProcessing = true;
 
     const job = workQueue.shift();
@@ -187,16 +207,24 @@
 
     cards.forEach((card) => {
       // 1. 如果這張卡片已經有標籤了，就跳過
-      if (card.querySelector('.my-playlist-tag')) return;
+      if (card.querySelector('.my-playlist-tag')) {
+        return;
+      }
 
       // 2. 抓取 Video ID
       // ytd-playlist-video-renderer 的結構中，a#thumbnail 也是存在的，且包含 href
       const link = card.querySelector('a#thumbnail') || card.querySelector('a[href*="/watch?v="]');
-      if (!link) return;
+      if (!link) {
+        return;
+      }
       const href = link.getAttribute('href');
-      if (!href || !href.includes('v=')) return;
+      if (!href || !href.includes('v=')) {
+        return;
+      }
       const videoId = href.split('v=')[1].split('&')[0];
-      if (!videoId) return;
+      if (!videoId) {
+        return;
+      }
 
       // 3. 準備 UI 容器
       let targetContainer = null;

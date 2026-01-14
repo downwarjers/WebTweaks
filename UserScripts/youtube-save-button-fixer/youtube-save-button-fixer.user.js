@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 影片儲存按鈕強制顯示
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.3
+// @version      2.3.1
 // @description  強制在 YouTube 影片操作列顯示「儲存」（加入播放清單）按鈕。當視窗縮放導致按鈕被收入「...」選單時，自動複製並生成一個獨立的按鈕置於操作列上。
 // @author       downwarjers
 // @license      MIT
@@ -99,13 +99,19 @@
   // === 建立按鈕 DOM ===
   function createMyButton(flexibleContainer) {
     const menuRenderer = flexibleContainer.closest('ytd-menu-renderer');
-    if (!menuRenderer) return null;
+    if (!menuRenderer) {
+      return null;
+    }
 
     const threeDotButtonShape = menuRenderer.querySelector('yt-button-shape#button-shape button');
-    if (!threeDotButtonShape) return null;
+    if (!threeDotButtonShape) {
+      return null;
+    }
 
     const refButton = flexibleContainer.querySelector('button');
-    if (!refButton) return null;
+    if (!refButton) {
+      return null;
+    }
 
     const clonedBtn = refButton.cloneNode(true);
     clonedBtn.id = '';
@@ -144,7 +150,9 @@
   // === 主邏輯：檢查並切換 ===
   function checkAndToggle() {
     const flexibleContainer = document.querySelector(TARGET_CONTAINER_SELECTOR);
-    if (!flexibleContainer) return;
+    if (!flexibleContainer) {
+      return;
+    }
 
     // 1. 尋找原生按鈕 (只在 flexible-item-buttons 容器內找)
     let nativeBtn = null;
@@ -198,11 +206,17 @@
     const flexibleContainer = document.querySelector(TARGET_CONTAINER_SELECTOR);
 
     // 如果容器還沒出現，或者已經對這個容器掛過監聽了，就跳過
-    if (!flexibleContainer || flexibleContainer === currentObservedContainer) return;
+    if (!flexibleContainer || flexibleContainer === currentObservedContainer) {
+      return;
+    }
 
     // 清除舊的 (以防換頁後 DOM 殘留)
-    if (resizeObserver) resizeObserver.disconnect();
-    if (mutationObserver) mutationObserver.disconnect();
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+    }
+    if (mutationObserver) {
+      mutationObserver.disconnect();
+    }
 
     currentObservedContainer = flexibleContainer;
 

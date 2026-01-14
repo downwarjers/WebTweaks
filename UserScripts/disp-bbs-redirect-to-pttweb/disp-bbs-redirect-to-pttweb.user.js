@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         Disp.cc PTT 網址自動跳轉
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.5
+// @version      1.5.1
 // @description  瀏覽 Disp.cc 時，若文章來源顯示為 PTT (`ptt.cc`)，點擊該連結會自動轉址到 `pttweb.cc` (網頁版 PTT 備份站)，避免 PTT 原站的年齡驗證阻擋。精確比對「※ 文章網址:」文字，確保只針對文章底部的來源連結進行處理。
 // @author       downwarjers
 // @license      MIT
 // @match        https://disp.cc/*
 // @grant        none
 // @run-at       document-idle
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/disp-bbs-redirect-to-pttweb/disp-bbs-redirect-to-pttweb.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/disp-bbs-redirect-to-pttweb/disp-bbs-redirect-to-pttweb.user.js
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/disp-bbs-redirect-to-pttweb/disp-bbs-redirect-to-pttweb.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/disp-bbs-redirect-to-pttweb/disp-bbs-redirect-to-pttweb.user.js
 // ==/UserScript==
 
 (function () {
@@ -21,7 +21,9 @@
   function checkAndRedirect(span) {
     // 1. 確保有子節點且第一個是文字節點 (避免報錯)
     const textNode = span.childNodes[0];
-    if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return false;
+    if (!textNode || textNode.nodeType !== Node.TEXT_NODE) {
+      return false;
+    }
 
     // 2. 檢查文字內容是否以 "※ 文章網址:" 開頭
     if (textNode.textContent.trim().startsWith('※ 文章網址:')) {
@@ -53,7 +55,9 @@
     // 直接選取所有可能的目標，效率最高
     const spans = document.querySelectorAll('span.record');
     for (const span of spans) {
-      if (checkAndRedirect(span)) return true;
+      if (checkAndRedirect(span)) {
+        return true;
+      }
     }
     return false;
   }
@@ -61,7 +65,9 @@
   // --- 主執行流程 ---
 
   // 1. 先執行一次立即檢查 (如果腳本載入時，內容已經在頁面上了)
-  if (scanAll()) return;
+  if (scanAll()) {
+    return;
+  }
 
   // 2. 如果沒找到，建立 MutationObserver 監聽後續載入的內容
   const observer = new MutationObserver((mutations) => {

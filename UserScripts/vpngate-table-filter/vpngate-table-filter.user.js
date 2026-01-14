@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         VPN Gate Table Sort
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.1.4
+// @version      2.1.5
 // @description  優化 VPNGate 列表頁面，增加排序控制面板。支援依據「連線速度 (Mbps)」或「總分」進行排序，並提供即時關鍵字搜尋過濾功能。
 // @author       downwarjers
 // @license      MIT
@@ -9,8 +9,8 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @run-at       document-idle
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpngate-table-filter/vpngate-table-filter.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpngate-table-filter/vpngate-table-filter.user.js
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpngate-table-filter/vpngate-table-filter.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/vpngate-table-filter/vpngate-table-filter.user.js
 // ==/UserScript==
 
 (function () {
@@ -40,7 +40,9 @@
   }
 
   const tbody = targetTable.getElementsByTagName('tbody')[0];
-  if (!tbody) return;
+  if (!tbody) {
+    return;
+  }
 
   // --- 2. 移除重複的表頭行 ---
   const allRows = Array.from(tbody.getElementsByTagName('tr'));
@@ -172,7 +174,9 @@
       return isAscending ? comparison : -comparison;
     });
 
-    rows.forEach((row) => tbody.appendChild(row));
+    rows.forEach((row) => {
+      return tbody.appendChild(row);
+    });
 
     // 重新應用當前的篩選條件
     filterTable(searchInput.value);

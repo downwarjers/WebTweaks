@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BOOKWALKER 跨頁面批量加入購物車 (自動過濾已購/已在購物車) - 全自動靜默結帳版
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.33.4
+// @version      2.33.5
 // @description  自動化處理 BookWalker 免費書籍領取。支援跨頁面批量將書籍加入購物車，自動過濾已購買書籍。包含「全自動靜默結帳」功能，遇到購物車滿額（200本）時會自動觸發結帳流程，並在完成後返回原頁面繼續執行。
 // @author       downwarjers
 // @license      MIT
@@ -9,11 +9,9 @@
 // @grant        none
 // @require      https://code.jquery.com/jquery-3.6.0.min.js
 // @run-at       document-start
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bookwalker-free-book-auto-buying/bookwalker-free-book-auto-buying.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bookwalker-free-book-auto-buying/bookwalker-free-book-auto-buying.user.js
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bookwalker-free-book-auto-buying/bookwalker-free-book-auto-buying.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bookwalker-free-book-auto-buying/bookwalker-free-book-auto-buying.user.js
 // ==/UserScript==
-
-/* global $, window, document, localStorage, sessionStorage, alert, location */
 
 (function () {
   'use strict';
@@ -45,7 +43,9 @@
   // ===================================
 
   function injectAlertOverride(key, urlKey, checkoutKey, cartBtnSelector) {
-    if (!window.alert) return;
+    if (!window.alert) {
+      return;
+    }
     const originalAlert = window.alert;
     const errorCartFull = 'カートの最大数(200件)を超過しました。';
     const warningAlreadyInCart = 'すでにカートに同じ商品が入っています。';
@@ -80,7 +80,9 @@
   function injectScriptToMainContext(key, urlKey, checkoutKey, cartBtnSelector) {
     const script = document.createElement('script');
     script.textContent = `(${injectAlertOverride.toString()})('${key}', '${urlKey}', '${checkoutKey}', '${cartBtnSelector}');`;
-    const isListPage = !CART_PATH_SEGMENTS.some((path) => window.location.href.includes(path));
+    const isListPage = !CART_PATH_SEGMENTS.some((path) => {
+      return window.location.href.includes(path);
+    });
     if (isListPage) {
       (document.head || document.documentElement).prepend(script);
     }
@@ -98,12 +100,16 @@
   // ===================================
 
   function delay(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return new Promise((resolve) => {
+      return setTimeout(resolve, ms);
+    });
   }
 
   // [V2.33] 邏輯與 V2.32 相同：點擊購買，然後讓網站自行導航
   async function startCheckoutProcess() {
-    if (!window.jQuery) return;
+    if (!window.jQuery) {
+      return;
+    }
     try {
       console.log('[Checkout Process] Starting automatic free checkout. Waiting for UI...');
       await delay(1500 * 4);
@@ -151,7 +157,9 @@
   }
 
   async function startBatchProcess() {
-    if (!window.jQuery) return;
+    if (!window.jQuery) {
+      return;
+    }
     try {
       const isGloballyRunning = localStorage.getItem(BATCH_MODE_KEY) === 'true';
       const isThisTabMaster = localStorage.getItem(TAB_LOCK_KEY) === CURRENT_TAB_ID;
@@ -208,7 +216,9 @@
   }
 
   function handleNextPage(current_page_added_count) {
-    if (!window.jQuery) return;
+    if (!window.jQuery) {
+      return;
+    }
     if (
       localStorage.getItem(CHECKOUT_MODE_KEY) === 'true' ||
       localStorage.getItem(TAB_LOCK_KEY) !== CURRENT_TAB_ID
@@ -271,7 +281,9 @@
   // ===================================
 
   function createUIContainer() {
-    if (!window.jQuery || !document.body) return null;
+    if (!window.jQuery || !document.body) {
+      return null;
+    }
     if (document.getElementById('batch-cart-container')) {
       return document.getElementById('batch-cart-container');
     }
@@ -297,7 +309,9 @@
 
   function updateButtonDisplay(isRunning, buttonElement) {
     const btn = buttonElement || document.getElementById('batch-cart-button');
-    if (!btn) return;
+    if (!btn) {
+      return;
+    }
 
     btn.innerHTML = isRunning ? '停止 ❌' : '🚀 批量加入';
     btn.style.backgroundColor = isRunning ? '#E74C3C' : '#3498DB';
@@ -311,7 +325,9 @@
   }
 
   function createToggleButton() {
-    if (!window.jQuery) return;
+    if (!window.jQuery) {
+      return;
+    }
 
     const isGloballyRunning = localStorage.getItem(BATCH_MODE_KEY) === 'true';
     const isThisTabMaster = localStorage.getItem(TAB_LOCK_KEY) === CURRENT_TAB_ID;
@@ -323,7 +339,9 @@
     }
 
     const container = createUIContainer();
-    if (!container) return;
+    if (!container) {
+      return;
+    }
 
     const btn = document.createElement('button');
     btn.id = 'batch-cart-button';
@@ -355,7 +373,9 @@
   }
 
   function isCartPage() {
-    return CART_PATH_SEGMENTS.some((path) => location.href.includes(path));
+    return CART_PATH_SEGMENTS.some((path) => {
+      return location.href.includes(path);
+    });
   }
 
   // JQuery 載入輪詢機制
@@ -364,7 +384,9 @@
       console.log('[V2.33] jQuery detected. Proceeding to run main logic.');
       runMainLogic();
     } else if (maxChecks > 0) {
-      setTimeout(() => checkJQueryAndRun(maxChecks - 1, interval), interval);
+      setTimeout(() => {
+        return checkJQueryAndRun(maxChecks - 1, interval);
+      }, interval);
     } else {
       console.error('[V2.33] JQuery failed to load after timeout. Aborting script activation.');
     }
@@ -403,5 +425,7 @@
   }
 
   // 程式主入口
-  window.addEventListener('load', () => setTimeout(checkJQueryAndRun, 500));
+  window.addEventListener('load', () => {
+    return setTimeout(checkJQueryAndRun, 500);
+  });
 })();

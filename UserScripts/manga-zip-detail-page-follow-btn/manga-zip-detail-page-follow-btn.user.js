@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Manga-Zip Detail Page Follow Button
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      4.1
+// @version      4.1.1
 // @description  在詳情頁新增追蹤按鈕，並自動同步「已追蹤/未追蹤」的原始狀態。
 // @author       downwarjers
 // @license      MIT
@@ -18,10 +18,14 @@
   function injectSmartButton() {
     // 1. 尋找「資訊欄」位置
     const infoList = document.querySelector('ul.releases');
-    if (!infoList) return;
+    if (!infoList) {
+      return;
+    }
 
     // 防止重複生成
-    if (document.getElementById('custom-follow-li')) return;
+    if (document.getElementById('custom-follow-li')) {
+      return;
+    }
 
     // 2. 尋找「原始按鈕」來獲取 ID 和 目前狀態
     // 這是最重要的一步：我們參考頁面中間原本就有的那個小愛心按鈕
@@ -32,7 +36,9 @@
     if (sourceBtn) {
       // 抓 ID
       const match = sourceBtn.getAttribute('onclick').match(/md\.follow\(this,\s*(\d+)\)/);
-      if (match) mangaId = match[1];
+      if (match) {
+        mangaId = match[1];
+      }
 
       // 抓狀態：如果原始按鈕有 'selected' class，代表已經追蹤了
       if (sourceBtn.classList.contains('selected')) {
@@ -43,7 +49,9 @@
       const reportBtn = document.querySelector('.share-icon.report a[onclick*="__report"]');
       if (reportBtn) {
         const match = reportBtn.getAttribute('onclick').match(/__report\(\s*(\d+)\)/);
-        if (match) mangaId = match[1];
+        if (match) {
+          mangaId = match[1];
+        }
       }
     }
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube: Append Handle
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.3
+// @version      2.3.1
 // @description  搭配 "Restore YouTube Username" 使用。自動將 Handle 解碼並同步顯示在名稱後方，並支援點擊複製
 // @author       downwarjers
 // @license      MIT
@@ -55,22 +55,30 @@
         link.closest('ytd-comment-renderer') || link.closest('ytd-comment-view-model');
 
       // 如果不是在留言區內，直接跳過
-      if (!commentContainer) return;
+      if (!commentContainer) {
+        return;
+      }
 
       // 確保是留言者的名稱連結 (過濾掉留言內容中提到的其他 @連結，如果需要的話)
       // 通常留言者名稱會有 id="author-text" 或在特定標題標籤內
       // 為了保險，這裡只要是在 commentContainer 內的 /@ 連結都視為目標 (通常只有作者名)
 
       const rawHref = link.getAttribute('href');
-      if (!rawHref) return;
+      if (!rawHref) {
+        return;
+      }
 
       try {
         let decoded = decodeURIComponent(rawHref);
 
         if (decoded.includes('/@')) {
           decoded = decoded.split('/@')[1];
-          if (decoded.includes('?')) decoded = decoded.split('?')[0];
-          if (decoded.includes('/')) decoded = decoded.split('/')[0];
+          if (decoded.includes('?')) {
+            decoded = decoded.split('?')[0];
+          }
+          if (decoded.includes('/')) {
+            decoded = decoded.split('/')[0];
+          }
 
           const handleText = '@' + decoded;
 
@@ -96,14 +104,16 @@
                   span.classList.remove('copied');
                 }, 1500);
               })
-              .catch((err) => console.error(err));
+              .catch((err) => {
+                return console.error(err);
+              });
           });
 
           link.appendChild(span);
           link.setAttribute('data-handle-appended', 'true');
         }
       } catch (e) {
-        // error
+        console.error(e);
       }
     });
   }
@@ -124,7 +134,9 @@
     // 2. 只有在真的有新東西載入時，才準備執行
     if (hasAddedNodes) {
       // 如果計時器已經在跑，代表「待會就會執行一次」，這次直接忽略 (節省資源)
-      if (throttleTimer) return;
+      if (throttleTimer) {
+        return;
+      }
 
       // 設定 1.5 秒後執行一次 (1500ms)
       // 這能讓瀏覽器先專心處理 YouTube 的載入，等稍閒時再補上 Handle

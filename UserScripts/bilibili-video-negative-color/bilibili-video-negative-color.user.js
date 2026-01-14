@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         Bilibili Video Fix Negative Color
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.3.3
+// @version      1.3.4
 // @description  解決 Bilibili 影片顏色異常或提供負片效果。在播放器的「設定」選單（關燈模式旁）新增「反轉顏色」開關。透過注入 CSS `filter: invert(100%) hue-rotate(180deg)` 實現畫面反轉。
 // @author       downwarjers
 // @license      MIT
 // @match        *://www.bilibili.com/*
 // @grant        none
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bilibili-video-negative-color/bilibili-video-negative-color.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bilibili-video-negative-color/bilibili-video-negative-color.user.js
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bilibili-video-negative-color/bilibili-video-negative-color.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bilibili-video-negative-color/bilibili-video-negative-color.user.js
 // ==/UserScript==
 
 (function () {
@@ -78,7 +78,9 @@
 
     // 2. 找到播放器容器
     const playerContainer = lightOffCheckbox.closest('.bpx-player-container');
-    if (!playerContainer) return;
+    if (!playerContainer) {
+      return;
+    }
 
     // 3. 創建新開關
     const invertCheckbox = createInvertCheckbox(playerContainer, lightOffCheckbox);
@@ -93,7 +95,9 @@
       if (mutation.type === 'childList') {
         mutation.addedNodes.forEach((node) => {
           // 確保是 Element 節點
-          if (node.nodeType !== 1) return;
+          if (node.nodeType !== 1) {
+            return;
+          }
 
           // 錨點：「关灯模式」的 class
           const selector = '.bpx-player-ctrl-setting-lightoff';

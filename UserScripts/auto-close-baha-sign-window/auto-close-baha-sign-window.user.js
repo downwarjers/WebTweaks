@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         巴哈姆特 - 自動關閉簽到視窗
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.5
+// @version      1.5.1
 // @description  自動偵測並關閉巴哈姆特（gamer.com.tw）進入時彈出的每日簽到視窗 (`dialogify_1`)。使用 `MutationObserver` 監聽 DOM 變化，發現關閉按鈕時自動觸發點擊。
 // @author       downwarjers
 // @license      MIT
 // @match        https://*.gamer.com.tw/*
 // @grant        none
 // @run-at       document-body
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-close-baha-sign-window/auto-close-baha-sign-window.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-close-baha-sign-window/auto-close-baha-sign-window.user.js
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-close-baha-sign-window/auto-close-baha-sign-window.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-close-baha-sign-window/auto-close-baha-sign-window.user.js
 // ==/UserScript==
 
 (function () {

@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         GameWith ウマ娘 選擇資料匯出
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.2.2
+// @version      1.2.3
 // @description  在 GameWith 賽馬娘攻略網頁上，抓取使用者勾選的資料（如因子、支援卡），依據 H2 標題進行分類。提供「複製到剪貼簿」與「下載 txt」功能，方便整理攻略數據。
 // @author       downwarjers
 // @license      MIT
 // @match        https://gamewith.jp/uma-musume/*
 // @grant        GM_setClipboard
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/gamewith-umamusume-data-copy/gamewith-umamusume-data-copy.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/gamewith-umamusume-data-copy/gamewith-umamusume-data-copy.user.js
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/gamewith-umamusume-data-copy/gamewith-umamusume-data-copy.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/gamewith-umamusume-data-copy/gamewith-umamusume-data-copy.user.js
 // ==/UserScript==
 
 (function () {
@@ -147,10 +147,16 @@
     p.style.cssText = buttonStyle;
     p.innerHTML = `<button id="copyBtn">📋 複製分類結果</button><button id="downloadBtn">📥 下載分類 txt</button>`;
     document.body.appendChild(p);
-    p.querySelector('#copyBtn').onclick = () => copyToClipboard();
-    p.querySelector('#downloadBtn').onclick = () => downloadAsTxt();
+    p.querySelector('#copyBtn').onclick = () => {
+      return copyToClipboard();
+    };
+    p.querySelector('#downloadBtn').onclick = () => {
+      return downloadAsTxt();
+    };
   }
 
   // 等待頁面完全載入後再執行
-  window.addEventListener('load', () => setTimeout(injectUI, 500));
+  window.addEventListener('load', () => {
+    return setTimeout(injectUI, 500);
+  });
 })();

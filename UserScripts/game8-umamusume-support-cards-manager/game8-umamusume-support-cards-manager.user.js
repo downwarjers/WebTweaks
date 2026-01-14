@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Game8 馬娘支援卡評價與持有整合面板
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.6.9
+// @version      2.6.10
 // @description   整合Game8馬娘攻略網的支援卡評價顯示與持有率管理。核心功能包括：自動背景抓取評價資料、CSV匯入匯出、以及優化的「資料庫/畫面」同步邏輯
 // @author       downwarjers
 // @license      MIT
@@ -151,7 +151,9 @@
   const launcher = document.createElement('button');
   launcher.id = 'g8-launcher';
   launcher.innerText = '📊 開啟儀表板 (v17)';
-  launcher.onclick = () => (document.getElementById('g8-dashboard').style.display = 'flex');
+  launcher.onclick = () => {
+    return (document.getElementById('g8-dashboard').style.display = 'flex');
+  };
   document.body.appendChild(launcher);
 
   const dashboard = document.createElement('div');
@@ -228,6 +230,7 @@
         updateTimeDisplay();
         renderTable();
       } catch (e) {
+        console.error(e);
         timeDisplay.innerText = '存檔損毀';
       }
     } else {
@@ -236,7 +239,9 @@
   }
 
   function saveDB() {
-    if (window.LAST_UPDATE === 0) window.LAST_UPDATE = Date.now();
+    if (window.LAST_UPDATE === 0) {
+      window.LAST_UPDATE = Date.now();
+    }
     const dataArray = Array.from(window.DB_MAP.entries()).map(([key, val]) => {
       const { tr, ...saveData } = val; // 排除 DOM 元素參照，避免序列化錯誤
       return [key, saveData];
@@ -263,7 +268,9 @@
   // ==========================================
   function renderTable() {
     tbody.innerHTML = '';
-    if (window.DB_MAP.size === 0) return;
+    if (window.DB_MAP.size === 0) {
+      return;
+    }
 
     const fragment = document.createDocumentFragment();
     window.DB_MAP.forEach((data, key) => {
@@ -271,9 +278,13 @@
       tr.id = `g8-tr-${key}`;
 
       let rateClass = 'rate-cell';
-      if (data.rating && data.rating.includes('SS')) rateClass += ' rate-ss';
-      else if (data.rating && data.rating.includes('S')) rateClass += ' rate-s';
-      else if (data.rating && data.rating !== '...') rateClass += ' rate-u';
+      if (data.rating && data.rating.includes('SS')) {
+        rateClass += ' rate-ss';
+      } else if (data.rating && data.rating.includes('S')) {
+        rateClass += ' rate-s';
+      } else if (data.rating && data.rating !== '...') {
+        rateClass += ' rate-u';
+      }
 
       const isOwned = data.possession !== -1;
       const ownedHtml = isOwned
@@ -306,24 +317,34 @@
   }
 
   function updateCardOverlay(cardEl, data) {
-    if (!cardEl) return;
+    if (!cardEl) {
+      return;
+    }
     const old = cardEl.querySelector('.g8-overlay');
-    if (old) old.remove();
+    if (old) {
+      old.remove();
+    }
 
     const div = document.createElement('div');
     div.className = 'g8-overlay';
 
     let rateClass = 'g8-ov-rate';
-    if (data.rating.includes('SS')) rateClass += ' rate-ss';
-    else if (data.rating.includes('S')) rateClass += ' rate-s';
-    else rateClass += ' rate-u';
+    if (data.rating.includes('SS')) {
+      rateClass += ' rate-ss';
+    } else if (data.rating.includes('S')) {
+      rateClass += ' rate-s';
+    } else {
+      rateClass += ' rate-u';
+    }
 
     let possText = '未';
     let possClass = 'g8-ov-poss p-none';
     if (data.possession >= 0) {
       possText = `★${data.possession}`;
       possClass = 'g8-ov-poss';
-      if (data.possession === 4) possClass += ' p-4';
+      if (data.possession === 4) {
+        possClass += ' p-4';
+      }
     }
 
     div.innerHTML = `
@@ -339,7 +360,9 @@
 
   // 匯出 CSV
   document.getElementById('btn-export-file').onclick = function () {
-    if (window.DB_MAP.size === 0) return;
+    if (window.DB_MAP.size === 0) {
+      return;
+    }
     saveDB();
     const onlyOwned = exportFilterCheck.checked;
     const BOM = '\uFEFF';
@@ -347,7 +370,9 @@
     let count = 0;
 
     window.DB_MAP.forEach((d) => {
-      if (onlyOwned && d.possession === -1) return;
+      if (onlyOwned && d.possession === -1) {
+        return;
+      }
       let pStr = d.possession === -1 ? '未持有' : d.possession;
       const t1 = `"${d.cardTitle.replace(/"/g, '""')}"`;
       const t2 = `"${d.charName.replace(/"/g, '""')}"`;
@@ -369,10 +394,14 @@
   };
 
   // 匯入 CSV
-  document.getElementById('btn-import-file').onclick = () => fileInput.click();
+  document.getElementById('btn-import-file').onclick = () => {
+    return fileInput.click();
+  };
   fileInput.onchange = function (e) {
     const file = e.target.files[0];
-    if (!file) return;
+    if (!file) {
+      return;
+    }
     const reader = new FileReader();
     reader.onload = function (evt) {
       const text = evt.target.result;
@@ -380,9 +409,13 @@
       let updatedCount = 0;
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
-        if (!line) continue;
+        if (!line) {
+          continue;
+        }
         const matches = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g);
-        if (!matches || matches.length < 6) continue;
+        if (!matches || matches.length < 6) {
+          continue;
+        }
 
         const pValStr = matches[2].replace(/^"|"$/g, '');
         const key = getImageKey(matches[4].replace(/^"|"$/g, ''));
@@ -392,7 +425,9 @@
           let newP = -1;
           if (pValStr !== '未持有') {
             newP = parseInt(pValStr, 10);
-            if (isNaN(newP)) newP = -1;
+            if (isNaN(newP)) {
+              newP = -1;
+            }
           }
           data.possession = newP;
           updatedCount++;
@@ -403,9 +438,9 @@
       renderTable();
       alert(`匯入完成！更新 ${updatedCount} 筆。`);
       // 匯入後清除所有卡片的同步狀態，強制重新同步
-      document
-        .querySelectorAll('div[data-g8-synced]')
-        .forEach((el) => el.removeAttribute('data-g8-synced'));
+      document.querySelectorAll('div[data-g8-synced]').forEach((el) => {
+        return el.removeAttribute('data-g8-synced');
+      });
       applyDbToDom();
     };
     reader.readAsText(file);
@@ -416,9 +451,9 @@
   document.getElementById('btn-dom-sync').onclick = function () {
     if (confirm('確定要將畫面所有卡片重置為 DB 紀錄的狀態嗎？')) {
       // 清除鎖定標記，讓掃描器重新工作
-      document
-        .querySelectorAll('div[data-g8-synced]')
-        .forEach((el) => el.removeAttribute('data-g8-synced'));
+      document.querySelectorAll('div[data-g8-synced]').forEach((el) => {
+        return el.removeAttribute('data-g8-synced');
+      });
       alert('即將開始同步，請勿移動滑鼠。');
       applyDbToDom();
     }
@@ -467,7 +502,9 @@
 
   // 初始化 DB (從頁面爬取清單)
   document.getElementById('btn-fetch-idx').onclick = function () {
-    if (!confirm('這會重置所有資料，確定嗎？')) return;
+    if (!confirm('這會重置所有資料，確定嗎？')) {
+      return;
+    }
     this.disabled = true;
     GM_xmlhttpRequest({
       method: 'GET',
@@ -480,9 +517,13 @@
           let c = 0;
           links.forEach((link) => {
             const img = link.querySelector('img');
-            if (!img) return;
+            if (!img) {
+              return;
+            }
             const alt = img.getAttribute('alt') || '';
-            if (!alt.includes('［')) return;
+            if (!alt.includes('［')) {
+              return;
+            }
             const src = img.getAttribute('data-src') || img.src;
             const key = getImageKey(src);
             const title = alt.match(/［(.*?)］/)[1];
@@ -524,13 +565,19 @@
   // ==========================================
 
   function getImageKey(url) {
-    if (!url) return null;
+    if (!url) {
+      return null;
+    }
     try {
       const parts = url.split('/');
       for (let i = parts.length - 1; i >= 0; i--) {
-        if (parts[i].match(/\.(png|jpg|jpeg|webp)/)) return parts[i];
+        if (parts[i].match(/\.(png|jpg|jpeg|webp)/)) {
+          return parts[i];
+        }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error(e);
+    }
     return null;
   }
 
@@ -541,9 +588,13 @@
 
     cards.forEach((card) => {
       const img = card.querySelector('img');
-      if (!img) return;
+      if (!img) {
+        return;
+      }
       const key = getImageKey(img.src);
-      if (!key || !window.DB_MAP.has(key)) return;
+      if (!key || !window.DB_MAP.has(key)) {
+        return;
+      }
 
       const dbData = window.DB_MAP.get(key);
 
@@ -586,18 +637,20 @@
           // 更新 UI 表格
           const tdOwned = document.getElementById(`o-${key}`);
           const tdPoss = document.getElementById(`p-${key}`);
-          if (tdOwned)
+          if (tdOwned) {
             tdOwned.innerHTML =
               currentLevel !== -1
                 ? '<span class="owned-yes">✔</span>'
                 : '<span class="owned-no">✖</span>';
-          if (tdPoss)
+          }
+          if (tdPoss) {
             tdPoss.innerHTML =
               currentLevel !== -1
                 ? currentLevel === 4
                   ? '<span class="p-4">4凸</span>'
                   : `<span>${currentLevel}凸</span>`
                 : '<span class="p-none">-</span>';
+          }
 
           // 更新 Overlay
           updateCardOverlay(card, dbData);
@@ -610,7 +663,9 @@
       }
     });
 
-    if (dbChanged) updateTimeDisplay();
+    if (dbChanged) {
+      updateTimeDisplay();
+    }
     processQueue();
   }
 
@@ -623,18 +678,24 @@
       ? card.querySelectorAll('div[class*="rhombusActive"]').length
       : -1;
 
-    if (currentLevel === targetVal) return; // 已達成目標
+    if (currentLevel === targetVal) {
+      return;
+    } // 已達成目標
 
     // 視覺回饋：標記正在處理
     card.classList.add('g8-syncing');
-    setTimeout(() => card.classList.remove('g8-syncing'), 500);
+    setTimeout(() => {
+      return card.classList.remove('g8-syncing');
+    }, 500);
 
     // 動作 1: 若目標是「未持有」
     if (targetVal === -1) {
       if (isOwnedVisual) {
         // 通常點擊主圖片會切換持有狀態
         const imgBtn = card.querySelector('img');
-        if (imgBtn) imgBtn.click();
+        if (imgBtn) {
+          imgBtn.click();
+        }
       }
       return;
     }
@@ -642,7 +703,9 @@
     // 動作 2: 若目前是「未持有」，但目標是「持有」(0~4)
     if (!isOwnedVisual) {
       // 點擊遮罩變成持有 (通常變 0凸)
-      if (notOwnedEl) notOwnedEl.click();
+      if (notOwnedEl) {
+        notOwnedEl.click();
+      }
       // 點完後需要等 React 渲染，這次 function 先結束，交給下一次 Loop 繼續處理凸數
       return;
     }
@@ -661,7 +724,9 @@
         // 策略：如果無法直接設為 0，先切成未持有，下一次 Loop 會把它切回持有(預設0)
         if (currentLevel > 0) {
           const imgBtn = card.querySelector('img');
-          if (imgBtn) imgBtn.click();
+          if (imgBtn) {
+            imgBtn.click();
+          }
         }
       } else if (targetVal >= 1 && targetVal <= 4) {
         // 目標 1~4凸，直接點擊對應的第 N 顆菱形 (index = targetVal - 1)
@@ -675,7 +740,9 @@
       // 如果找不到菱形結構 (Fallback)，使用舊式點擊圖片邏輯
       // 但這很不穩，僅作備案
       const imgBtn = card.querySelector('img');
-      if (imgBtn) imgBtn.click();
+      if (imgBtn) {
+        imgBtn.click();
+      }
     }
   }
 
@@ -683,9 +750,9 @@
   function applyDbToDom() {
     // 這裡不需要額外寫迴圈，只要把 data-g8-synced 拿掉
     // scanVisibleCards 下一次執行時就會自動執行 simulateClick
-    document
-      .querySelectorAll('div[data-g8-synced]')
-      .forEach((el) => el.removeAttribute('data-g8-synced'));
+    document.querySelectorAll('div[data-g8-synced]').forEach((el) => {
+      return el.removeAttribute('data-g8-synced');
+    });
     // 呼叫一次掃描
     scanVisibleCards();
   }
@@ -693,7 +760,9 @@
   // 佇列處理器 (處理 HTTP 請求)
   function processQueue() {
     if (FETCH_QUEUE.length === 0) {
-      if (ACTIVE_REQUESTS === 0) saveDB();
+      if (ACTIVE_REQUESTS === 0) {
+        saveDB();
+      }
       monQueue.innerText = 0;
       monActive.innerText = 0;
       return;
@@ -707,7 +776,9 @@
       QUEUE_SET.delete(task.key);
 
       if (task.data.fetched) {
-        if (task.cardEl) updateCardOverlay(task.cardEl, task.data);
+        if (task.cardEl) {
+          updateCardOverlay(task.cardEl, task.data);
+        }
         continue;
       }
 
@@ -746,7 +817,9 @@
             tr.children[5].innerText = rating;
             tr.children[6].innerHTML = '<span class="st-ok" style="color:#81C784">OK</span>';
           }
-          if (task.cardEl) updateCardOverlay(task.cardEl, task.data);
+          if (task.cardEl) {
+            updateCardOverlay(task.cardEl, task.data);
+          }
         },
         onloadend: () => {
           ACTIVE_REQUESTS--;

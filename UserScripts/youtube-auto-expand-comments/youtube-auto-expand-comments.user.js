@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 自動展開所有留言
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.9.2
+// @version      3.9.3
 // @description  自動展開 YouTube 留言。已修復畫面亂跳及無限展開隱藏的迴圈問題。
 // @author       downwarjers
 // @license      MIT
@@ -9,8 +9,8 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=youtube.com
 // @grant        none
 // @run-at       document-end
-// @downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-auto-expand-comments/youtube-auto-expand-comments.user.js
-// @updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-auto-expand-comments/youtube-auto-expand-comments.user.js
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-auto-expand-comments/youtube-auto-expand-comments.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-auto-expand-comments/youtube-auto-expand-comments.user.js
 // ==/UserScript==
 
 (function () {
@@ -63,25 +63,37 @@
 
   // --- 工具函式：判斷是否為展開回覆按鈕 ---
   function isExpandButton(btn) {
-    if (!btn) return false;
+    if (!btn) {
+      return false;
+    }
 
     // 1. 檢查是否已經被標記為正在點擊 (防止短時間重複觸發)
-    if (btn.hasAttribute('data-clicking')) return false;
+    if (btn.hasAttribute('data-clicking')) {
+      return false;
+    }
 
     // 2. 檢查 ARIA 屬性 (最準確的判斷：如果已經展開，就不要回傳 true)
     const expanded = btn.getAttribute('aria-expanded');
-    if (expanded === 'true') return false;
+    if (expanded === 'true') {
+      return false;
+    }
 
     // 3. 檢查文字內容
     const text = (btn.innerText || btn.getAttribute('aria-label') || '').toLowerCase().trim();
 
     // 絕對黑名單
-    if (text.includes('隱藏') || text.includes('hide')) return false;
-    if (btn.closest('#action-buttons')) return false; // 避免點到讚/倒讚區
+    if (text.includes('隱藏') || text.includes('hide')) {
+      return false;
+    }
+    if (btn.closest('#action-buttons')) {
+      return false;
+    } // 避免點到讚/倒讚區
 
     // 排除純粹的「回覆」按鈕 (那是用來輸入文字的)
     const isPureReplyAction = text === '回覆' || text === 'reply';
-    if (isPureReplyAction) return false;
+    if (isPureReplyAction) {
+      return false;
+    }
 
     // 白名單關鍵字
     return (
@@ -103,7 +115,9 @@
       btn.setAttribute('data-clicking', 'true');
       btn.click();
       // 短暫延遲後移除標記 (針對 Read More 這類不會消失的按鈕)
-      setTimeout(() => btn.removeAttribute('data-clicking'), 1000);
+      setTimeout(() => {
+        return btn.removeAttribute('data-clicking');
+      }, 1000);
       return true;
     }
 
@@ -166,7 +180,9 @@
       globalInterval = null;
     }
 
-    activeThreadIntervals.forEach((intervalId) => clearInterval(intervalId));
+    activeThreadIntervals.forEach((intervalId) => {
+      return clearInterval(intervalId);
+    });
     activeThreadIntervals.clear();
 
     document.querySelectorAll('.auto-expanding').forEach((el) => {
@@ -184,18 +200,28 @@
   // --- UI 更新函式 ---
   function updateUIState(isActive) {
     const wrapper = document.getElementById('yt-expand-comments-wrapper');
-    if (!wrapper) return;
+    if (!wrapper) {
+      return;
+    }
 
     const textSpan = wrapper.querySelector('.yt-spec-button-shape-next__button-text-content');
     const iconPath = wrapper.querySelector('path');
 
     if (isActive) {
-      if (textSpan) textSpan.innerText = '停止展開 (運作中)';
-      if (iconPath) iconPath.setAttribute('d', ICON_STOP);
+      if (textSpan) {
+        textSpan.innerText = '停止展開 (運作中)';
+      }
+      if (iconPath) {
+        iconPath.setAttribute('d', ICON_STOP);
+      }
       wrapper.classList.add('yt-expand-active');
     } else {
-      if (textSpan) textSpan.innerText = '展開所有留言';
-      if (iconPath) iconPath.setAttribute('d', ICON_EXPAND);
+      if (textSpan) {
+        textSpan.innerText = '展開所有留言';
+      }
+      if (iconPath) {
+        iconPath.setAttribute('d', ICON_EXPAND);
+      }
       wrapper.classList.remove('yt-expand-active');
     }
   }
@@ -217,8 +243,12 @@
 
   // --- 功能 B：單一留言串智慧展開 ---
   function processThreadExpansion(threadElement) {
-    if (!threadElement || threadElement.classList.contains('expand-abandoned')) return;
-    if (threadElement.classList.contains('auto-expanding')) return;
+    if (!threadElement || threadElement.classList.contains('expand-abandoned')) {
+      return;
+    }
+    if (threadElement.classList.contains('auto-expanding')) {
+      return;
+    }
 
     threadElement.classList.add('auto-expanding');
 
@@ -226,7 +256,9 @@
     const localReadMore = threadElement.querySelectorAll(
       'ytd-expander#expander[collapsed] > #more',
     );
-    localReadMore.forEach((b) => b.click());
+    localReadMore.forEach((b) => {
+      return b.click();
+    });
 
     const threadInterval = setInterval(() => {
       // 元素消失保護
@@ -269,7 +301,9 @@
         'ytd-expander#expander[collapsed] > #more',
       );
       if (currentReadMores.length > 0) {
-        currentReadMores.forEach((b) => b.click());
+        currentReadMores.forEach((b) => {
+          return b.click();
+        });
         foundExpandableBtn = true;
       }
 
@@ -297,7 +331,9 @@
       if (activeThreadIntervals.has(threadInterval)) {
         clearInterval(threadInterval);
         activeThreadIntervals.delete(threadInterval);
-        if (threadElement) threadElement.classList.remove('auto-expanding');
+        if (threadElement) {
+          threadElement.classList.remove('auto-expanding');
+        }
       }
     }, MAX_THREAD_EXPAND_TIME * 1000);
   }
@@ -307,13 +343,17 @@
     'click',
     (e) => {
       const target = e.target;
-      if (target.closest('#yt-expand-comments-wrapper')) return;
+      if (target.closest('#yt-expand-comments-wrapper')) {
+        return;
+      }
 
       const btn = target.closest('button');
       if (btn && isExpandButton(btn)) {
         const threadElement = btn.closest('ytd-comment-thread-renderer');
         if (threadElement && !threadElement.classList.contains('expand-abandoned')) {
-          setTimeout(() => processThreadExpansion(threadElement), 500);
+          setTimeout(() => {
+            return processThreadExpansion(threadElement);
+          }, 500);
         }
       }
     },
@@ -322,7 +362,9 @@
 
   // --- 初始化：注入按鈕 ---
   function tryInjectButton() {
-    if (document.getElementById('yt-expand-comments-wrapper')) return;
+    if (document.getElementById('yt-expand-comments-wrapper')) {
+      return;
+    }
 
     const targetContainer =
       document.querySelector('ytd-comments-header-renderer #title') ||
