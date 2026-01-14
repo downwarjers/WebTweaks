@@ -525,7 +525,8 @@
     .al-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1f2937; color: #fff; padding: 8px 20px; border-radius: 99px; font-size: 13px; z-index: 100000; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
     #al-title {
         flex-shrink: 1;
-        width: clamp(100px, 25vw, 400px);
+        max-width: clamp(100px, 20vw, 380px);
+        width: auto;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
