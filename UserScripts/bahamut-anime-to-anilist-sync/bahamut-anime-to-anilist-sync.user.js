@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bahamut Anime to AniList Sync
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      6.7.3
+// @version      6.7.4
 // @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @author       downwarjers
 // @license      MIT
@@ -1003,7 +1003,7 @@
     homeBound: (rule, info, statusData, statusOptions) => {
       return `
       <div class="al-p-4 al-flex-col al-gap-3">
-        <div class="al-flex al-justify-between al-items-center">
+        <div class="al-flex al-justify-between al-items-center al-mb-2">
           <label class="al-text-sub al-font-bold al-text-xs">目前綁定作品</label>
           <button id="btn-refresh-data" class="al-btn al-btn-outline al-btn-sm">🔄 刷新</button>
         </div>
@@ -1013,21 +1013,22 @@
             <img src="${info.coverImage.medium}" class="al-cover al-cover-lg">
           </a>
           <div class="al-flex al-flex-col al-justify-between al-flex-1" style="overflow:hidden;">
+            <div class="al-flex al-flex-col al-justify-between al-flex-1" style="overflow:hidden;">
             <div>
-              <a href="https://anilist.co/anime/${
-                rule.id
-              }" target="_blank" class="al-link al-font-bold" style="font-size:15px; display:block;">
+              <a href="https://anilist.co/anime/${rule.id}" target="_blank" 
+                class="al-link al-font-bold" style="font-size:15px; display:block;">
                 ${rule.title}
               </a>
-              <div class="al-text-sub al-text-xs al-mt-2">
-                <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${
-                  info.title.romaji
-                }</div>
-                <div>ID: ${rule.id} | ${info.format} | 開播: 
-                  ${Utils.formatDate(info.startDate)}</div>
+              <div class="al-text-sub al-text-xs al-mt-1">
+                <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                  ${info.title.romaji}</div>
+                <div class="al-mb-1 al-mt-1">ID: ${rule.id}</div>
+                <div class="al-mb-1 al-mt-1">開播日: ${Utils.formatDate(info.startDate)}</div>
+                <div class="al-mb-1 al-mt-1">播映方式: ${info.format}</div>
+                <div class="al-mb-1 al-mt-1">集數: ${info.episodes || '?'}</div>
               </div>
             </div>
-            <div class="al-text-success al-text-sm al-pt-2" style="border-top:1px dashed var(--al-border);">
+            <div class="al-text-success al-text-sm al-pt-2 al-mt-1" style="border-top:1px dashed var(--al-border);">
               AniList 進度: ${statusData?.progress || 0} / ${info.episodes || '?'}
             </div>
           </div>
