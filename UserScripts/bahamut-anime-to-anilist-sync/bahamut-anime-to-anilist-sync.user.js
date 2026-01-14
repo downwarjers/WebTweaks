@@ -23,7 +23,7 @@
 (function () {
   'use strict';
 
-  // ================= [Constants] 常數管理 =================
+  // #region ================= [Constants] 常數管理 =================
   const CONSTANTS = {
     // --- 基礎與除錯設定 ---
     DEBUG: false, // 除錯模式開關
@@ -106,8 +106,9 @@
     EYE_OPEN: `<svg class="al-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`,
     EYE_OFF: `<svg class="al-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07-2.3 2.3"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`,
   };
+  // #endregion
 
-  // ================= DOM 輔助函式庫 =================
+  // #region ================= DOM 輔助函式庫 =================
   const _ = {
     $: (s, p = document) => p.querySelector(s),
     $$: (s, p = document) => [...p.querySelectorAll(s)],
@@ -131,8 +132,9 @@
       setTimeout(() => (el.style.display = 'none'), 200);
     },
   };
+  // #endregion
 
-  // ================= [Utils] 工具函式與 Logger =================
+  // #region ================= [Utils] 工具函式與 Logger =================
   const Log = {
     info: (...args) =>
       CONSTANTS.DEBUG && console.log('%c[AniList]', 'color:#3db4f2;font-weight:bold;', ...args),
@@ -246,8 +248,9 @@
       return this._validateGroup(doc, CONSTANTS.SELECTORS.PARSER, 'Parser (Data)');
     },
   };
+  // #endregion
 
-  // ================= [GraphQL] 查詢字串 =================
+  // #region ================= [GraphQL] 查詢字串 =================
   const GQL = {
     MEDIA_FIELDS: `id title { romaji native } coverImage { medium } format episodes seasonYear startDate { year month day }`,
     SEARCH: `query($s:String){Page(page:1,perPage:10){media(search:$s,type:ANIME,sort:SEARCH_MATCH){id title{romaji english native}coverImage{medium} episodes seasonYear startDate{year month day} format externalLinks{url site}}}}`,
@@ -266,8 +269,9 @@
         }
     }`,
   };
+  // #endregion
 
-  // ================= [Styles] CSS =================
+  // #region ================= [Styles] CSS =================
   GM_addStyle(`
     /* 1. 變數與主題 */
     /* 亮色模式 */
@@ -418,7 +422,9 @@
     @keyframes al-fadein { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     @media (max-width: 768px) { #al-title, #al-user-status { display: none !important; } }
   `);
-  // ================= [Logic] 集數計算核心 =================
+  // #endregion
+
+  // #region ================= [Logic] 集數計算核心 =================
   const EpisodeCalculator = {
     // 網頁標題中抓取集數
     parseFromTitle() {
@@ -555,8 +561,9 @@
       return chain;
     },
   };
+  // #endregion
 
-  // ================= [API] AniList 通訊層 =================
+  // #region ================= [API] AniList 通訊層 =================
   const AniListAPI = {
     getToken: () => GM_getValue(CONSTANTS.KEYS.TOKEN),
     async request(query, variables, retryCount = 0) {
@@ -763,8 +770,9 @@
       return resultChain;
     },
   };
+  // #endregion
 
-  // ================= [UI] 畫面渲染與事件 =================
+  // #region ================= [UI] 畫面渲染與事件 =================
   const Templates = {
     tabs: (activeTab, isVideo, hasRules) => `
       <div class="al-tabs-nav">
@@ -1552,8 +1560,9 @@
       }
     },
   };
+  // #endregion
 
-  // ================= [App] 主程式控制器 =================
+  // #region ================= [App] 主程式控制器 =================
   const App = {
     state: {
       // --- 1. 基礎設定與認證 ---
@@ -2082,6 +2091,6 @@
       else UI.updateNav(CONSTANTS.STATUS.BOUND);
     },
   };
-
+  // #endregion
   setTimeout(() => App.init(), 500);
 })();
