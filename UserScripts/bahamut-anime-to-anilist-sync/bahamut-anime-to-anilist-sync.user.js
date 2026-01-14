@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bahamut Anime to AniList Sync
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      6.7.4
+// @version      6.7.5
 // @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @author       downwarjers
 // @license      MIT
@@ -1013,7 +1013,6 @@
             <img src="${info.coverImage.medium}" class="al-cover al-cover-lg">
           </a>
           <div class="al-flex al-flex-col al-justify-between al-flex-1" style="overflow:hidden;">
-            <div class="al-flex al-flex-col al-justify-between al-flex-1" style="overflow:hidden;">
             <div>
               <a href="https://anilist.co/anime/${rule.id}" target="_blank" 
                 class="al-link al-font-bold" style="font-size:15px; display:block;">
