@@ -1,5 +1,7 @@
 // ==UserScript==
 // @name         Bahamut Anime to AniList Sync
+// @name:zh-TW   巴哈姆特動畫瘋同步到 AniList
+// @name:zh-CN   巴哈姆特动画疯同步到 AniList
 // @namespace    https://github.com/downwarjers/WebTweaks
 // @version      6.7.5
 // @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
@@ -521,7 +523,14 @@
     .al-nav-link:hover { color: var(--al-primary); }
     #al-user-status, #al-title { border-left: 1px solid #666; padding-left: 8px; margin-left: 8px; }
     .al-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1f2937; color: #fff; padding: 8px 20px; border-radius: 99px; font-size: 13px; z-index: 100000; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
-    
+    #al-title {
+        flex-shrink: 1;
+        width: clamp(100px, 25vw, 400px);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+    }
     @keyframes al-fadein { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     @media (max-width: 768px) { #al-title, #al-user-status { display: none !important; } }
   `);
@@ -1233,7 +1242,14 @@
         return;
       }
       const li = _.html(
-        `<li class="al-nav-item"><a class="al-nav-link" id="al-trigger"><span id="al-icon">⚪</span><span id="al-text">AniList</span><span id="al-user-status" class="al-user-status"></span><span id="al-title" class="al-nav-title" style="display:none;"></span></a></li>`,
+        `<li class="al-nav-item">
+          <a class="al-nav-link" id="al-trigger">
+            <span id="al-icon">⚪</span>
+            <span id="al-text">AniList</span>
+            <span id="al-user-status" class="al-user-status"></span>
+            <span id="al-title" class="al-nav-title" style="display:none;"></span>
+          </a>
+        </li>`,
       );
       nav.appendChild(li);
 
@@ -1243,7 +1259,15 @@
 
       // Modal 結構建立
       const modal = _.html(
-        `<div id="al-modal" class="al-modal-overlay"><div class="al-modal-content"><div class="al-modal-header"><strong>AniList 設定</strong><button class="al-close-btn">&times;</button></div><div class="al-modal-body" id="al-modal-body"></div></div></div>`,
+        `<div id="al-modal" class="al-modal-overlay">
+          <div class="al-modal-content">
+            <div class="al-modal-header">
+              <strong>AniList 設定</strong>
+              <button class="al-close-btn">&times;</button>
+            </div>
+            <div class="al-modal-body" id="al-modal-body"></div>
+          </div>
+        </div>`,
       );
       document.body.appendChild(modal);
 
@@ -1293,7 +1317,8 @@
 
       if (showTitle) {
         $title.textContent = rule.title;
-        $title.style.display = 'inline';
+        $title.title = rule.title;
+        $title.style.display = 'inline-block';
         if (State.userStatus) {
           const { status, progress } = State.userStatus;
           const statusConfig = CONSTANTS.ANI_STATUS[status];
