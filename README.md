@@ -53,7 +53,7 @@
 ### Bahamut Anime to AniList Sync Beta
 * **資料夾名稱**: `bahamut-anime-to-anilist-sync`
 * **說明**: 巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
-* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js)
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync-beta.user.js)
 
 ### Bilibili Video Fix Negative Color
 * **資料夾名稱**: `bilibili-video-negative-color`
