@@ -1,26 +1,28 @@
 // ==UserScript==
-// @name         Bahamut Anime to AniList Sync
-// @name:zh-TW   巴哈姆特動畫瘋同步到 AniList
-// @name:zh-CN   巴哈姆特动画疯同步到 AniList
-// @namespace    https://github.com/downwarjers/WebTweaks
-// @version      6.7.5
-// @description  巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
-// @author       downwarjers
-// @license      MIT
-// @match        https://ani.gamer.com.tw/*
-// @connect      acg.gamer.com.tw
-// @connect      graphql.anilist.co
-// @icon         https://ani.gamer.com.tw/apple-touch-icon-144.jpg
+// @name                 Bahamut Anime to AniList Sync
+// @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
+// @name:zh-CN           巴哈姆特动画疯同步到 AniList
+// @namespace            https://github.com/downwarjers/WebTweaks
+// @version              6.7.6
+// @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
+// @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
+// @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
+// @author               downwarjers
+// @license              MIT
+// @match                https://ani.gamer.com.tw/*
+// @connect              acg.gamer.com.tw
+// @connect              graphql.anilist.co
+// @icon                 https://ani.gamer.com.tw/apple-touch-icon-144.jpg
+// @run-at               document-idle
+// @grant                GM_xmlhttpRequest
+// @grant                GM_setValue
+// @grant                GM_getValue
+// @grant                GM_deleteValue
+// @grant                GM_addStyle
+// @grant                GM_setClipboard
 // @noframes
-// @grant        GM_xmlhttpRequest
-// @grant        GM_setValue
-// @grant        GM_getValue
-// @grant        GM_deleteValue
-// @grant        GM_addStyle
-// @grant        GM_setClipboard
-// @require      https://code.jquery.com/jquery-3.6.0.min.js
-// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js
-// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js
+// @downloadURL          https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js
+// @updateURL            https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js
 // ==/UserScript==
 
 (function () {
@@ -147,6 +149,30 @@
       setTimeout(() => {
         return (el.style.display = 'none');
       }, 200);
+    },
+    waitForElement(selector, timeout = 10000) {
+      return new Promise((resolve) => {
+        const el = document.querySelector(selector);
+        if (el) {
+          return resolve(el);
+        }
+        const observer = new MutationObserver(() => {
+          const el = document.querySelector(selector);
+          if (el) {
+            observer.disconnect();
+            resolve(el);
+          }
+        });
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+        });
+        setTimeout(() => {
+          observer.disconnect();
+          Log.warn(`Timeout waiting for element: ${selector}`);
+          resolve(null);
+        }, timeout);
+      });
     },
   };
   // #endregion
@@ -319,7 +345,7 @@
     hasSynced: false, // 本集是否已執行過同步 (防止重複發送)
     isHunting: false, // 是否正在搜尋播放器元素 (<video>)
     stopSync: false, // 全域停止同步開關 (發生嚴重錯誤或頻繁請求時)
-    huntTimer: null, // 搜尋播放器的 setInterval ID
+    // huntTimer: null, // 搜尋播放器的 setInterval ID
     lastTimeUpdate: 0, // 上次處理 timeupdate 事件的時間戳
 
     // --- 4. API 資料快取 (Cache) ---
@@ -1839,33 +1865,6 @@
 
   // #region ================= [App] 主程式控制器 =================
   const App = {
-    state: {
-      // --- 1. 基礎設定與認證 ---
-      token: AniListAPI.getToken(), // AniList Access Token
-      syncSettings: {}, // 同步設定 (觸發模式、自訂秒數)
-      tokenErrorCount: 0, // Token 錯誤計數 (連續錯誤則停止同步)
-
-      // --- 2. 作品與綁定資料 ---
-      bahaSn: null, // 巴哈姆特作品 SN (系列 ID)
-      bahaData: null, // 巴哈姆特頁面爬蟲取得的資料 (標題、日期等)
-      rules: [], // 系列作對應規則列表 (Baha集數 -> AniList ID)
-      activeRule: null, // 目前集數適用的對應規則
-      candidate: null, // 自動搜尋到的候選 AniList 作品 (未綁定時用)
-      userStatus: null, // 使用者在 AniList 上的觀看進度與狀態
-
-      // --- 3. 執行狀態與計時器 ---
-      currentUrlSn: null, // 目前網址上的 SN (單集 ID)，用於偵測換集
-      hasSynced: false, // 本集是否已執行過同步 (防止重複發送)
-      isHunting: false, // 是否正在搜尋播放器元素 (<video>)
-      stopSync: false, // 全域停止同步開關 (發生嚴重錯誤或頻繁請求時)
-      huntTimer: null, // 搜尋播放器的 setInterval ID
-      lastTimeUpdate: 0, // 上次處理 timeupdate 事件的時間戳
-
-      // --- 4. API 資料快取 (Cache) ---
-      cachedMediaInfo: null, // [主頁快取] 作品詳細資訊 + 使用者狀態 (合併查詢結果)
-      cachedSeriesChain: null, // [系列頁快取] 系列作關聯列表 (Sequel Chain)
-      cachedSeriesBaseId: null, // [系列頁快取識別] 記錄目前的系列快取是基於哪個 ID 查詢的
-    },
     init() {
       Utils.validatePage(); //檢查CSS選擇器
       if (!GM_getValue(CONSTANTS.KEYS.TOKEN)) {
@@ -1875,18 +1874,18 @@
       this.startMonitor();
       this.handleTimeUpdate = this.handleTimeUpdate.bind(this);
     },
-    waitForNavbar() {
-      const t = setInterval(() => {
-        const indexLink = document.querySelector('a[href="index.php"]');
-        if (indexLink) {
-          const nav = indexLink.closest('ul');
-          if (nav) {
-            clearInterval(t);
-            UI.initNavbar(nav);
-            this.updateUIStatus();
-          }
+    async waitForNavbar() {
+      const indexLink = await _.waitForElement('a[href="index.php"]');
+
+      if (indexLink) {
+        const nav = indexLink.closest('ul');
+        if (nav) {
+          UI.initNavbar(nav);
+          this.updateUIStatus();
         }
-      }, 500);
+      } else {
+        Log.warn('Navbar not found (Timeout)');
+      }
     },
     startMonitor() {
       this.checkUrlChange();
@@ -1908,14 +1907,10 @@
       }
     },
     resetEpisodeState() {
-      if (State.huntTimer) {
-        clearInterval(State.huntTimer);
-      }
       const video = document.querySelector(CONSTANTS.SELECTORS.PAGE.videoElement);
       if (video) {
         video.removeEventListener('timeupdate', this.handleTimeUpdate);
       }
-      State.huntTimer = null;
       State.hasSynced = false;
       State.isHunting = false;
       State.stopSync = false;
@@ -1998,7 +1993,7 @@
         }
       }
     },
-    startVideoHunt() {
+    async startVideoHunt() {
       if (State.isHunting) {
         return;
       }
@@ -2010,25 +2005,23 @@
         mode: GM_getValue(CONSTANTS.KEYS.SYNC_MODE, 'instant'),
         custom: GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, 60),
       };
-      let attempts = 0;
-      State.huntTimer = setInterval(() => {
-        const video = document.querySelector(CONSTANTS.SELECTORS.PAGE.videoElement);
-        attempts++;
-        if (video && video.dataset.alHooked !== State.currentUrlSn) {
+
+      const video = await _.waitForElement(CONSTANTS.SELECTORS.PAGE.videoElement, 120000);
+      if (video) {
+        if (video.dataset.alHooked !== State.currentUrlSn) {
           video.dataset.alHooked = State.currentUrlSn;
           video.addEventListener('timeupdate', this.handleTimeUpdate);
-          clearInterval(State.huntTimer);
-          State.huntTimer = null;
+
           State.isHunting = false;
+
           if (State.rules.length > 0) {
             UI.updateNav(CONSTANTS.STATUS.BOUND);
           }
-        } else if (attempts > 50) {
-          clearInterval(State.huntTimer);
-          State.huntTimer = null;
-          State.isHunting = false;
         }
-      }, 200);
+      } else {
+        State.isHunting = false;
+        Log.warn('Video player search timeout');
+      }
     },
     handleTimeUpdate(e) {
       if (State.hasSynced || State.stopSync) {
@@ -2041,6 +2034,17 @@
       State.lastTimeUpdate = now;
 
       const video = e.target;
+
+      // 廣告判斷不更新
+      const playerContainer = video.closest('.video-js');
+      const isAdClass = playerContainer && playerContainer.classList.contains('vjs-ad-playing');
+      const isTooShort = !video.duration || video.duration < 90;
+
+      if (isAdClass || isTooShort) {
+        Log.info('Skipping: Ad detected or video too short.');
+        return;
+      }
+
       const { mode, custom } = State.syncSettings;
       let shouldSync = false;
 
