@@ -50,7 +50,6 @@
     // --- 本地儲存的鍵名 (Key Names) ---
     KEYS: {
       TOKEN: 'ANILIST_TOKEN', // AniList Access Token
-      CLIENT_ID: 'ANILIST_CLIENT_ID', // Client ID
       SYNC_MODE: 'SYNC_MODE', // 同步模式的設定
       CUSTOM_SEC: 'SYNC_CUSTOM_SECONDS', // 自訂秒數的數值
     },
@@ -370,6 +369,7 @@
       --al-danger-h: #dc2626;
       --al-success: #10b981;
       --al-warn: #f59e0b;
+      --al-nav-border: #666;
       --al-radius: 6px;
       --al-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
@@ -519,9 +519,8 @@
     .al-tab-pane.active { display: block; }
 
     .al-nav-item { float: left; }
-    .al-nav-link { display: flex; align-items: center; color: #ccc; cursor: pointer; font-size: 13px; transition: 0.2s; }
-    .al-nav-link:hover { color: var(--al-primary); }
-    #al-user-status, #al-title { border-left: 1px solid #666; padding-left: 8px; margin-left: 8px; }
+    .al-nav-link { display: flex; align-items: center; cursor: pointer; border-left: 1px solid var(--al-nav-border) !important; font-size: 13px; }
+    #al-user-status, #al-title { border-left: 1px solid var(--al-nav-border); padding-left: 8px; margin-left: 8px; }
     .al-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: #1f2937; color: #fff; padding: 8px 20px; border-radius: 99px; font-size: 13px; z-index: 100000; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
     #al-title {
         flex-shrink: 1;
@@ -959,7 +958,7 @@
       <div id="tab-settings" class="al-tab-pane ${activeTab === 'settings' ? 'active' : ''}"></div>
     `;
     },
-    settings: (token, mode, clientId, customSec) => {
+    settings: (token, mode, customSec) => {
       const optionsHtml = Object.values(CONSTANTS.SYNC_MODES)
         .map((m) => {
           return `<option value="${m.value}" ${mode === m.value ? 'selected' : ''}>${
@@ -1004,7 +1003,7 @@
             <div class="al-flex al-gap-2 al-pt-2 al-pb-2 al-items-center">
               <span class="al-font-bold al-text-primary">3.</span>
               <span>輸入 Client ID：</span>
-              <input id="client-id" class="al-input al-input-sm" style="width:80px;" value="${clientId}" placeholder="ID">
+              <input id="client-id" class="al-input al-input-sm" style="width:80px;" placeholder="ID">
               <a id="auth-link" href="#" target="_blank" class="al-btn al-btn-primary al-btn-sm">前往授權</a>
             </div>
             <div class="al-flex al-gap-2 al-pt-2 al-pb-2">
@@ -1039,7 +1038,7 @@
                 <div class="al-mb-1 al-mt-1">ID: ${rule.id}</div>
                 <div class="al-mb-1 al-mt-1">開播日: ${Utils.formatDate(info.startDate)}</div>
                 <div class="al-mb-1 al-mt-1">播映方式: ${info.format}</div>
-                <div class="al-mb-1 al-mt-1">集數: ${info.episodes || '?'}</div>
+                <div class="al-mb-1 al-mt-1">總集數: ${info.episodes || '?'}</div>
               </div>
             </div>
             <div class="al-text-success al-text-sm al-pt-2 al-mt-1" style="border-top:1px dashed var(--al-border);">
@@ -1418,10 +1417,9 @@
     renderSettings(container) {
       const token = GM_getValue(CONSTANTS.KEYS.TOKEN, '');
       const mode = GM_getValue(CONSTANTS.KEYS.SYNC_MODE, 'instant');
-      const savedClientId = GM_getValue(CONSTANTS.KEYS.CLIENT_ID, '');
       const savedCustomSeconds = GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, 60);
 
-      container.innerHTML = Templates.settings(token, mode, savedClientId, savedCustomSeconds);
+      container.innerHTML = Templates.settings(token, mode, savedCustomSeconds);
 
       _.$('#toggle-token-btn', container).addEventListener('click', function () {
         const inp = _.$('#set-token', container);
@@ -1448,7 +1446,6 @@
           btn.href = `https://anilist.co/api/v2/oauth/authorize?client_id=${id}&response_type=token`;
           btn.style.cssText = 'opacity:1;cursor:pointer;pointer-events:auto;background:#3db4f2;';
           btn.textContent = '前往授權';
-          GM_setValue(CONSTANTS.KEYS.CLIENT_ID, id);
         } else {
           btn.href = 'javascript:void(0)';
           btn.style.cssText = 'opacity:0.5;cursor:not-allowed;pointer-events:none;background:#555;';
@@ -1469,8 +1466,8 @@
         if (!newToken) {
           return UI.showToast('❌ 請輸入 Token');
         }
-        if (newMode === 'custom' && (isNaN(customSec) || customSec < 0)) {
-          return UI.showToast('❌ 請輸入有效的秒數');
+        if (newMode === 'custom' && (isNaN(customSec) || customSec < 1)) {
+          return UI.showToast('❌ 請輸入有效的秒數(最少1秒)');
         }
         GM_setValue(CONSTANTS.KEYS.TOKEN, newToken);
         GM_setValue(CONSTANTS.KEYS.SYNC_MODE, newMode);
@@ -2116,7 +2113,12 @@
           checkData?.status === CONSTANTS.ANI_STATUS.PAUSED.value
         ) {
           Log.info(`Auto switching status from ${checkData?.status} to CURRENT`);
-          await AniListAPI.updateUserStatus(rule.id, 'CURRENT');
+          await AniListAPI.updateUserStatus(rule.id, CONSTANTS.ANI_STATUS.CURRENT.value);
+        }
+
+        if (checkData?.progress === progress) {
+          UI.updateNav(CONSTANTS.STATUS.INFO, '略過同步(已同步)');
+          return;
         }
 
         let result = await AniListAPI.updateUserProgress(rule.id, progress);
