@@ -21,8 +21,8 @@
 // @grant                GM_addStyle
 // @grant                GM_setClipboard
 // @noframes
-// @downloadURL          https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js
-// @updateURL            https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync.user.js
+// @downloadURL          https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync-beta.user.js
+// @updateURL            https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-to-anilist-sync/bahamut-anime-to-anilist-sync-beta.user.js
 // ==/UserScript==
 
 (function () {
