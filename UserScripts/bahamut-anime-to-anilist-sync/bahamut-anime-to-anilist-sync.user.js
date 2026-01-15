@@ -97,12 +97,12 @@
 
     // --- AniList 狀態 ---
     ANI_STATUS: {
-      CURRENT: { value: 'CURRENT', label: 'Watching', display: '📺 觀看中' },
-      COMPLETED: { value: 'COMPLETED', label: 'Completed', display: '🎉 已看完' },
-      PLANNING: { value: 'PLANNING', label: 'Plan to Watch', display: '📅 計畫中' },
-      REPEATING: { value: 'REPEATING', label: 'Rewatching', display: '🔁 重看中' },
-      PAUSED: { value: 'PAUSED', label: 'Paused', display: '⏸️ 暫停' },
-      DROPPED: { value: 'DROPPED', label: 'Dropped', display: '🗑️ 棄番' },
+      CURRENT: { value: 'CURRENT', label: '📺 觀看中', anilist_label: 'Watching' },
+      COMPLETED: { value: 'COMPLETED', label: '🎉 已看完', anilist_label: 'Completed' },
+      PLANNING: { value: 'PLANNING', label: '📅 計畫中', anilist_label: 'Plan to watch' },
+      REPEATING: { value: 'REPEATING', label: '🔁 重看中', anilist_label: 'Rewatching' },
+      PAUSED: { value: 'PAUSED', label: '⏸️ 暫停', anilist_label: 'Paused' },
+      DROPPED: { value: 'DROPPED', label: '🗑️ 棄番', anilist_label: 'Dropped' },
     },
   };
 
@@ -1348,7 +1348,7 @@
         if (State.userStatus) {
           const { status, progress } = State.userStatus;
           const statusConfig = CONSTANTS.ANI_STATUS[status];
-          let stTxt = statusConfig ? statusConfig.display : '';
+          let stTxt = statusConfig ? statusConfig.label : '';
           if (progress > 0) {
             stTxt += `【Ep.${progress}】`;
           }
@@ -1538,17 +1538,17 @@
         State.userStatus = statusData;
         UI.updateNav(CONSTANTS.STATUS.BOUND);
 
-        const settings = CONSTANTS.ANI_STATUS;
         const currentStatus = statusData?.status || 'NOT_IN_LIST';
 
         let opts =
           currentStatus === 'NOT_IN_LIST'
-            ? `<option value="NOT_IN_LIST" selected>Not in List</option>`
+            ? `<option value="NOT_IN_LIST" selected>尚未加入清單 (Not in List)</option>`
             : '';
 
-        Object.values(settings).forEach((setting) => {
+        Object.values(CONSTANTS.ANI_STATUS).forEach((setting) => {
           const isSelected = currentStatus === setting.value ? 'selected' : '';
-          opts += `<option value="${setting.value}" ${isSelected}>${setting.label}</option>`;
+          opts += `<option value="${setting.value}" ${isSelected}>
+          ${setting.label} (${setting.anilist_label})</option>`;
         });
 
         const warningHtml = isUnknownEp
