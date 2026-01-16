@@ -1372,7 +1372,8 @@
       $icon.textContent = setting.i;
       $text.textContent = setting.t;
 
-      if (type === CONSTANTS.STATUS.DONE || CONSTANTS.STATUS.INFO) {
+      console.log('type:' + type);
+      if (type === CONSTANTS.STATUS.DONE || type === CONSTANTS.STATUS.INFO) {
         this.statusTimer = setTimeout(() => {
           UI.updateNav(CONSTANTS.STATUS.BOUND);
         }, 5000);
@@ -1551,7 +1552,7 @@
           this.disabled = true;
           try {
             const newS = await AniListAPI.updateUserStatus(rule.id, s);
-            App.updateLocalStatus(newS);
+            App.updateLocalStatus(rule.id, newS);
             UI.showToast('✅ 狀態已更新');
             UI.loadTabContent('home');
           } catch (e) {
@@ -1827,7 +1828,7 @@
 
           App.saveRules(newRules);
 
-          UI.showToast('✅ 系列設定已儲存');
+          UI.showToast('✅ 系列設定已儲存，請重新整理');
           _.fadeOut(_.$('#al-modal'));
         });
       } catch (e) {
@@ -2116,7 +2117,7 @@
         }
 
         let result = await AniListAPI.updateUserProgress(rule.id, progress);
-        this.updateLocalStatus(result);
+        this.updateLocalStatus(rule.id, result);
 
         if (maxEp && progress === maxEp && result.status !== CONSTANTS.ANI_STATUS.COMPLETED.value) {
           Log.info('Auto completing media...');
