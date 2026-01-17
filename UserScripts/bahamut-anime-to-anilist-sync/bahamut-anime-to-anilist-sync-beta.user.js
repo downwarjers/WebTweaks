@@ -1185,8 +1185,8 @@
 
       return `
         <tr class="series-row ${rowClass}" data-id="${m.id}" data-title="${Utils.deepSanitize(
-        m.title.native || m.title.romaji,
-      )}">
+          m.title.native || m.title.romaji,
+        )}">
           <td style="text-align:center; width:80px;">
              ${statusHtml}
              <input type="checkbox" class="cb-active" style="display:none;" ${
