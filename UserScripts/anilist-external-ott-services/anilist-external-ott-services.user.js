@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         AniList to OTT Sites
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.2.0
+// @version      2.3.0
 // @description  AniList 清單新增外部OTT按鈕，直接跳轉搜尋作品，支援巴哈自動跳轉集數
 // @author       downwarjers
 // @license      MIT
@@ -256,6 +256,14 @@
             height: 28px;
             font-size: 14px;
         }
+
+        .list-editor .header-ott-buttons {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin: 5px 0 0 0; /* 微調位置 */
+            z-index: 10;
+        }
     `;
   services.forEach((service) => {
     cssRules += `
@@ -278,6 +286,7 @@
     initListButtons();
     initCardButtons();
     initHeaderButtons();
+    initListEditorButtons();
   }
 
   function initListButtons() {
@@ -393,6 +402,49 @@
       // Header 不需要 animeHref，傳 null，會自動改抓當前 DOM
       createButtons(container, titleGetter, getPageProgress, null);
       h1Element.appendChild(container);
+    }
+  }
+
+  function initListEditorButtons() {
+    const editorHeader = document.querySelector('.list-editor .header .content');
+
+    if (!editorHeader || editorHeader.querySelector('.header-ott-buttons')) {
+      return;
+    }
+
+    const container = document.createElement('div');
+    container.className = 'header-ott-buttons';
+
+    const titleGetter = () => {
+      const el = editorHeader.querySelector('.title');
+      return el ? el.innerText.trim() : '';
+    };
+
+    const progressGetter = () => {
+      const input = document.querySelector('.list-editor .form.progress input.el-input__inner');
+      return input ? parseInt(input.value, 10) || 0 : 0;
+    };
+
+    let animeUrl = null;
+    const coverImg = editorHeader.querySelector('.cover img');
+    if (coverImg && coverImg.src) {
+      const filename = coverImg.src.split('/').pop();
+
+      const idMatch = filename.match(/^[a-zA-Z]*(\d+)[-.]/);
+
+      if (idMatch && idMatch[1]) {
+        const foundId = idMatch[1];
+        animeUrl = `https://anilist.co/anime/${foundId}`;
+      }
+    }
+
+    createButtons(container, titleGetter, progressGetter, animeUrl);
+
+    const titleEl = editorHeader.querySelector('.title');
+    if (titleEl) {
+      titleEl.parentNode.insertBefore(container, titleEl.nextSibling);
+    } else {
+      editorHeader.appendChild(container);
     }
   }
 
