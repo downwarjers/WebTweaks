@@ -1372,7 +1372,6 @@
       $icon.textContent = setting.i;
       $text.textContent = setting.t;
 
-      console.log('type:' + type);
       if (type === CONSTANTS.STATUS.DONE || type === CONSTANTS.STATUS.INFO) {
         this.statusTimer = setTimeout(() => {
           UI.updateNav(CONSTANTS.STATUS.BOUND);
