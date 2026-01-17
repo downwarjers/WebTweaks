@@ -140,6 +140,11 @@
 * **說明**: 在 YouTube 訂閱內容管理頁面新增控制面板，可批次將所有頻道的通知鈴鐺設定為「全部」、「個人化」或「無」。支援動態滾動載入 (Dynamic Scroll)，可自動處理長列表的訂閱頻道。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-notification-batch-setting/youtube-notification-batch-setting.user.js)
 
+### YouTube 影片庫自動化匯入撥放清單工具
+* **資料夾名稱**: `youtube-playlist-auto-importer`
+* **說明**: 批次匯入影片至指定清單，並自動掃描帳號內所有播放清單，確保影片在全域收藏中不重複。
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-playlist-auto-importer/youtube-playlist-auto-importer.user.js)
+
 ### YouTube 影片儲存按鈕強制顯示
 * **資料夾名稱**: `youtube-save-button-fixer`
 * **說明**: 強制在 YouTube 影片操作列顯示「儲存」（加入播放清單）按鈕。當視窗縮放導致按鈕被收入「...」選單時，自動複製並生成一個獨立的按鈕置於操作列上。
