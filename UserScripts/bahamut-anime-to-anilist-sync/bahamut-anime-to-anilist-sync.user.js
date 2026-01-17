@@ -130,24 +130,27 @@
       tmp.innerHTML = str.trim();
       return tmp.firstElementChild;
     },
-    fadeIn: (el, display = 'block') => {
+    fadeIn: (el, displayType = 'block') => {
       if (!el) {
         return;
       }
-      el.style.opacity = 0;
-      el.style.display = display;
-      el.style.transition = 'opacity 0.2s ease-in-out';
+      el.style.display = displayType;
       requestAnimationFrame(() => {
-        return (el.style.opacity = 1);
+        el.classList.remove('al-hidden');
+        el.classList.add('al-visible');
       });
     },
     fadeOut: (el) => {
       if (!el) {
         return;
       }
-      el.style.opacity = 0;
+      el.classList.remove('al-visible');
+      el.classList.add('al-hidden');
+
       setTimeout(() => {
-        return (el.style.display = 'none');
+        if (el.classList.contains('al-hidden')) {
+          el.style.display = 'none';
+        }
       }, 200);
     },
     waitForElement(selector, timeout = 10000) {
@@ -232,10 +235,11 @@
     jsDateToInt: (d) => {
       return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
     },
-    dateToInt: (dObj) => {
-      return !dObj || !dObj.year
-        ? 0
-        : dObj.year * 10000 + (dObj.month || 1) * 100 + (dObj.day || 1);
+    toJsDate(dObj) {
+      if (!dObj?.year) {
+        return null;
+      }
+      return new Date(dObj.year, (dObj.month || 1) - 1, dObj.day || 1);
     },
     formatDate: (dObj) => {
       return !dObj || !dObj.year
@@ -245,23 +249,33 @@
           ).padStart(2, '0')}`;
     },
     getFuzzyDateRange(dateObj, toleranceDays) {
-      if (!dateObj || !dateObj.year) {
+      const target = this.toJsDate(dateObj);
+      if (!target) {
         return null;
       }
-      const target = new Date(dateObj.year, (dateObj.month || 1) - 1, dateObj.day || 1);
+
+      // 利用原生 Date 自動處理跨月/跨年 (例如: 10/31 + 1天 會自動變 11/1)
       const min = new Date(target);
       min.setDate(min.getDate() - toleranceDays);
+
       const max = new Date(target);
       max.setDate(max.getDate() + toleranceDays);
+
       return { start: this.jsDateToInt(min), end: this.jsDateToInt(max) };
     },
     isDateCloseEnough(targetObj, checkObj) {
-      const range = this.getFuzzyDateRange(targetObj, CONSTANTS.MATCH_TOLERANCE_DAYS);
-      if (!range || !checkObj || !checkObj.year) {
+      const target = this.toJsDate(targetObj);
+      const check = this.toJsDate(checkObj);
+
+      if (!target || !check) {
         return false;
       }
-      const checkInt = this.dateToInt(checkObj);
-      return checkInt >= range.start && checkInt <= range.end;
+
+      // 取得毫秒差，換算成天數
+      const diffTime = Math.abs(target.getTime() - check.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      return diffDays <= CONSTANTS.MATCH_TOLERANCE_DAYS;
     },
     parseDateStr(str) {
       if (!str || typeof str !== 'string') {
@@ -288,28 +302,28 @@
     // 選擇器檢查
     _validateGroup(scope, selectors, groupName) {
       Log.group(`🔍 Selector 檢查: ${groupName}`);
-      let allGood = true;
 
-      for (const [key, selector] of Object.entries(selectors)) {
-        // 例外處理：playing 是動態 class，初始檢查時可能不存在，標記為警告但不算錯誤
+      const allGood = Object.entries(selectors).every(([key, selector]) => {
         if (key === 'playing') {
-          continue;
-        }
+          return true;
+        } // 例外
 
         const el = scope.querySelector(selector);
         if (el) {
           Log.info(`✅ ${key}`, `(${selector})`, el);
+          return true;
         } else {
           Log.warn(`⚠️ MISSING ${key}`, `Selector: ${selector}`);
-          allGood = false;
+          return false;
         }
-      }
+      });
 
       if (!allGood) {
-        Log.warn(`⚠️ ${groupName} 結構檢查發現缺失，可能影響功能。`);
+        Log.warn(`⚠️ ${groupName} 結構檢查發現缺失。`);
       } else {
         Log.info(`✅ ${groupName} 結構健康。`);
       }
+
       Log.groupEnd();
       return allGood;
     },
@@ -557,6 +571,16 @@
         text-overflow: ellipsis;
         display: block;
     }
+
+    .al-hidden {
+        display: none !important;
+        opacity: 0;
+    }
+    .al-visible {
+        display: block;
+        opacity: 1;
+        transition: opacity 0.2s ease-in-out;
+    }
     @keyframes al-fadein { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     @media (max-width: 768px) { #al-title, #al-user-status { display: none !important; } }
   `);
@@ -606,59 +630,38 @@
 
       return null;
     },
-
-    // 用於自動綁定：抓頁面最小集數
-    getMin() {
-      // 優先嘗試掃描列表
+    _getAllEpisodes() {
       const seasonUls = _.$$(CONSTANTS.SELECTORS.PAGE.seasonUl);
-      let minEp = null;
-
-      if (seasonUls.length > 0) {
-        seasonUls.forEach((ul) => {
-          ul.querySelectorAll('li').forEach((li) => {
-            const t = li.textContent.trim();
-            if (!t.includes('.') && /\d/.test(t)) {
-              const v = parseInt(t, 10);
-              if (minEp === null || v < minEp) {
-                minEp = v;
-              }
-            }
-          });
-        });
-      }
-
-      // 如果沒列表 (minEp 還是 null)，抓標題當作唯一集數
-      if (minEp === null) {
-        const titleEp = this.parseFromTitle();
-        if (titleEp !== null && Number.isInteger(titleEp)) {
-          minEp = titleEp;
-        }
-      }
-
-      return minEp;
-    },
-
-    getMax() {
-      const seasonUls = _.$$(CONSTANTS.SELECTORS.PAGE.seasonUl);
-      // 加入無按鈕時的備案
       if (seasonUls.length === 0) {
-        const t = this.parseFromTitle();
-        return t !== null && Number.isInteger(t) ? t : 0;
+        return [];
       }
 
-      let maxEp = 0;
+      const episodes = [];
       seasonUls.forEach((ul) => {
         ul.querySelectorAll('li').forEach((li) => {
           const t = li.textContent.trim();
-          if (!t.includes('.') && /\d/.test(t)) {
-            const v = parseInt(t, 10);
-            if (v > maxEp) {
-              maxEp = v;
-            }
+          if (/^\d+$/.test(t)) {
+            episodes.push(parseInt(t, 10));
           }
         });
       });
-      return maxEp;
+      return episodes;
+    },
+    getMin() {
+      const eps = this._getAllEpisodes();
+      if (eps.length > 0) {
+        return Math.min(...eps);
+      }
+      const titleEp = this.parseFromTitle();
+      return Number.isInteger(titleEp) ? titleEp : null;
+    },
+    getMax() {
+      const eps = this._getAllEpisodes();
+      if (eps.length > 0) {
+        return Math.max(...eps);
+      }
+      const titleEp = this.parseFromTitle();
+      return Number.isInteger(titleEp) ? titleEp : 0;
     },
   };
 
@@ -746,16 +749,6 @@
           },
           data: JSON.stringify({ query, variables }),
           onload: (r) => {
-            const context = {
-              r,
-              resolve,
-              reject,
-              retryCount,
-              query,
-              variables,
-              api: this,
-            };
-
             const strategies = [
               {
                 name: 'Maintenance',
@@ -787,8 +780,7 @@
                       `連線過於頻繁，重試中...(${retryCount + 1}/${CONSTANTS.API_MAX_RETRIES})`,
                     );
                     setTimeout(() => {
-                      context.api
-                        .request(query, variables, retryCount + 1)
+                      this.request(query, variables, retryCount + 1)
                         .then(resolve)
                         .catch(reject);
                     }, delay);
@@ -953,13 +945,16 @@
       });
 
       resultChain.sort((a, b) => {
-        const dateA = Utils.dateToInt(a.startDate);
-        const dateB = Utils.dateToInt(b.startDate);
-        // 日期一樣或缺漏，用 ID 排序當備案
-        if (dateA === dateB) {
+        const dateA = Utils.toJsDate(a.startDate);
+        const dateB = Utils.toJsDate(b.startDate);
+
+        const timeA = dateA ? dateA.getTime() : 0;
+        const timeB = dateB ? dateB.getTime() : 0;
+
+        if (timeA === timeB) {
           return a.id - b.id;
         }
-        return dateA - dateB;
+        return timeA - timeB;
       });
 
       return resultChain;
@@ -1377,14 +1372,10 @@
       $icon.textContent = setting.i;
       $text.textContent = setting.t;
 
-      if (type === CONSTANTS.STATUS.DONE) {
+      if (type === CONSTANTS.STATUS.DONE || type === CONSTANTS.STATUS.INFO) {
         this.statusTimer = setTimeout(() => {
-          $icon.textContent = '✅';
-          $text.textContent = '已連動';
-          if (State.userStatus) {
-            $uStatus.style.display = 'inline-block';
-          }
-        }, 1500);
+          UI.updateNav(CONSTANTS.STATUS.BOUND);
+        }, 5000);
       }
     },
     openModal() {
@@ -1523,18 +1514,8 @@
       }
 
       try {
-        let info, statusData;
-
-        if (State.cachedMediaInfo && State.cachedMediaInfo.id === rule.id) {
-          Log.info('UI using cached data');
-          info = State.cachedMediaInfo;
-          statusData = info.mediaListEntry;
-        } else {
-          info = await AniListAPI.getMediaAndStatus(rule.id);
-          statusData = info.mediaListEntry;
-          State.cachedMediaInfo = info;
-        }
-
+        const info = await App.getMediaData(rule.id);
+        const statusData = info.mediaListEntry;
         State.userStatus = statusData;
         UI.updateNav(CONSTANTS.STATUS.BOUND);
 
@@ -1570,10 +1551,7 @@
           this.disabled = true;
           try {
             const newS = await AniListAPI.updateUserStatus(rule.id, s);
-            State.userStatus = newS;
-            if (State.cachedMediaInfo && State.cachedMediaInfo.id === rule.id) {
-              State.cachedMediaInfo.mediaListEntry = newS;
-            }
+            App.updateLocalStatus(rule.id, newS);
             UI.showToast('✅ 狀態已更新');
             UI.loadTabContent('home');
           } catch (e) {
@@ -1846,14 +1824,10 @@
           if (newRules.length === 0) {
             return UI.showToast('❌ 至少需要設定一個起始集數');
           }
-          newRules.sort((a, b) => {
-            return b.start - a.start;
-          });
-          State.rules = newRules;
-          GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`, newRules);
-          App.determineActiveRule();
-          UI.updateNav(CONSTANTS.STATUS.BOUND);
-          UI.showToast('✅ 系列設定已儲存');
+
+          App.saveRules(newRules);
+
+          UI.showToast('✅ 系列設定已儲存，請重新整理');
           _.fadeOut(_.$('#al-modal'));
         });
       } catch (e) {
@@ -2063,6 +2037,32 @@
         this.syncProgress();
       }
     },
+    async getMediaData(id) {
+      if (State.cachedMediaInfo && State.cachedMediaInfo.id === id) {
+        Log.info('Using Cached Data (App.getMediaData)');
+        return State.cachedMediaInfo;
+      }
+      const data = await AniListAPI.getMediaAndStatus(id);
+      State.cachedMediaInfo = data;
+      return data;
+    },
+    saveRules(newRules) {
+      newRules.sort((a, b) => {
+        return b.start - a.start;
+      });
+      State.rules = newRules;
+      GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`, newRules);
+      this.determineActiveRule().then(() => {
+        this.updateUIStatus();
+      });
+      Log.info('Rules saved and updated.');
+    },
+    updateLocalStatus(targetId, newStatusEntry) {
+      State.userStatus = newStatusEntry;
+      if (State.cachedMediaInfo && State.cachedMediaInfo.id === targetId) {
+        State.cachedMediaInfo.mediaListEntry = newStatusEntry;
+      }
+    },
     async syncProgress() {
       // 1. 取得按鈕上的原始數字
       const rawEp = EpisodeCalculator.getRawCurrent();
@@ -2086,17 +2086,7 @@
       Log.info(`Syncing progress: Ep.${progress} for media ${rule.id}`);
 
       try {
-        let data;
-
-        // 1. 優先從快取讀取資料
-        if (State.cachedMediaInfo && State.cachedMediaInfo.id === rule.id) {
-          data = State.cachedMediaInfo;
-          Log.info('Sync using cached data');
-        } else {
-          // 2. 沒有快取發送合併請求
-          data = await AniListAPI.getMediaAndStatus(rule.id);
-          State.cachedMediaInfo = data;
-        }
+        const data = await App.getMediaData(rule.id);
 
         const maxEp = data.episodes;
         const checkData = data.mediaListEntry; // 從合併資料中取得狀態
@@ -2126,10 +2116,7 @@
         }
 
         let result = await AniListAPI.updateUserProgress(rule.id, progress);
-        if (State.cachedMediaInfo) {
-          State.cachedMediaInfo.mediaListEntry = result;
-        }
-        State.userStatus = result;
+        this.updateLocalStatus(rule.id, result);
 
         if (maxEp && progress === maxEp && result.status !== CONSTANTS.ANI_STATUS.COMPLETED.value) {
           Log.info('Auto completing media...');
@@ -2142,7 +2129,7 @@
       } catch (e) {
         const errStr = e.message;
         UI.updateNav(CONSTANTS.STATUS.ERROR, '同步失敗');
-        if (errStr.includes('Token') || errStr.includes('401')) {
+        if (errStr.includes('Token') || errStr.includes('Invalid Token')) {
           State.tokenErrorCount++;
           if (State.tokenErrorCount >= 3) {
             State.stopSync = true;
@@ -2152,6 +2139,7 @@
           State.stopSync = true;
           UI.showToast('⚠️ 請求過於頻繁，已暫停同步');
         } else {
+          UI.updateNav(CONSTANTS.STATUS.ERROR, '同步失敗');
           setTimeout(() => {
             State.hasSynced = false;
           }, CONSTANTS.SYNC_DEBOUNCE_MS);
@@ -2165,23 +2153,17 @@
 
       UI.updateNav(CONSTANTS.STATUS.SYNCING, '自動匹配中...');
 
-      const context = {
-        data: State.bahaData,
-        api: AniListAPI,
-        utils: Utils,
-      };
-
       const strategies = [
         // 1.使用日文或英文名搜尋，並比對開播日期
         {
           name: 'NameSearch',
-          execute: async (ctx) => {
-            const { nameEn, nameJp, dateJP, dateTW } = ctx.data;
+          execute: async () => {
+            const { nameEn, nameJp, dateJP, dateTW } = State.bahaData;
             const terms = [nameEn, nameJp].filter(Boolean);
 
             for (let term of terms) {
               try {
-                const res = await ctx.api.search(term);
+                const res = await AniListAPI.search(term);
                 const list = res.data.Page.media || [];
 
                 if (list.length > 0 && !State.candidate) {
@@ -2190,8 +2172,8 @@
 
                 const match = list.find((media) => {
                   return (
-                    ctx.utils.isDateCloseEnough(dateJP.obj, media.startDate) ||
-                    ctx.utils.isDateCloseEnough(dateTW.obj, media.startDate)
+                    Utils.isDateCloseEnough(dateJP.obj, media.startDate) ||
+                    Utils.isDateCloseEnough(dateTW.obj, media.startDate)
                   );
                 });
 
@@ -2208,13 +2190,13 @@
         // 2.當名字搜不到時，改搜前後幾天開播的所有動畫，再比對官網網域
         {
           name: 'DateRangeDomainSearch',
-          execute: async (ctx) => {
-            const { dateJP, dateTW, site } = ctx.data;
+          execute: async () => {
+            const { dateJP, dateTW, site } = State.bahaData;
             if (!site) {
               return null;
             }
 
-            const range = ctx.utils.getFuzzyDateRange(
+            const range = Utils.getFuzzyDateRange(
               dateJP.obj || dateTW.obj,
               CONSTANTS.SEARCH_RANGE_DAYS,
             );
@@ -2224,17 +2206,17 @@
             }
 
             try {
-              const res = await ctx.api.searchByDateRange(range.start, range.end);
+              const res = await AniListAPI.searchByDateRange(range.start, range.end);
               const list = res.data.Page.media || [];
 
               return list.find((media) => {
                 const domainMatch = media.externalLinks?.some((l) => {
-                  return ctx.utils.extractDomain(l.url)?.includes(site);
+                  return Utils.extractDomain(l.url)?.includes(site);
                 });
                 // 雙重確認：網域對了，日期也要大致對
                 const dateMatch =
-                  ctx.utils.isDateCloseEnough(dateJP.obj, media.startDate) ||
-                  ctx.utils.isDateCloseEnough(dateTW.obj, media.startDate);
+                  Utils.isDateCloseEnough(dateJP.obj, media.startDate) ||
+                  Utils.isDateCloseEnough(dateTW.obj, media.startDate);
                 return domainMatch && dateMatch;
               });
             } catch (e) {
@@ -2248,7 +2230,7 @@
       let match = null;
       for (const strategy of strategies) {
         Log.info(`Executing AutoBind Strategy: ${strategy.name}`);
-        match = await strategy.execute(context);
+        match = await strategy.execute();
         if (match) {
           Log.info(`[AutoBind] Matched by ${strategy.name}:`, match.title.native);
           break;
@@ -2344,16 +2326,9 @@
         });
       }
 
-      newRules.sort((a, b) => {
-        return b.start - a.start;
-      });
+      App.saveRules(newRules);
 
-      State.rules = newRules;
-      GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`, State.rules);
-
-      await this.determineActiveRule();
-      UI.updateNav(CONSTANTS.STATUS.BOUND);
-      UI.showToast(`✅ 綁定成功！(已自動設定 ${newRules.length} 個系列作)`);
+      UI.showToast(`✅ 綁定成功！(已自動設定 ${State.rules.length} 個系列作)`);
 
       _.fadeOut(_.$('#al-modal'));
 
