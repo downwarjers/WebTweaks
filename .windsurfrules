@@ -1,0 +1,37 @@
+# Project Context
+這是一個包含多個 UserScripts (JavaScript) 和 UserStyles (CSS) 的單一儲存庫 (Monorepo)。
+每個腳本通常位於 `UserScripts/<Script-Name>/` 或 `UserStyles/<Style-Name>/` 目錄下。
+
+# Code Generation Rules
+1. **UserScript 格式**：修改 `.user.js` 檔案時，請確保保留檔頭的 Metadata Block (`// ==UserScript==` ... `// ==/UserScript==`)。
+2. **版本控制**：如果修改內容涉及功能新增 (`feat`) 或修復 (`fix`)，請檢查並適當更新 Metadata 中的 `@version` 號碼。
+3. **現代化語法**：預設使用 ES6+ 語法 (const, let, arrow functions, async/await)。
+
+# Git Commit Message Rules
+當生成 Commit Message 時，請嚴格遵守以下格式：
+
+**Format**: `<type>(<scope>): <subject>`
+
+**Rules**:
+1. **Type**: 只能使用以下類別：
+   - `feat`: 新增功能 (Features)
+   - `fix`: 修復錯誤 (Bug fixes)
+   - `refactor`: 重構代碼 (不影響功能)
+   - `docs`: 文檔修改 (Documentation)
+   - `style`: 格式修改 (不影響代碼運行)
+   - `chore`: 建構過程或輔助工具的變動
+   - `perf`: 改善效能
+   - `test`: 增加或修改測試
+
+2. **Scope**:
+   - **優先規則**：必須是受影響的「腳本檔名」或「樣式檔名」（**不含副檔名**）。
+     - 例如：修改 `UserScripts/auto-close-baha/script.user.js` -> scope 為 `auto-close-baha`。
+   - **例外情況**：
+     - 如果修改的是根目錄文件 (如 README)，scope 使用 `root` 或 `docs`。
+     - 如果修改的是 `.github` 流程，scope 使用 `ci`。
+     - 如果修改的是 `update_readme.py`，scope 使用 `scripts`。
+
+3. **Subject**:
+   - 使用祈使句（例如 "add feature" 而不是 "added feature"）。
+   - 結尾**不要**加句號。
+   - 保持簡短扼要。
