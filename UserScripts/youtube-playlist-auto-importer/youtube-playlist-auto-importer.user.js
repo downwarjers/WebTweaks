@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         YouTube 影片庫自動化匯入撥放清單工具
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      1.1.0
+// @version      1.2.0
 // @description  批次匯入影片至指定清單，並自動掃描帳號內所有播放清單，確保影片在全域收藏中不重複。
 // @author       downwarjers
 // @license      MIT
 // @match        https://www.youtube.com/*
+// @icon         https://www.google.com/s2/favicons?sz=64&domain=youtube.com
 // @grant        GM_addStyle
 // @run-at       document-idle
 // @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-playlist-auto-importer/youtube-playlist-auto-importer.user.js
@@ -94,22 +95,27 @@
             border-top: 1px solid #333;
             padding-top: 5px;
         }
-        #yt-global-toggle {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 40px;
-            height: 40px;
-            background: #ff4e45;
-            border-radius: 50%;
-            display: flex;
+        #yt-embedded-toggle {
+            display: inline-flex;
             align-items: center;
             justify-content: center;
+            width: 40px;
+            height: 40px;
             cursor: pointer;
-            z-index: 9998;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            font-size: 20px;
-            color: #fff;
+            border-radius: 50%;
+            background: transparent;
+            border: none;
+            color: var(--yt-spec-text-primary, #fff);
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        #yt-embedded-toggle:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        #yt-embedded-toggle svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
         }
     `);
 
@@ -445,31 +451,20 @@
 
   // --- UI 建構 ---
   function createUI() {
-    if (document.getElementById('yt-global-toggle')) {
-      document.getElementById('yt-global-toggle').remove();
-    }
-    if (document.getElementById('yt-global-panel')) {
-      document.getElementById('yt-global-panel').remove();
-    }
-
-    const toggleBtn = document.createElement('div');
-    toggleBtn.id = 'yt-global-toggle';
-    toggleBtn.textContent = 'G';
-    toggleBtn.onclick = () => {
-      const panel = document.getElementById('yt-global-panel');
-      const isVisible = panel.classList.toggle('visible');
-      toggleBtn.style.display = isVisible ? 'none' : 'flex';
-      if (isVisible && document.getElementById('yt-target-select').options.length <= 1) {
-        updateSelectDropdown(true);
+    // 模組 1: 初始化主控制面板
+    const initPanel = () => {
+      // 1. 清理舊面板
+      const oldPanel = document.getElementById('yt-global-panel');
+      if (oldPanel) {
+        oldPanel.remove();
       }
-    };
-    document.body.appendChild(toggleBtn);
 
-    const panel = document.createElement('div');
-    panel.id = 'yt-global-panel';
-    panel.innerHTML = `
+      // 2. 建立新面板結構
+      const panel = document.createElement('div');
+      panel.id = 'yt-global-panel';
+      panel.innerHTML = `
             <div id="yt-global-header">
-                <span id="yt-global-title">全域檢查器 v12 (No Freeze)</span>
+                <span id="yt-global-title">Youtube 撥放清單匯入工具</span>
                 <span id="yt-global-close">✕</span>
             </div>
             <div style="font-size:11px; color:#aaa; margin-bottom:5px;">選擇目標播放清單:</div>
@@ -479,25 +474,79 @@
             </div>
             <div style="font-size:11px; color:#aaa; margin-bottom:5px;">影片網址:</div>
             <textarea id="yt-urls-input" class="yt-global-input" style="height: 100px;" placeholder="https://www.youtube.com/watch?v=..."></textarea>
-            <button id="yt-global-btn">掃描全域並加入</button>
+            <button id="yt-global-btn">掃描全部清單並加入</button>
             <div id="yt-global-log"></div>
         `;
-    document.body.appendChild(panel);
+      document.body.appendChild(panel);
 
-    document.getElementById('yt-global-close').onclick = () => {
-      panel.classList.remove('visible');
-      toggleBtn.style.display = 'flex';
+      // 3. 綁定面板內部事件
+      document.getElementById('yt-global-close').onclick = () => {
+        panel.classList.remove('visible');
+      };
+
+      document.getElementById('yt-refresh-list').onclick = () => {
+        updateSelectDropdown(true);
+      };
+
+      const selectEl = document.getElementById('yt-target-select');
+      selectEl.onchange = () => {
+        if (selectEl.value) {
+          localStorage.setItem('yt-global-last-target', selectEl.value);
+        }
+      };
+
+      document.getElementById('yt-global-btn').onclick = startGlobalProcess;
     };
-    document.getElementById('yt-refresh-list').onclick = () => {
-      updateSelectDropdown(true);
-    };
-    const selectEl = document.getElementById('yt-target-select');
-    selectEl.onchange = () => {
-      if (selectEl.value) {
-        localStorage.setItem('yt-global-last-target', selectEl.value);
+
+    // 模組 2: 初始化 Header 按鈕
+    const initHeaderButton = () => {
+      // 遞迴檢查 Header 是否載入完成
+      const mastheadEnd = document.querySelector('#masthead #end');
+      if (!mastheadEnd) {
+        setTimeout(initHeaderButton, 1000);
+        return;
+      }
+
+      // 防止重複插入
+      if (document.getElementById('yt-embedded-toggle')) {
+        return;
+      }
+
+      // 1. 建立按鈕
+      const toggleBtn = document.createElement('button');
+      toggleBtn.id = 'yt-embedded-toggle';
+      toggleBtn.title = '開啟全域檢查器';
+      toggleBtn.innerHTML = `
+            <svg viewBox="0 0 24 24">
+                <path d="M19 9H2V11H19V9ZM19 5H2V7H19V5ZM15 15V13H2V15H15ZM19 13L24 22L19 22L19 13Z" d="M0 0h24v24H0z" fill="none"/>
+                <path d="M14 10H3v2h11v-2zm0-4H3v2h11V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM3 16h7v-2H3v2z"/>
+            </svg>
+        `;
+
+      // 2. 綁定按鈕事件 (控制面板顯示)
+      toggleBtn.onclick = () => {
+        const panel = document.getElementById('yt-global-panel');
+        if (panel) {
+          const isVisible = panel.classList.toggle('visible');
+          // 如果打開面板且清單是空的，自動重新整理
+          if (isVisible && document.getElementById('yt-target-select').options.length <= 1) {
+            updateSelectDropdown(true);
+          }
+        }
+      };
+
+      // 3. 插入按鈕位置
+      const refNode = document.getElementById('msfy-toggle-bar-button-mkjf0pvv');
+      if (refNode) {
+        mastheadEnd.insertBefore(toggleBtn, refNode);
+      } else {
+        mastheadEnd.prepend(toggleBtn);
       }
     };
-    document.getElementById('yt-global-btn').onclick = startGlobalProcess;
+
+    // --- 主流程執行 ---
+    initPanel(); // 執行建立面板
+    initHeaderButton(); // 執行插入按鈕
   }
 
   function log(msg, color = '#aaa') {
