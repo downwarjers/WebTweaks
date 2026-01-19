@@ -5,8 +5,7 @@
 @description  調整 Netflix/YouTube 上 Language Reactor (原 LLN) 插件的字幕面板位置，將其強制固定在螢幕底部 5% 的位置。
 @author       downwarjers
 @license      MIT
-@downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/language-reactor-position-setting/language-reactor-position-setting.user.css
-@updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/language-reactor-position-setting/language-reactor-position-setting.user.css
+@updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/language-reactor-position-setting/language-reactor-position-setting.user.css
 ==/UserStyle== */
 
 @-moz-document domain("netflix.com"), domain("youtube.com") {

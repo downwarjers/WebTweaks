@@ -5,8 +5,7 @@
 @description  自動隱藏 Bilibili 頂部偵測到廣告攔截插件的提示橫幅 (`.adblock-tips`)。
 @author       downwarjers
 @license      MIT
-@downloadURL https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/hide-bilibili-adblock-tip/hide-bilibili-adblock-tip.user.css
-@updateURL   https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/hide-bilibili-adblock-tip/hide-bilibili-adblock-tip.user.css
+@updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/hide-bilibili-adblock-tip/hide-bilibili-adblock-tip.user.css
 ==/UserStyle== */
 
 @-moz-document domain("bilibili.com") {
