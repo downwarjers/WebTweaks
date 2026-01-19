@@ -27,7 +27,7 @@
    - **優先規則**：必須是受影響的「腳本檔名」或「樣式檔名」（**不含副檔名**）。
      - 例如：修改 `UserScripts/auto-close-baha/script.user.js` -> scope 為 `auto-close-baha`。
    - **例外情況**：
-     - 如果修改的是根目錄文件 (如 README)，scope 使用 `root` 或 `docs`。
+     - 如果修改的是根目錄文件 (如 README)，scope 使用 `docs`。
      - 如果修改的是 `.github` 流程，scope 使用 `ci`。
      - 如果修改的是 `update_readme.py`，scope 使用 `scripts`。
 
@@ -35,3 +35,4 @@
    - 使用祈使句（例如 "add feature" 而不是 "added feature"）。
    - 結尾**不要**加句號。
    - 保持簡短扼要。
+   - 語言使用英文與繁體中文。
