@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 影片頁面播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      29.10.2
+// @version      29.10.3
 // @description  在 YouTube 影片頁面顯示當前影片是否已加入使用者的任何自訂播放清單。透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
 // @author       downwarjers
 // @license      MIT
@@ -395,35 +395,64 @@
       return;
     }
 
-    const container = document.querySelector('snackbar-container');
-    if (!container) {
+    const popupContainer = document.querySelector('ytd-popup-container');
+
+    if (!popupContainer) {
       setTimeout(initSnackbarObserver, 2000);
       return;
     }
 
-    snackbarObserver = new MutationObserver((mutations) => {
-      const hasToast = container.childElementCount > 0;
+    const checkToastStatus = () => {
+      const toasts = popupContainer.querySelectorAll(
+        'yt-notification-action-renderer tp-yt-paper-toast',
+      );
 
-      if (hasToast) {
-        // Toast 出現：代表忙碌中，強制顯示同步狀態
+      let isToastVisible = false;
+
+      toasts.forEach((toast) => {
+        const style = window.getComputedStyle(toast);
+        const isHidden =
+          style.display === 'none' ||
+          (toast.hasAttribute('aria-hidden') && toast.getAttribute('aria-hidden') === 'true');
+
+        if (!isHidden && toast.innerText.trim().length > 0) {
+          isToastVisible = true;
+        }
+      });
+
+      if (isToastVisible) {
+        // 1. Toast 出現中：顯示同步狀態
         if (debounceTimer) {
           clearTimeout(debounceTimer);
         }
         showStatus('⏳ 同步中...', 'syncing');
       } else {
-        // Toast 消失：代表閒置，執行更新
+        // 2. Toast 消失了：代表操作完成，執行 API 檢查
+        // 我們給一個短暫的延遲，避免連續操作時頻繁刷新
         if (debounceTimer) {
           clearTimeout(debounceTimer);
         }
-        checkPlaylists();
+        debounceTimer = setTimeout(() => {
+          checkPlaylists();
+        }, 800); // 稍微延遲 0.8 秒確保資料已寫入
       }
+    };
+
+    // 建立監聽器
+    snackbarObserver = new MutationObserver((mutations) => {
+      checkToastStatus();
     });
 
-    snackbarObserver.observe(container, {
+    // childList: 監聽是否有新的通知被加入 (Log 模式)
+    // subtree: 監聽深層變化
+    // attributes: 監聽 display: none 的切換
+    snackbarObserver.observe(popupContainer, {
       childList: true,
       subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class', 'aria-hidden'], // 只監聽這些屬性變化以提升效能
     });
 
-    // console.log("[YT-Checker] 背景監聽器已啟動");
+    console.log('[YT-Checker] 彈出訊息監聽器已啟動 (Target: ytd-popup-container)');
   }
 })();
