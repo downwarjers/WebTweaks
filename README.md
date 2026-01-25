@@ -150,6 +150,11 @@
 * **說明**: 強制在 YouTube 影片操作列顯示「儲存」（加入播放清單）按鈕。當視窗縮放導致按鈕被收入「...」選單時，自動複製並生成一個獨立的按鈕置於操作列上。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-save-button-fixer/youtube-save-button-fixer.user.js)
 
+### YouTube Save Button Logic Replacer
+* **資料夾名稱**: `youtube-save-button-logic-replacer`
+* **說明**: 完全替換 YouTube 影片下方的儲存按鈕，重新安裝一個直接注入 addToPlaylistServiceEndpoint 指令的新按鈕，從底層邏輯接管儲存功能。
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-save-button-logic-replacer/youtube-save-button-logic-replacer.user.js)
+
 ### YouTube 影片頁面播放清單檢查器
 * **資料夾名稱**: `youtube-viewpage-playlist-checker`
 * **說明**: 在 YouTube 影片頁面顯示當前影片是否已加入使用者的任何自訂播放清單。透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
