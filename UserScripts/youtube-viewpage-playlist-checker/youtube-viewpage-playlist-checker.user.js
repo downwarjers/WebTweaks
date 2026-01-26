@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 影片頁面播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      29.10.3
+// @version      29.10.4
 // @description  在 YouTube 影片頁面顯示當前影片是否已加入使用者的任何自訂播放清單。透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
 // @author       downwarjers
 // @license      MIT
@@ -58,6 +58,7 @@
 
   let currentVideoId = null;
   let snackbarObserver = null;
+  let popupObserver = null;
   let debounceTimer = null;
   let isChecking = false; // 這是防止重複執行的鎖
 
@@ -374,6 +375,7 @@
     if (currentVideoId !== newVideoId) {
       currentVideoId = newVideoId;
       initSnackbarObserver();
+      initPopupContainerObserver();
 
       if (document.hidden) {
         document.addEventListener('visibilitychange', onVisibilityChange, { once: true });
@@ -395,64 +397,106 @@
       return;
     }
 
-    const popupContainer = document.querySelector('ytd-popup-container');
-
-    if (!popupContainer) {
+    const container = document.querySelector('snackbar-container');
+    if (!container) {
       setTimeout(initSnackbarObserver, 2000);
       return;
     }
 
-    const checkToastStatus = () => {
-      const toasts = popupContainer.querySelectorAll(
-        'yt-notification-action-renderer tp-yt-paper-toast',
-      );
+    snackbarObserver = new MutationObserver((mutations) => {
+      const hasToast = container.childElementCount > 0;
 
-      let isToastVisible = false;
+      if (hasToast) {
+        // Toast 出現：代表忙碌中，強制顯示同步狀態
 
-      toasts.forEach((toast) => {
-        const style = window.getComputedStyle(toast);
-        const isHidden =
-          style.display === 'none' ||
-          (toast.hasAttribute('aria-hidden') && toast.getAttribute('aria-hidden') === 'true');
-
-        if (!isHidden && toast.innerText.trim().length > 0) {
-          isToastVisible = true;
-        }
-      });
-
-      if (isToastVisible) {
-        // 1. Toast 出現中：顯示同步狀態
         if (debounceTimer) {
           clearTimeout(debounceTimer);
         }
         showStatus('⏳ 同步中...', 'syncing');
       } else {
-        // 2. Toast 消失了：代表操作完成，執行 API 檢查
-        // 我們給一個短暫的延遲，避免連續操作時頻繁刷新
+        // Toast 消失：代表閒置，執行更新
+
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
+        checkPlaylists();
+      }
+    });
+
+    snackbarObserver.observe(container, {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  // ==========================================
+  // ytd-popup-container 的監聽器
+  // ==========================================
+  function initPopupContainerObserver() {
+    if (popupObserver) {
+      return;
+    }
+
+    const popupContainer = document.querySelector('ytd-popup-container');
+    if (!popupContainer) {
+      setTimeout(initPopupContainerObserver, 2000);
+      return;
+    }
+
+    let wasVisible = false;
+
+    const checkState = () => {
+      // 抓取所有彈出訊息 (包含 toast 與 notification)
+      const toasts = popupContainer.querySelectorAll(
+        'tp-yt-paper-toast, yt-notification-action-renderer',
+      );
+
+      let isVisibleNow = false;
+
+      // 檢查是否有任何一個訊息是顯示中的
+      toasts.forEach((toast) => {
+        const style = window.getComputedStyle(toast);
+        // 排除 display:none, aria-hidden, 以及透明度為 0 的情況
+        const isHidden =
+          style.display === 'none' ||
+          (toast.hasAttribute('aria-hidden') && toast.getAttribute('aria-hidden') === 'true') ||
+          style.opacity === '0';
+
+        if (!isHidden && toast.innerText.trim().length > 0) {
+          isVisibleNow = true;
+        }
+      });
+
+      // 1. [無 -> 有] 訊息跳出來了
+      if (isVisibleNow && !wasVisible) {
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
+        showStatus('⏳ 同步中...', 'syncing');
+      }
+
+      // 2. [有 -> 無] 訊息消失了
+      else if (!isVisibleNow && wasVisible) {
         if (debounceTimer) {
           clearTimeout(debounceTimer);
         }
         debounceTimer = setTimeout(() => {
           checkPlaylists();
-        }, 800); // 稍微延遲 0.8 秒確保資料已寫入
+        }, 800);
       }
+
+      wasVisible = isVisibleNow;
     };
 
-    // 建立監聽器
-    snackbarObserver = new MutationObserver((mutations) => {
-      checkToastStatus();
+    popupObserver = new MutationObserver((mutations) => {
+      checkState();
     });
 
-    // childList: 監聽是否有新的通知被加入 (Log 模式)
-    // subtree: 監聽深層變化
-    // attributes: 監聽 display: none 的切換
-    snackbarObserver.observe(popupContainer, {
+    popupObserver.observe(popupContainer, {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ['style', 'class', 'aria-hidden'], // 只監聽這些屬性變化以提升效能
+      attributeFilter: ['style', 'class', 'aria-hidden'],
     });
-
-    console.log('[YT-Checker] 彈出訊息監聽器已啟動 (Target: ytd-popup-container)');
   }
 })();
