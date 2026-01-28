@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Save Button Logic Replacer
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      0.8.1
+// @version      0.8.2
 // @description  完全替換 YouTube 影片下方的儲存按鈕，重新安裝一個直接注入 addToPlaylistServiceEndpoint 指令的新按鈕，從底層邏輯接管儲存功能。
 // @author       downwarjers
 // @license      MIT
@@ -17,6 +17,14 @@
   'use strict';
 
   const BROKEN_LABEL = '儲存至播放清單';
+
+  const SAVE_ICON_SVG = `
+    <svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" style="pointer-events: none; display: block; width: 100%; height: 100%; fill: currentColor;">
+      <g>
+        <path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"></path>
+      </g>
+    </svg>
+  `;
 
   function createSafeCommand(videoId) {
     return {
@@ -49,6 +57,18 @@
       // 3. 複製按鈕 (Clone) 以移除原本所有導致 400 錯誤的事件監聽器
       const newBtn = oldBtn.cloneNode(true);
       newBtn.dataset.v8FixApplied = 'true'; // 標記已處理
+
+      const iconContainer = newBtn.querySelector('.yt-spec-button-shape-next__icon, yt-icon');
+
+      if (iconContainer) {
+        // 使用新的原生圖示變數
+        iconContainer.innerHTML = SAVE_ICON_SVG;
+
+        // 保持排版修正
+        iconContainer.style.display = 'flex';
+        iconContainer.style.alignItems = 'center';
+        iconContainer.style.justifyContent = 'center';
+      }
 
       // 4. 替換 DOM 元素
       oldBtn.parentNode.replaceChild(newBtn, oldBtn);
