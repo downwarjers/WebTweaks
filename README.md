@@ -145,10 +145,10 @@
 * **說明**: 批次匯入影片至指定清單，並自動掃描帳號內所有播放清單，確保影片在全域收藏中不重複。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-playlist-auto-importer/youtube-playlist-auto-importer.user.js)
 
-### YouTube Save Button Logic Replacer
+### YouTube 影片儲存按鈕強制顯示
 * **資料夾名稱**: `youtube-save-button-fixer`
-* **說明**: 完全替換 YouTube 影片下方的儲存按鈕，重新安裝一個直接注入 addToPlaylistServiceEndpoint 指令的新按鈕，從底層邏輯接管儲存功能。
-* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-save-button-logic-replacer/youtube-save-button-logic-replacer.user.js)
+* **說明**: 強制在 YouTube 影片操作列顯示「儲存」（加入播放清單）按鈕。當視窗縮放導致按鈕被收入「...」選單時，自動複製並生成一個獨立的按鈕置於操作列上。
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-save-button-fixer/youtube-save-button-fixer.user.js)
 
 ### YouTube Save Button Logic Replacer
 * **資料夾名稱**: `youtube-save-button-logic-replacer`
