@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Save Button Logic Replacer
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      0.8.1
+// @version      0.8.2
 // @description  完全替換 YouTube 影片下方的儲存按鈕，重新安裝一個直接注入 addToPlaylistServiceEndpoint 指令的新按鈕，從底層邏輯接管儲存功能。
 // @author       downwarjers
 // @license      MIT
