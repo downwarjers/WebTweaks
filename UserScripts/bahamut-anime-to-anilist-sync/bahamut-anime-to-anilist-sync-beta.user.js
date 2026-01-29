@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList (Beta)
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList (Beta)
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.7.6
+// @version              6.8.1
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI(Beta 版本)
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI(Beta 版本)
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI(Beta 版本)
@@ -88,6 +88,7 @@
       DONE: 'done', // 同步完成
       ERROR: 'error', // 發生錯誤
       INFO: 'info', // 一般訊息提示
+      STANDBY: 'standby', //待機
     },
 
     // --- 同步模式選項 (Sync Modes) ---
@@ -1412,6 +1413,7 @@
         [CONSTANTS.STATUS.TOKEN_ERROR]: { i: '⚠️', t: '設定 Token' },
         [CONSTANTS.STATUS.UNBOUND]: { i: '🔗', t: '連結 AniList' },
         [CONSTANTS.STATUS.BOUND]: { i: '✅', t: '已連動' },
+        [CONSTANTS.STATUS.STANDBY]: { i: '⚪', t: 'AniList' },
         [CONSTANTS.STATUS.SYNCING]: { i: '🔄', t: msg },
         [CONSTANTS.STATUS.DONE]: { i: '✅', t: msg },
         [CONSTANTS.STATUS.ERROR]: { i: '❌', t: msg },
@@ -2031,6 +2033,24 @@
       State.lastTimeUpdate = 0;
     },
     async loadEpisodeData() {
+      if (document.hidden) {
+        Log.info('分頁在背景中，暫停同步...');
+        UI.updateNav(CONSTANTS.STATUS.STANDBY);
+
+        await new Promise((resolve) => {
+          const handler = () => {
+            if (!document.hidden) {
+              document.removeEventListener('visibilitychange', handler);
+              resolve();
+            }
+          };
+          document.addEventListener('visibilitychange', handler);
+        });
+
+        await new Promise((r) => {
+          return setTimeout(r, 300);
+        });
+      }
       const acgLink = this.getAcgLink();
       if (!acgLink) {
         return;
@@ -2549,7 +2569,13 @@
     updateUIStatus() {
       if (!GM_getValue(CONSTANTS.KEYS.TOKEN)) {
         UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
-      } else if (State.rules.length === 0) {
+      }
+      const isVideoPage = location.href.includes(CONSTANTS.URLS.VIDEO_PAGE);
+      if (!isVideoPage) {
+        UI.updateNav(CONSTANTS.STATUS.STANDBY);
+        return;
+      }
+      if (State.rules.length === 0) {
         UI.updateNav(CONSTANTS.STATUS.UNBOUND);
       } else {
         UI.updateNav(CONSTANTS.STATUS.BOUND);
