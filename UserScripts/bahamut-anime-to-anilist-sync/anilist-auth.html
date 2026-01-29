@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AniList 授權處理中...</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f6f8;
+            color: #1f2937;
+        }
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        .icon { font-size: 48px; margin-bottom: 1rem; display: block; }
+        h2 { margin: 0 0 0.5rem 0; color: #3db4f2; font-size: 1.5rem; }
+        p { color: #6b7280; margin: 0; line-height: 1.5; }
+        .error { color: #ef4444; }
+        .success { color: #10b981; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <span id="icon" class="icon">🔄</span>
+        <h2 id="status">正在驗證授權...</h2>
+        <p id="msg">請稍候，正在將金鑰傳回巴哈姆特。</p>
+    </div>
+
+    <script>
+        // 1. 從網址 Hash (#) 中抓取 Token
+        // AniList 回傳的網址會長這樣: .../anilist-auth.html#access_token=xxxx&token_type=Bearer...
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        const accessToken = params.get('access_token');
+        
+        const statusEl = document.getElementById('status');
+        const msgEl = document.getElementById('msg');
+        const iconEl = document.getElementById('icon');
+
+        if (accessToken) {
+            // 2. 透過 postMessage 將 Token 傳回母視窗 (即開啟這個視窗的巴哈姆特頁面)
+            // window.opener 代表開啟目前視窗的那個分頁
+            if (window.opener) {
+                try {
+                    window.opener.postMessage({ 
+                        type: 'ANILIST_AUTH_TOKEN', 
+                        token: accessToken 
+                    }, '*'); // '*' 代表允許傳送給任何網域，若要更安全可指定 'https://ani.gamer.com.tw'
+
+                    // 3. 更新 UI 並關閉
+                    statusEl.innerText = '授權成功！';
+                    statusEl.className = 'success';
+                    iconEl.innerText = '✅';
+                    msgEl.innerText = '視窗將在 1 秒後自動關閉...';
+                    
+                    setTimeout(() => {
+                        window.close();
+                    }, 1000);
+                } catch (e) {
+                    statusEl.innerText = '傳送失敗';
+                    msgEl.innerText = '無法將 Token 傳回來源視窗。';
+                }
+            } else {
+                statusEl.innerText = '找不到來源';
+                statusEl.className = 'error';
+                iconEl.innerText = '❌';
+                msgEl.innerText = '請確認您是透過腳本開啟此頁面，而非直接訪問。';
+            }
+        } else {
+            // 處理錯誤 (例如使用者按了取消，或直接開啟網頁)
+            const searchParams = new URLSearchParams(window.location.search);
+            const error = searchParams.get('error');
+
+            statusEl.className = 'error';
+            iconEl.innerText = '⚠️';
+
+            if (error === 'access_denied') {
+                statusEl.innerText = '授權已取消';
+                msgEl.innerText = '您選擇了拒絕授權。';
+            } else {
+                statusEl.innerText = '無效的請求';
+                msgEl.innerText = '網址中沒有發現 Access Token。';
+            }
+        }
+    </script>
+</body>
+</html>
