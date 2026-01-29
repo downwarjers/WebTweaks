@@ -36,7 +36,8 @@
 
     // --- OAuth 設定 ---
     ANILIST_CLIENT_ID: '35264',
-    ANILIST_REDIRECT_URL: '請填入_GITHUB_PAGES_網址',
+    ANILIST_REDIRECT_URL:
+      'https://downwarjers.github.io/WebTweaks/UserScripts/bahamut-anime-to-anilist-sync/anilist-auth.html',
 
     // --- 同步與匹配邏輯設定 ---
     SYNC_DEBOUNCE_MS: 2000, // 防抖動時間 (毫秒)
@@ -1462,9 +1463,7 @@
       const savedCustomSeconds = GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, 60);
 
       // 設定一鍵驗證的連結
-      const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${
-        CONSTANTS.ANILIST_CLIENT_ID
-      }&redirect_uri=${encodeURIComponent(CONSTANTS.ANILIST_REDIRECT_URL)}&response_type=token`;
+      const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${CONSTANTS.ANILIST_CLIENT_ID}&redirect_uri=${encodeURIComponent(CONSTANTS.ANILIST_REDIRECT_URL)}&response_type=token`;
 
       container.innerHTML = Templates.settings(token, mode, savedCustomSeconds);
 
