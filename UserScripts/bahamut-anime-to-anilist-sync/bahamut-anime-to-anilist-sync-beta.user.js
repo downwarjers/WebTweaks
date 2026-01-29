@@ -34,6 +34,10 @@
     DEBUG: false, // 除錯模式開關
     API_URL: 'https://graphql.anilist.co', // AniList 的 API 網址
 
+    // --- OAuth 設定 ---
+    ANILIST_CLIENT_ID: '35264',
+    ANILIST_REDIRECT_URL: '請填入_GITHUB_PAGES_網址',
+
     // --- 同步與匹配邏輯設定 ---
     SYNC_DEBOUNCE_MS: 2000, // 防抖動時間 (毫秒)
     MATCH_TOLERANCE_DAYS: 2, // 開播日期匹配容許誤差 (天)
@@ -991,11 +995,54 @@
       return `
         <div class="al-p-4 al-flex-col al-gap-3">
           <div class="al-card al-mt-2">
-            <label class="al-font-bold al-mb-1 al-text-sm" style="display:block;">AniList Access Token</label>
-            <div class="al-flex al-gap-2">
-              <input type="password" id="set-token" class="al-input" value="${token}" placeholder="請貼上 Token">
-              <button id="toggle-token-btn" class="al-btn al-btn-outline" style="width:40px;">${ICONS.EYE_OFF}</button>
-            </div>
+            <label class="al-font-bold al-mb-1 al-text-sm" style="display:block;">帳號連結</label>
+            ${
+              token
+                ? /* A. 已登入狀態 */
+                  `<div class="al-flex al-items-center al-gap-2 al-mb-2">
+                    <span class="al-tag success">✅ 已授權</span>
+                    <button id="btn-logout" class="al-btn al-btn-danger al-btn-sm">登出 / 清除</button>
+                 </div>
+                 <div class="al-text-xs al-text-sub">如需切換帳號，請點擊登出。</div>`
+                : /* B. 未登入狀態 */
+                  `<button id="btn-oauth" class="al-btn al-btn-primary al-btn-block">
+                    🚀 連接 AniList 帳號 (推薦)
+                 </button>
+                 <div class="al-text-xs al-text-sub al-mt-2 al-mb-2">
+                    點擊後將跳轉至 AniList 官方進行授權，安全快速。
+                 </div>
+                 
+                 <details class="al-mt-3" style="border-top:1px dashed var(--al-border); padding-top:8px;">
+                    <summary class="al-text-xs al-link" style="cursor:pointer;">手動輸入 Token (進階)</summary>
+                    
+                    <div class="al-card al-mt-2 al-text-sm al-text-sub" style="background:var(--al-bg);">
+                        <div class="al-font-bold al-text al-mb-1 al-pb-2" style="border-bottom:1px solid var(--al-border);">如何自行申請 Token?</div>
+                        <div class="al-flex al-gap-2 al-pt-2 al-pb-2"> 
+                          <span class="al-font-bold al-text-primary">1.</span>
+                          <span>登入 <a href="https://anilist.co/" target="_blank" class="al-link">AniList</a> 後，前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">開發者設定</a> 新增 Client。</span>
+                        </div>
+                        <div class="al-flex al-gap-2 al-pt-2 al-pb-2">
+                          <span class="al-font-bold al-text-primary">2.</span>
+                          <span>輸入任意名稱，Redirect URL設定為 <code id="ref-url-btn" class="al-link al-row-active al-p-1" title="點擊複製">https://anilist.co/api/v2/oauth/pin</code> (點擊複製)。</span>
+                        </div>
+                        <div class="al-flex al-gap-2 al-pt-2 al-pb-2 al-items-center">
+                          <span class="al-font-bold al-text-primary">3.</span>
+                          <span>輸入 Client ID：</span>
+                          <input id="client-id" class="al-input al-input-sm" style="width:80px;" placeholder="ID">
+                          <a id="auth-link" href="#" target="_blank" class="al-btn al-btn-primary al-btn-sm" style="opacity:0.5;pointer-events:none;">前往授權</a>
+                        </div>
+                        <div class="al-flex al-gap-2 al-pt-2 al-pb-2">
+                          <span class="al-font-bold al-text-primary">4.</span>
+                          <span>授權後，將網頁顯示的 Access Token 貼在下方：</span>
+                        </div>
+                    </div>
+
+                    <div class="al-mt-2 al-flex al-gap-2">
+                      <input type="password" id="set-token" class="al-input" value="${token}" placeholder="請貼上 Token">
+                      <button id="toggle-token-btn" class="al-btn al-btn-outline" style="width:40px;">${ICONS.EYE_OFF}</button>
+                    </div>
+                 </details>`
+            }
           </div>
 
           <div class="al-card al-mt-2">
@@ -1010,28 +1057,6 @@
           </div>
 
           <button id="save-set" class="al-btn al-btn-success al-btn-block al-mt-2">儲存設定</button>
-
-          <div class="al-card al-mt-2 al-text-sm al-text-sub">
-            <div class="al-font-bold al-text al-mb-1 al-pb-2" style="border-bottom:1px solid var(--al-border);">如何取得 Token?</div>
-            <div class="al-flex al-gap-2 al-pt-2 al-pb-2"> 
-              <span class="al-font-bold al-text-primary">1.</span>
-              <span>登入 <a href="https://anilist.co/" target="_blank" class="al-link">AniList</a> 後，前往 <a href="https://anilist.co/settings/developer" target="_blank" class="al-link">開發者設定</a> 新增 Client。</span>
-            </div>
-            <div class="al-flex al-gap-2 al-pt-2 al-pb-2">
-              <span class="al-font-bold al-text-primary">2.</span>
-              <span>輸入任意名稱，Redirect URL設定為 <code id="ref-url-btn" class="al-link al-row-active al-p-1" title="點擊複製">https://anilist.co/api/v2/oauth/pin</code> ，儲存後可取得Client ID</span>
-            </div>
-            <div class="al-flex al-gap-2 al-pt-2 al-pb-2 al-items-center">
-              <span class="al-font-bold al-text-primary">3.</span>
-              <span>輸入 Client ID：</span>
-              <input id="client-id" class="al-input al-input-sm" style="width:80px;" placeholder="ID">
-              <a id="auth-link" href="#" target="_blank" class="al-btn al-btn-primary al-btn-sm">前往授權</a>
-            </div>
-            <div class="al-flex al-gap-2 al-pt-2 al-pb-2">
-              <span class="al-font-bold al-text-primary">4.</span>
-              <span>點擊 Authorize，將網址列或頁面上的 Access Token 複製貼回上方。</span>
-            </div>
-          </div>
         </div>
       `;
     },
@@ -1436,9 +1461,17 @@
       const mode = GM_getValue(CONSTANTS.KEYS.SYNC_MODE, 'instant');
       const savedCustomSeconds = GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, 60);
 
+      // 設定一鍵驗證的連結
+      const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${
+        CONSTANTS.ANILIST_CLIENT_ID
+      }&redirect_uri=${encodeURIComponent(CONSTANTS.ANILIST_REDIRECT_URL)}&response_type=token`;
+
       container.innerHTML = Templates.settings(token, mode, savedCustomSeconds);
 
-      _.$('#toggle-token-btn', container).addEventListener('click', function () {
+      // --- 事件綁定 ---
+
+      // 1. [恢復] 眼睛切換按鈕 (原本的功能)
+      _.$('#toggle-token-btn', container)?.addEventListener('click', function () {
         const inp = _.$('#set-token', container);
         if (inp.type === 'password') {
           inp.type = 'text';
@@ -1449,48 +1482,80 @@
         }
       });
 
+      // 2. OAuth 一鍵登入按鈕 (新功能)
+      _.$('#btn-oauth', container)?.addEventListener('click', () => {
+        const w = 600,
+          h = 800;
+        const left = screen.width / 2 - w / 2,
+          top = screen.height / 2 - h / 2;
+        window.open(authUrl, 'AniListAuth', `width=${w},height=${h},top=${top},left=${left}`);
+        UI.showToast('⏳ 請在新視窗中完成授權...');
+      });
+
+      // 3. 登出按鈕 (新功能)
+      _.$('#btn-logout', container)?.addEventListener('click', () => {
+        if (confirm('確定要登出嗎？Token 將被清除。')) {
+          GM_deleteValue(CONSTANTS.KEYS.TOKEN);
+          UI.showToast('👋 已登出');
+          UI.loadTabContent('settings');
+        }
+      });
+
+      // 4. 手動輸入模式的輔助功能 (Client ID 連結生成 & 複製)
+      _.$('#ref-url-btn', container)?.addEventListener('click', function () {
+        GM_setClipboard('https://anilist.co/api/v2/oauth/pin');
+        UI.showToast('✅ 網址已複製！');
+      });
+
+      _.$('#client-id', container)?.addEventListener('input', function () {
+        const id = this.value.trim();
+        const btn = _.$('#auth-link', container);
+        if (id.length > 0) {
+          btn.href = `https://anilist.co/api/v2/oauth/authorize?client_id=${id}&response_type=token`;
+          btn.style.opacity = '1';
+          btn.style.pointerEvents = 'auto';
+          btn.textContent = '前往授權';
+        } else {
+          btn.href = '#';
+          btn.style.opacity = '0.5';
+          btn.style.pointerEvents = 'none';
+          btn.textContent = '前往授權';
+        }
+      });
+
+      // 5. [恢復] 統一設定儲存 (原本的功能)
       const toggleCustom = () => {
         _.$('#custom-sec-group', container).style.display =
           _.$('#set-mode', container).value === 'custom' ? 'flex' : 'none';
       };
-      toggleCustom();
       _.$('#set-mode', container).addEventListener('change', toggleCustom);
+      toggleCustom();
 
-      const updateAuth = () => {
-        const id = _.$('#client-id', container).value.trim();
-        const btn = _.$('#auth-link', container);
-        if (id.length > 0) {
-          btn.href = `https://anilist.co/api/v2/oauth/authorize?client_id=${id}&response_type=token`;
-          btn.style.cssText = 'opacity:1;cursor:pointer;pointer-events:auto;background:#3db4f2;';
-          btn.textContent = '前往授權';
-        } else {
-          btn.href = 'javascript:void(0)';
-          btn.style.cssText = 'opacity:0.5;cursor:not-allowed;pointer-events:none;background:#555;';
-          btn.textContent = '請輸入 ID';
-        }
-      };
-      _.$('#client-id', container).addEventListener('input', updateAuth);
-      updateAuth();
-
-      _.$('#ref-url-btn', container).addEventListener('click', function () {
-        GM_setClipboard('https://anilist.co/api/v2/oauth/pin');
-        UI.showToast('✅ 網址已複製！');
-      });
       _.$('#save-set', container).addEventListener('click', () => {
-        const newToken = _.$('#set-token', container).value.trim();
+        // 嘗試抓取手動輸入框的值 (如果存在)
+        const tokenInput = _.$('#set-token', container);
+        const newToken = tokenInput ? tokenInput.value.trim() : token; // 如果是已登入狀態，維持原Token
+
         const newMode = _.$('#set-mode', container).value;
         const customSec = parseInt(_.$('#set-custom-sec', container).value);
-        if (!newToken) {
-          return UI.showToast('❌ 請輸入 Token');
+
+        if (!newToken && !token) {
+          // 如果原本沒Token，且手動輸入框也是空的
+          return UI.showToast('❌ 請輸入 Token 或使用一鍵登入');
         }
+
         if (newMode === 'custom' && (isNaN(customSec) || customSec < 1)) {
           return UI.showToast('❌ 請輸入有效的秒數(最少1秒)');
         }
-        GM_setValue(CONSTANTS.KEYS.TOKEN, newToken);
+
+        if (newToken) {
+          GM_setValue(CONSTANTS.KEYS.TOKEN, newToken);
+        }
         GM_setValue(CONSTANTS.KEYS.SYNC_MODE, newMode);
         if (!isNaN(customSec)) {
           GM_setValue(CONSTANTS.KEYS.CUSTOM_SEC, customSec);
         }
+
         UI.showToast('✅ 設定已儲存，重新整理中...');
         setTimeout(() => {
           return location.reload();
@@ -1844,6 +1909,23 @@
       if (!GM_getValue(CONSTANTS.KEYS.TOKEN)) {
         Log.warn('Token 未設定');
       }
+      window.addEventListener(
+        'message',
+        (event) => {
+          if (event.data && event.data.type === 'ANILIST_AUTH_TOKEN') {
+            const token = event.data.token;
+            if (token) {
+              GM_setValue(CONSTANTS.KEYS.TOKEN, token);
+              UI.showToast('🎉 授權成功！正在重新整理...');
+              Log.info('Token received via OAuth');
+              setTimeout(() => {
+                location.reload();
+              }, 1000);
+            }
+          }
+        },
+        false,
+      );
       this.waitForNavbar();
       this.startMonitor();
       this.handleTimeUpdate = this.handleTimeUpdate.bind(this);
