@@ -69,12 +69,14 @@
         // 2. 透過 postMessage 將 Token 傳回母視窗
         if (window.opener) {
           try {
+            const targetOrigin = 'https://ani.gamer.com.tw';
+
             window.opener.postMessage(
               {
                 type: 'ANILIST_AUTH_TOKEN',
                 token: accessToken,
               },
-              '*',
+              targetOrigin,
             );
 
             statusEl.innerText = '授權成功！';
