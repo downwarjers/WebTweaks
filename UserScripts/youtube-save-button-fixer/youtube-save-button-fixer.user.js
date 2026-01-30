@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 影片儲存按鈕強制顯示
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      2.3.1
+// @version      2.4.0
 // @description  強制在 YouTube 影片操作列顯示「儲存」（加入播放清單）按鈕。當視窗縮放導致按鈕被收入「...」選單時，自動複製並生成一個獨立的按鈕置於操作列上。
 // @author       downwarjers
 // @license      MIT
@@ -17,8 +17,11 @@
   'use strict';
 
   const MY_BTN_LABEL = '儲存';
-  const CONTAINER_ID = 'my-save-button-container';
-  const TARGET_CONTAINER_SELECTOR = '#flexible-item-buttons';
+  const CONTAINER_ID = 'my-save-dock';
+
+  let compressionFailCount = 0; // 記錄被壓縮失敗的次數
+  let stopFixing = false; // 是否停止強制顯示按鈕
+  const MAX_FAILURES = 3; // 最大容許失敗次數
 
   const NATIVE_BTN_SELECTORS = [
     'button[aria-label="儲存至播放清單"]',
@@ -27,29 +30,23 @@
 
   // === CSS ===
   GM_addStyle(`
+        /* 獨立特區樣式 
+           這個容器位於 #actions-inner 的左邊，不受內部 Flex 影響
+        */
         #${CONTAINER_ID} {
             display: flex;
-            flex-direction: row;
             align-items: center;
-            justify-content: center;
-            position: relative;
-            flex: 0 0 auto; 
-            margin-left: 8px;
+            flex-shrink: 0 !important; /* 絕對不准壓縮 */
+            margin-right: 8px;         /* 跟右邊的按讚按鈕保持距離 */
         }
-        #${CONTAINER_ID} button svg {
-            width: 24px;
-            height: 24px;
-            display: block;
-            fill: currentColor;
-            pointer-events: none;
-        }
+
+        /* 隱形點擊遮罩 */
         body.yt-proxy-clicking ytd-popup-container {
             opacity: 0 !important;
             pointer-events: none !important;
         }
     `);
 
-  // === 隱形點擊邏輯 ===
   async function executeInvisibleClick(threeDotButton) {
     document.body.classList.add('yt-proxy-clicking');
     try {
@@ -96,44 +93,55 @@
     });
   }
 
-  // === 建立按鈕 DOM ===
-  function createMyButton(flexibleContainer) {
-    const menuRenderer = flexibleContainer.closest('ytd-menu-renderer');
-    if (!menuRenderer) {
+  // === 建立按鈕 DOM (複製 Share 按鈕樣式) ===
+  function createDockButton(menuRenderer) {
+    const shareBtn =
+      menuRenderer.querySelector('button[aria-label="分享"]') ||
+      menuRenderer.querySelector('button[aria-label="Share"]') ||
+      menuRenderer.querySelector('button');
+
+    if (!shareBtn) {
       return null;
     }
-
     const threeDotButtonShape = menuRenderer.querySelector('yt-button-shape#button-shape button');
     if (!threeDotButtonShape) {
       return null;
     }
 
-    const refButton = flexibleContainer.querySelector('button');
-    if (!refButton) {
-      return null;
-    }
-
-    const clonedBtn = refButton.cloneNode(true);
+    const clonedBtn = shareBtn.cloneNode(true);
     clonedBtn.id = '';
     clonedBtn.removeAttribute('title');
     clonedBtn.setAttribute('aria-label', MY_BTN_LABEL);
+    clonedBtn.style.cssText = '';
 
-    const iconContainer =
-      clonedBtn.querySelector('.yt-spec-button-shape-next__icon') ||
-      clonedBtn.querySelector('yt-icon');
+    // 樣式標準化：確保是膠囊樣式
+    clonedBtn.classList.remove('yt-spec-button-shape-next--icon-button');
+    clonedBtn.classList.remove('yt-spec-button-shape-next--segmented-start');
+    clonedBtn.classList.remove('yt-spec-button-shape-next--segmented-end');
+
+    clonedBtn.classList.add('yt-spec-button-shape-next--tonal');
+    clonedBtn.classList.add('yt-spec-button-shape-next--icon-leading');
+    clonedBtn.classList.add('yt-spec-button-shape-next--size-m');
+
+    // Icon
+    let iconContainer = clonedBtn.querySelector('.yt-spec-button-shape-next__icon');
     if (iconContainer) {
       iconContainer.innerHTML = `
-                <svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" class="style-scope yt-icon" style="pointer-events: none; display: block; width: 100%; height: 100%;">
-                    <path d="M19 2H5a2 2 0 00-2 2v16.887c0 1.266 1.382 2.048 2.469 1.399L12 18.366l6.531 3.919c1.087.652 2.469-.131 2.469-1.397V4a2 2 0 00-2-2ZM5 20.233V4h14v16.233l-6.485-3.89-.515-.309-.515.309L5 20.233Z"></path>
-                </svg>`;
+                <div style="width: 24px; height: 24px; display: block; fill: currentcolor;">
+                <svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" style="pointer-events: none; display: block; width: 100%; height: 100%;">
+                    <path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"></path>
+                </svg>
+                </div>`;
     }
 
-    const textContainer =
-      clonedBtn.querySelector('.yt-spec-button-shape-next__button-text-content') ||
-      clonedBtn.querySelector('div[class*="text-content"]');
-    if (textContainer) {
-      textContainer.innerText = MY_BTN_LABEL;
+    // Text
+    let textContainer = clonedBtn.querySelector('.yt-spec-button-shape-next__button-text-content');
+    if (!textContainer) {
+      textContainer = document.createElement('div');
+      textContainer.className = 'yt-spec-button-shape-next__button-text-content';
+      clonedBtn.appendChild(textContainer);
     }
+    textContainer.innerHTML = `<span class="yt-core-attributed-string yt-core-attributed-string--white-space-no-wrap" role="text">${MY_BTN_LABEL}</span>`;
 
     clonedBtn.onclick = (e) => {
       e.preventDefault();
@@ -141,76 +149,105 @@
       executeInvisibleClick(threeDotButtonShape);
     };
 
-    const container = document.createElement('div');
-    container.id = CONTAINER_ID;
-    container.appendChild(clonedBtn);
-    return container;
+    return clonedBtn;
   }
 
-  // === 主邏輯：檢查並切換 ===
+  // === 主邏輯 ===
   function checkAndToggle() {
-    const flexibleContainer = document.querySelector(TARGET_CONTAINER_SELECTOR);
-    if (!flexibleContainer) {
+    if (stopFixing) {
+      const myDock = document.getElementById(CONTAINER_ID);
+      if (myDock) {
+        myDock.style.display = 'none';
+      }
       return;
     }
 
-    // 1. 尋找原生按鈕 (只在 flexible-item-buttons 容器內找)
+    // 1. 找到大容器 #actions (包含 actions-inner 和 menu)
+    const actionsContainer = document.querySelector('#actions');
+    const actionsInner = document.querySelector('#actions-inner');
+
+    if (!actionsContainer || !actionsInner) {
+      return;
+    }
+
+    const menuRenderer = actionsInner.querySelector('ytd-menu-renderer');
+    if (!menuRenderer) {
+      return;
+    }
+
+    // 2. 判斷原生按鈕狀態
+    let isNativeVisible = false;
     let nativeBtn = null;
     for (const selector of NATIVE_BTN_SELECTORS) {
-      const found = flexibleContainer.querySelector(selector);
+      const found = menuRenderer.querySelector(selector);
       if (found) {
         nativeBtn = found;
         break;
       }
     }
 
-    // 2. 判斷原生按鈕狀態
-    // 如果 nativeBtn 存在於 DOM 且 offsetParent 不為 null，代表它「在場上」
-    const isNativeVisible = nativeBtn && nativeBtn.offsetParent !== null;
-
-    // 3. 處理自製按鈕
-    let myContainer = document.getElementById(CONTAINER_ID);
-
-    if (isNativeVisible) {
-      // 原生按鈕在 -> 隱藏自製
-      if (myContainer && myContainer.style.display !== 'none') {
-        myContainer.style.display = 'none';
+    if (nativeBtn) {
+      const flexibleContainer = nativeBtn.closest('#flexible-item-buttons');
+      if (flexibleContainer) {
+        const rect = flexibleContainer.getBoundingClientRect();
+        if (rect.width > 2 && window.getComputedStyle(flexibleContainer).display !== 'none') {
+          isNativeVisible = true;
+        }
+      } else if (nativeBtn.offsetParent !== null) {
+        isNativeVisible = true;
       }
-    } else {
-      // 原生按鈕不在 (被擠走了) -> 顯示自製
-      if (!myContainer) {
-        myContainer = createMyButton(flexibleContainer);
-        if (myContainer) {
-          // 插在 flexibleContainer 後面
-          if (flexibleContainer.nextSibling) {
-            flexibleContainer.parentNode.insertBefore(myContainer, flexibleContainer.nextSibling);
-          } else {
-            flexibleContainer.parentNode.appendChild(myContainer);
-          }
+    }
+
+    // 3. 處理Dock
+    let myDock = document.getElementById(CONTAINER_ID);
+
+    if (!myDock) {
+      const btn = createDockButton(menuRenderer);
+      if (btn) {
+        myDock = document.createElement('div');
+        myDock.id = CONTAINER_ID;
+        myDock.appendChild(btn);
+
+        actionsContainer.insertBefore(myDock, actionsInner);
+      }
+    }
+
+    if (myDock && myDock.style.display === 'flex') {
+      if (myDock.offsetWidth < 10) {
+        compressionFailCount++;
+        console.warn(`[YouTube Save Fix] 按鈕被壓縮 (${compressionFailCount}/${MAX_FAILURES})`);
+
+        if (compressionFailCount >= MAX_FAILURES) {
+          stopFixing = true;
+          console.error('[YouTube Save Fix] 空間不足，停止強制顯示以免閃爍。');
+          myDock.style.display = 'none';
+          return;
         }
       } else {
-        if (myContainer.style.display !== 'flex') {
-          myContainer.style.display = 'flex';
-        }
+        compressionFailCount = 0;
+      }
+    }
+
+    // 4. 切換顯示
+    if (myDock) {
+      if (isNativeVisible) {
+        myDock.style.display = 'none';
+      } else {
+        myDock.style.display = 'flex';
       }
     }
   }
 
-  // === 智慧監聽器管理 ===
-
-  let currentObservedContainer = null;
+  // === 監聽器 ===
   let resizeObserver = null;
   let mutationObserver = null;
 
   function attachObservers() {
-    const flexibleContainer = document.querySelector(TARGET_CONTAINER_SELECTOR);
-
-    // 如果容器還沒出現，或者已經對這個容器掛過監聽了，就跳過
-    if (!flexibleContainer || flexibleContainer === currentObservedContainer) {
+    const actionsContainer = document.querySelector('#actions');
+    if (!actionsContainer) {
       return;
     }
 
-    // 清除舊的 (以防換頁後 DOM 殘留)
     if (resizeObserver) {
       resizeObserver.disconnect();
     }
@@ -218,44 +255,45 @@
       mutationObserver.disconnect();
     }
 
-    currentObservedContainer = flexibleContainer;
-
-    // 1. ResizeObserver: 監聽容器寬度變化 (視窗縮放時觸發)
+    let resizeTimeout;
     resizeObserver = new ResizeObserver(() => {
-      // 這裡不 debounce，追求即時性
-      checkAndToggle();
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(checkAndToggle, 100);
     });
-    resizeObserver.observe(flexibleContainer);
+    resizeObserver.observe(actionsContainer);
 
-    // 2. MutationObserver: 監聽容器內容變化 (YouTube 把按鈕移進移出時觸發)
-    mutationObserver = new MutationObserver(() => {
-      checkAndToggle();
+    mutationObserver = new MutationObserver((mutations) => {
+      const isSelfMutation = mutations.some((m) => {
+        return (
+          m.target.id === CONTAINER_ID ||
+          (m.addedNodes.length > 0 && m.addedNodes[0].id === CONTAINER_ID)
+        );
+      });
+      if (!isSelfMutation) {
+        checkAndToggle();
+      }
     });
-    mutationObserver.observe(flexibleContainer, { childList: true, subtree: true });
 
-    console.log('[YouTube Save Fix] 已鎖定按鈕容器，啟動即時監聽');
+    const actionsInner = document.querySelector('#actions-inner');
+    if (actionsInner) {
+      mutationObserver.observe(actionsInner, { childList: true, subtree: true });
+    }
 
-    // 掛載後立刻檢查一次
     checkAndToggle();
   }
 
-  // === 全域監聽 (負責初始化與 SPA 換頁偵測) ===
-
-  // 用來偵測 flexible-item-buttons 何時出現在 DOM 中
   const globalObserver = new MutationObserver(() => {
-    attachObservers();
-    // 額外保險：如果已經掛載了，但某些非容器內的變動發生，也檢查一下
-    if (currentObservedContainer) {
-      checkAndToggle();
+    if (document.querySelector('#actions')) {
+      attachObservers();
     }
   });
 
   globalObserver.observe(document.body, { childList: true, subtree: true });
 
-  // 初始化
-  setTimeout(attachObservers, 500);
+  setTimeout(attachObservers, 1500);
   window.addEventListener('yt-navigate-finish', () => {
-    currentObservedContainer = null; // 重置狀態
-    setTimeout(attachObservers, 500);
+    stopFixing = false;
+    compressionFailCount = 0;
+    setTimeout(attachObservers, 1500);
   });
 })();
