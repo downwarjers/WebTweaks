@@ -184,6 +184,11 @@
 * **說明**: 調整 Netflix/YouTube 上 Language Reactor (原 LLN) 插件的字幕面板位置，將其強制固定在螢幕底部 5% 的位置。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/language-reactor-position-setting/language-reactor-position-setting.user.css)
 
+### ofiii 歐飛移除暫停與遮擋廣告
+* **資料夾名稱**: `ofiii-clean-player`
+* **說明**: 隱藏 ofiii (歐飛) 影片暫停時的 internal_banner 彈出視窗與其他遮擋元素。
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/ofiii-clean-player/ofiii-clean-player.user.css)
+
 ### 移除巴哈小屋背景圖
 * **資料夾名稱**: `remove-baha-home-background`
 * **說明**: 強制移除巴哈姆特小屋（home.gamer.com.tw）的自訂背景圖片，將背景設為無。
