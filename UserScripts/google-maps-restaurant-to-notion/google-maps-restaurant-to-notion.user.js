@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Maps Share to Notion
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.2.1
+// @version      3.2.2
 // @description  在 Google Maps 分享視窗嵌入 Notion 面板，自動擷取店名/地址/行政區/URL，支援重複檢查、分類選擇與備註填寫。
 // @author       downwarjers
 // @license      MIT
@@ -498,8 +498,13 @@
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.addedNodes.length) {
-        const shareModal = document.querySelector('div.hdeJwf[role="dialog"]');
-        if (shareModal && !document.querySelector('#notion-custom-panel')) {
+        const shareModal = document.querySelector('div[role="dialog"]');
+        // 確保視窗存在、尚未插入面板，且視窗內有 input (通常是分享連結框)，避免誤判其他彈窗
+        if (
+          shareModal &&
+          !document.querySelector('#notion-custom-panel') &&
+          shareModal.querySelector('input')
+        ) {
           injectUI(shareModal);
         }
       }
@@ -509,9 +514,21 @@
 
   // UI 注入
   function injectUI(modal) {
-    const socialSection = modal.querySelector('.LenJEf');
+    const linkInput = modal.querySelector('input');
+    if (!linkInput) {
+      return;
+    }
+
+    // 通常 input 的父層的父層就是社交按鈕區塊的容器
+    // 這裡使用 closest('div') 往上找一層，再找 parentElement，這在目前的 Google Maps 版本是穩定的結構
+    const socialSection = linkInput.closest('div')?.parentElement;
+
+    // 再次確認 container 存在
     const container = socialSection?.parentNode;
-    if (!container) {
+
+    // 如果找不到 container，表示結構又變了，直接放棄以避免報錯
+    if (!container || !socialSection) {
+      // console.log('Notion Script: 找不到插入點，請檢查 Google Maps 結構');
       return;
     }
 
@@ -685,12 +702,21 @@
 
   // 資料提取 (使用 CONFIG 中的變數)
   function extractData(modal) {
-    const nameEl = modal.querySelector('.TDF87d');
-    const addressEl = modal.querySelector('.vKmG2c');
-    const urlInput = modal.querySelector('input.vrsrZe');
+    const nameEl = modal.querySelector('h1');
+    let name = nameEl ? nameEl.innerText.trim() : document.title.replace(' - Google 地圖', '');
 
-    let name = nameEl ? nameEl.innerText.trim() : '';
-    const fullAddress = addressEl ? addressEl.innerText : '';
+    // 嘗試抓取地址：
+    // 2025/2月 版本觀察到地址通常在一個帶有特定 data-item-id 或 aria-label 的容器裡
+    // 這裡嘗試幾個可能的選擇器，如果都失敗則留空
+    const addressEl =
+      modal.querySelector('[data-item-id="address"]') ||
+      modal.querySelector('div[aria-label^="地址:"]') ||
+      modal.querySelector('.vKmG2c'); // 保留舊的以防萬一
+
+    const fullAddress = addressEl ? addressEl.innerText.replace('地址:', '').trim() : '';
+
+    // 抓取 URL：直接抓視窗裡唯一的 input 元素即可
+    const urlInput = modal.querySelector('input');
     const shortUrl = urlInput ? urlInput.value : window.location.href;
 
     let city = '';
