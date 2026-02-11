@@ -110,6 +110,11 @@
 * **說明**: 調整 Niconico 動畫的彈幕大小。透過劫持 Canvas 的 `width`/`height` 屬性與 `getContext` 方法，提高渲染解析度，使彈幕字體相對變小/變清晰。支援快捷鍵調整縮放倍率（Shift + `+` / `-`）。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/niconico-danmaku-zoom-in/niconico-danmaku-zoom-in.user.js)
 
+### TMDB to Simkl 面板
+* **資料夾名稱**: `tmdb-to-simkl-panel`
+* **說明**: 在 TMDB 影劇頁面插入獨立的 Simkl 控制面板，支援一鍵快速跳轉搜尋
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/tmdb-to-simkl-panel/tmdb-to-simkl-panel.user.js)
+
 ### Twitch 精確日期轉換器
 * **資料夾名稱**: `twitch-date-converter`
 * **說明**: 將 Twitch 影片/剪輯列表上的相對時間（如「2小時前」、「3天前」）替換為精確的日期格式（yyyy-MM-dd）。直接讀取縮圖元素中的 `title` 屬性（原始時間戳），確保日期準確。
