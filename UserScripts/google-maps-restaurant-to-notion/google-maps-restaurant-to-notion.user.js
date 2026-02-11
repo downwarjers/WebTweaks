@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Maps Share to Notion
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.2.2
+// @version      3.2.3
 // @description  在 Google Maps 分享視窗嵌入 Notion 面板，自動擷取店名/地址/行政區/URL，支援重複檢查、分類選擇與備註填寫。
 // @author       downwarjers
 // @license      MIT
@@ -701,44 +701,92 @@
   }
 
   // 資料提取 (使用 CONFIG 中的變數)
+  // ==========================================
+  // 🟢 請替換原本的 extractData 函式 (基於圖片錨點版)
+  // ==========================================
   function extractData(modal) {
-    const nameEl = modal.querySelector('h1');
-    let name = nameEl ? nameEl.innerText.trim() : document.title.replace(' - Google 地圖', '');
+    let name = '';
+    let address = '';
 
-    // 嘗試抓取地址：
-    // 2025/2月 版本觀察到地址通常在一個帶有特定 data-item-id 或 aria-label 的容器裡
-    // 這裡嘗試幾個可能的選擇器，如果都失敗則留空
-    const addressEl =
-      modal.querySelector('[data-item-id="address"]') ||
-      modal.querySelector('div[aria-label^="地址:"]') ||
-      modal.querySelector('.vKmG2c'); // 保留舊的以防萬一
+    // 【核心策略：利用圖片定位】
+    // 你的觀察：圖片旁邊就是文字區塊。
+    // 1. 在 modal 裡找那張縮圖 (通常 src 會有 'streetviewpixels' 或 'googleusercontent'，或者寬度大於 50px)
+    const images = Array.from(modal.querySelectorAll('img'));
+    const thumbImg = images.find(
+      (img) => {
+        return (
+          (img.src.includes('streetviewpixels') ||
+            img.src.includes('googleusercontent') ||
+            img.width > 50) &&
+          !img.closest('button')
+        );
+      }, // 排除按鈕裡的 icon
+    );
 
-    const fullAddress = addressEl ? addressEl.innerText.replace('地址:', '').trim() : '';
+    if (thumbImg) {
+      // 2. 找到圖片的父容器 (那個 64x64 的 div)
+      const imgContainer = thumbImg.parentNode;
 
-    // 抓取 URL：直接抓視窗裡唯一的 input 元素即可
+      // 3. 找到圖片容器的「下一個兄弟元素」 (就是文字區塊 .iAj9Vc)
+      const textContainer = imgContainer.nextElementSibling;
+
+      if (textContainer) {
+        // 4. 文字區塊的第一個子元素通常是【店名】
+        if (textContainer.children[0]) {
+          name = textContainer.children[0].innerText.trim();
+        }
+        // 5. 文字區塊的第二個子元素通常是【地址】
+        if (textContainer.children[1]) {
+          address = textContainer.children[1].innerText.trim();
+        }
+      }
+    }
+
+    // 【備援策略：如果結構改變，退回到使用特定 Class】
+    // 這是為了防止萬一 Google 把圖片移走了，我們還能靠舊方法撐一下
+    if (!name) {
+      const nameEl = modal.querySelector('.TDF87d') || modal.querySelector('h1');
+      if (nameEl) {
+        name = nameEl.innerText.trim();
+      }
+    }
+    if (!address) {
+      const addressEl =
+        modal.querySelector('.vKmG2c') || modal.querySelector('[data-item-id="address"]');
+      if (addressEl) {
+        address = addressEl.innerText.replace('地址:', '').trim();
+      }
+    }
+
+    // 【最後防線：網頁標題】
+    if (!name || name === '分享' || name === 'Share') {
+      name = document.title.replace(/ - Google.*$/, '').trim();
+    }
+
+    // --- 抓取 URL 與 解析行政區 (保持不變) ---
     const urlInput = modal.querySelector('input');
     const shortUrl = urlInput ? urlInput.value : window.location.href;
 
     let city = '';
     let district = '';
 
-    // 1. 抓取縣市 (使用 CONFIG.DATA.CITIES)
+    // 1. 抓取縣市
     const foundCity = CONFIG.DATA.CITIES.find((c) => {
-      return fullAddress.includes(c);
+      return address.includes(c);
     });
     if (foundCity) {
       city = foundCity;
     }
 
-    // 2. 抓取行政區 (使用 CONFIG.DATA.DISTRICTS)
+    // 2. 抓取行政區
     const foundDistrict = CONFIG.DATA.DISTRICTS.find((d) => {
-      return fullAddress.includes(d);
+      return address.includes(d);
     });
     if (foundDistrict) {
       district = foundDistrict;
     }
 
-    return { name, address: fullAddress, url: shortUrl, city, district };
+    return { name, address, url: shortUrl, city, district };
   }
 
   // API: Check Duplicate (使用 CONFIG.NOTION_PROPS)
