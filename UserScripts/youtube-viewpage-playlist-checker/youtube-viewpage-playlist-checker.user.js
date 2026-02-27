@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 影片頁面播放清單檢查器
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      29.10.4
+// @version      29.11.0
 // @description  在 YouTube 影片頁面顯示當前影片是否已加入使用者的任何自訂播放清單。透過呼叫 YouTube 內部 API (`get_add_to_playlist`) 檢查狀態，並在影片標題上方顯示結果。
 // @author       downwarjers
 // @license      MIT
@@ -59,8 +59,36 @@
   let currentVideoId = null;
   let snackbarObserver = null;
   let popupObserver = null;
-  let debounceTimer = null;
-  let isChecking = false; // 這是防止重複執行的鎖
+  let isChecking = false; // 防止重複執行的鎖
+
+  // 🌟 新增：輪詢專用變數與控制器
+  let pollTimer = null;
+  let pollAttempts = 0;
+  const MAX_POLLS = 6; // 總共檢查 6 次
+  const POLL_INTERVAL = 4000; // 每次間隔 4 秒 (總共約 24 秒的監控期)
+
+  function startPlaylistPolling() {
+    if (pollTimer) {
+      clearTimeout(pollTimer);
+    }
+    pollAttempts = 0;
+
+    showStatus('⏳ 伺服器同步中...', 'syncing');
+
+    const poll = async () => {
+      pollAttempts++;
+      await checkPlaylists(); // 抓取並更新畫面
+
+      if (pollAttempts < MAX_POLLS) {
+        pollTimer = setTimeout(poll, POLL_INTERVAL);
+      } else {
+        pollAttempts = 0; // 結束輪詢
+      }
+    };
+
+    // 關閉選單後，先等 2 秒發動第一次檢查
+    pollTimer = setTimeout(poll, 2000);
+  }
 
   // ==========================================
   // 1. 介面控制
@@ -276,14 +304,18 @@
         }
       }
 
-      if (!params) {
-        throw new Error('API Params Not Found');
-      }
+      // if (!params) {
+      //   throw new Error('API Params Not Found');
+      // }
 
       const currentUrlId = new URLSearchParams(window.location.search).get('v');
       const finalVideoId = videoIdFromEndpoint || currentUrlId;
       const apiKey = ytConfig.get('INNERTUBE_API_KEY');
-      const context = ytConfig.get('INNERTUBE_CONTEXT');
+      const context = JSON.parse(JSON.stringify(ytConfig.get('INNERTUBE_CONTEXT')));
+      if (!context.client) {
+        context.client = {};
+      }
+      context.client.clientMessageId = 'ytpc-' + Math.random().toString(36).substring(2, 10);
       const sessionIndex = ytConfig.get('SESSION_INDEX') || '0';
       const authHeader = await generateSAPISIDHASH();
 
@@ -302,10 +334,10 @@
             'X-Goog-AuthUser': sessionIndex,
           },
           credentials: 'include',
+          cache: 'no-store', // 🌟 加入這行確保瀏覽器不快取
           body: JSON.stringify({
             context: context,
             videoIds: [finalVideoId],
-            params: params,
           }),
         },
       );
@@ -341,12 +373,15 @@
         }
       });
 
+      const isPolling = pollAttempts > 0 && pollAttempts < MAX_POLLS;
+      const pollText = isPolling
+        ? `<span style="font-size: 0.75em; color: #aaa; margin-left: 8px;">(🔄 多次確認中 ${pollAttempts}/${MAX_POLLS})</span>`
+        : '';
+
       const html =
         added.length > 0
-          ? `✅ 本影片已存在於：<span style="color: #4af; font-weight:bold;">${added.join(
-              '、 ',
-            )}</span>`
-          : `⚪ 未加入任何自訂清單`;
+          ? `✅ 本影片已存在於：<span style="color: #4af; font-weight:bold;">${added.join('、 ')}</span>${pollText}`
+          : `⚪ 未加入任何自訂清單${pollText}`;
 
       showStatus(html, '');
     } catch (e) {
@@ -361,6 +396,11 @@
   // 5. 觸發與監聽
   // ==========================================
   window.addEventListener('yt-navigate-finish', function () {
+    if (pollTimer) {
+      clearTimeout(pollTimer);
+      pollAttempts = 0;
+    }
+
     const newVideoId = new URLSearchParams(window.location.search).get('v');
 
     const statusEl = document.getElementById('my-playlist-status');
@@ -396,7 +436,6 @@
     if (snackbarObserver) {
       return;
     }
-
     const container = document.querySelector('snackbar-container');
     if (!container) {
       setTimeout(initSnackbarObserver, 2000);
@@ -405,38 +444,24 @@
 
     snackbarObserver = new MutationObserver((mutations) => {
       const hasToast = container.childElementCount > 0;
-
       if (hasToast) {
-        // Toast 出現：代表忙碌中，強制顯示同步狀態
-
-        if (debounceTimer) {
-          clearTimeout(debounceTimer);
+        if (pollTimer) {
+          clearTimeout(pollTimer);
         }
-        showStatus('⏳ 同步中...', 'syncing');
+        pollAttempts = 0;
+        showStatus('⏳ 準備同步...', 'syncing');
       } else {
-        // Toast 消失：代表閒置，執行更新
-
-        if (debounceTimer) {
-          clearTimeout(debounceTimer);
-        }
-        checkPlaylists();
+        startPlaylistPolling(); // 🌟 呼叫輪詢函數
       }
     });
 
-    snackbarObserver.observe(container, {
-      childList: true,
-      subtree: true,
-    });
+    snackbarObserver.observe(container, { childList: true, subtree: true });
   }
 
-  // ==========================================
-  // ytd-popup-container 的監聽器
-  // ==========================================
   function initPopupContainerObserver() {
     if (popupObserver) {
       return;
     }
-
     const popupContainer = document.querySelector('ytd-popup-container');
     if (!popupContainer) {
       setTimeout(initPopupContainerObserver, 2000);
@@ -444,54 +469,37 @@
     }
 
     let wasVisible = false;
-
     const checkState = () => {
-      // 抓取所有彈出訊息 (包含 toast 與 notification)
       const toasts = popupContainer.querySelectorAll(
         'tp-yt-paper-toast, yt-notification-action-renderer',
       );
-
       let isVisibleNow = false;
-
-      // 檢查是否有任何一個訊息是顯示中的
       toasts.forEach((toast) => {
         const style = window.getComputedStyle(toast);
-        // 排除 display:none, aria-hidden, 以及透明度為 0 的情況
         const isHidden =
           style.display === 'none' ||
           (toast.hasAttribute('aria-hidden') && toast.getAttribute('aria-hidden') === 'true') ||
           style.opacity === '0';
-
         if (!isHidden && toast.innerText.trim().length > 0) {
           isVisibleNow = true;
         }
       });
 
-      // 1. [無 -> 有] 訊息跳出來了
       if (isVisibleNow && !wasVisible) {
-        if (debounceTimer) {
-          clearTimeout(debounceTimer);
+        if (pollTimer) {
+          clearTimeout(pollTimer);
         }
-        showStatus('⏳ 同步中...', 'syncing');
+        pollAttempts = 0;
+        showStatus('⏳ 準備同步...', 'syncing');
+      } else if (!isVisibleNow && wasVisible) {
+        startPlaylistPolling(); // 🌟 呼叫輪詢函數
       }
-
-      // 2. [有 -> 無] 訊息消失了
-      else if (!isVisibleNow && wasVisible) {
-        if (debounceTimer) {
-          clearTimeout(debounceTimer);
-        }
-        debounceTimer = setTimeout(() => {
-          checkPlaylists();
-        }, 800);
-      }
-
       wasVisible = isVisibleNow;
     };
 
-    popupObserver = new MutationObserver((mutations) => {
-      checkState();
+    popupObserver = new MutationObserver(() => {
+      return checkState();
     });
-
     popupObserver.observe(popupContainer, {
       childList: true,
       subtree: true,
