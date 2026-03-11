@@ -1,0 +1,22 @@
+/* ==UserStyle==
+@name         隱藏 IYF.tv 播放器 LOGO
+@namespace    https://github.com/downwarjers/WebTweaks
+@description  去除 iyf.tv 影片播放器上的疊加 LOGO 圖片
+@version      0.1
+@author       downwarjers
+@license      MIT
+@updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/iyf-hide-video-logo/iyf-hide-video-logo.user.css
+==/UserStyle== */
+
+@-moz-document domain("iyf.tv") {
+  /* 選取 LOGO 所在的 div 並將其隱藏 */
+  .overlay-logo.ng-star-inserted {
+    display: none !important;
+  }
+
+  /* 額外保險：如果播放器結構有變動，這可以確保背景圖不顯示 */
+  .overlay-logo {
+    background-image: none !important;
+    visibility: hidden !important;
+  }
+}
