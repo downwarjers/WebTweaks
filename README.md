@@ -184,6 +184,11 @@
 * **說明**: Immersive Translate 字幕位置與遮擋問題
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/immersive-translate-position-setting/immersive-translate-position-setting.user.css)
 
+### 隱藏 IYF.tv 播放器 LOGO
+* **資料夾名稱**: `iyf-hide-video-logo`
+* **說明**: 去除 iyf.tv 影片播放器上的疊加 LOGO 圖片
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/iyf-hide-video-logo/iyf-hide-video-logo.user.css)
+
 ### Language Reactor 字幕位置調整
 * **資料夾名稱**: `language-reactor-position-setting`
 * **說明**: 調整 Netflix/YouTube 上 Language Reactor (原 LLN) 插件的字幕面板位置，將其強制固定在螢幕底部 5% 的位置。
