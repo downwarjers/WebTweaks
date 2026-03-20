@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList (Beta)
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList (Beta)
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.8.1
+// @version              6.9.0
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI(Beta 版本)
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI(Beta 版本)
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI(Beta 版本)
@@ -57,6 +57,7 @@
       TOKEN: 'ANILIST_TOKEN', // AniList Access Token
       SYNC_MODE: 'SYNC_MODE', // 同步模式的設定
       CUSTOM_SEC: 'SYNC_CUSTOM_SECONDS', // 自訂秒數的數值
+      CUSTOM_PCT: 'SYNC_CUSTOM_PERCENTAGE', // 自訂百分比的數值
     },
 
     // --- DOM 元素選擇器 (Selectors) ---
@@ -96,7 +97,8 @@
       INSTANT: { value: 'instant', label: '🚀 即時同步 (播放 5 秒後)' },
       TWO_MIN: { value: '2min', label: '⏳ 觀看確認 (播放 2 分鐘後)' },
       EIGHTY_PCT: { value: '80pct', label: '🏁 快看完時 (進度 80%)' },
-      CUSTOM: { value: 'custom', label: '⚙️ 自訂時間' },
+      CUSTOM_SEC: { value: 'custom_sec', label: '⚙️ 自訂時間' },
+      CUSTOM_PCT: { value: 'custom_pct', label: '📊 自訂進度 (%)' },
     },
 
     // --- AniList 狀態 ---
@@ -994,7 +996,7 @@
       <div id="tab-settings" class="al-tab-pane ${activeTab === 'settings' ? 'active' : ''}"></div>
     `;
     },
-    settings: (token, mode, customSec) => {
+    settings: (token, mode, customSec, customPct) => {
       const optionsHtml = Object.values(CONSTANTS.SYNC_MODES)
         .map((m) => {
           return `<option value="${m.value}" ${mode === m.value ? 'selected' : ''}>
@@ -1079,6 +1081,12 @@
               <input type="number" id="set-custom-sec" class="al-input al-input-sm" value="${customSec}" min="1" style="width:80px;">
               <span class="al-text-sub al-text-sm">秒後同步</span>
             </div>
+
+            <div id="custom-pct-group" class="al-flex al-items-center al-gap-2 al-mt-2" style="display:none;">
+              <span class="al-text-sub al-text-sm">播放進度達：</span>
+              <input type="number" id="set-custom-pct" class="al-input al-input-sm" value="${customPct}" min="1" max="100" style="width:80px;">
+              <span class="al-text-sub al-text-sm">% 後同步</span>
+              </div>
           </div>
 
           <button id="save-set" class="al-btn al-btn-success al-btn-block al-mt-2">儲存設定</button>
@@ -1486,11 +1494,17 @@
       const token = GM_getValue(CONSTANTS.KEYS.TOKEN, '');
       const mode = GM_getValue(CONSTANTS.KEYS.SYNC_MODE, 'instant');
       const savedCustomSeconds = GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, 60);
+      const savedCustomPercentage = GM_getValue(CONSTANTS.KEYS.CUSTOM_PCT, 80);
 
       // 一鍵驗證的連結
       const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${CONSTANTS.ANILIST_CLIENT_ID}&response_type=token`;
 
-      container.innerHTML = Templates.settings(token, mode, savedCustomSeconds);
+      container.innerHTML = Templates.settings(
+        token,
+        mode,
+        savedCustomSeconds,
+        savedCustomPercentage,
+      );
 
       // 自動驗證
       if (token) {
@@ -1595,13 +1609,17 @@
 
       // 5. 統一設定儲存
       const toggleCustom = () => {
+        const modeValue = _.$('#set-mode', container).value;
         _.$('#custom-sec-group', container).style.display =
-          _.$('#set-mode', container).value === 'custom' ? 'flex' : 'none';
+          modeValue === 'custom_sec' ? 'flex' : 'none';
+        _.$('#custom-pct-group', container).style.display =
+          modeValue === 'custom_pct' ? 'flex' : 'none';
       };
       _.$('#set-mode', container).addEventListener('change', toggleCustom);
       toggleCustom();
 
       _.$('#save-set', container).addEventListener('click', () => {
+        // ... 儲存 token 的邏輯保持不變 ...
         const tokenInput = _.$('#set-token', container);
         const newToken = tokenInput ? tokenInput.value.trim() : null;
 
@@ -1613,6 +1631,13 @@
         const customSec = parseInt(_.$('#set-custom-sec', container).value);
         if (!isNaN(customSec)) {
           GM_setValue(CONSTANTS.KEYS.CUSTOM_SEC, customSec);
+        }
+
+        const customPct = parseInt(_.$('#set-custom-pct', container).value);
+        if (!isNaN(customPct)) {
+          // 確保數值在 1 到 100 之間
+          const clampedPct = Math.min(Math.max(customPct, 1), 100);
+          GM_setValue(CONSTANTS.KEYS.CUSTOM_PCT, clampedPct);
         }
 
         UI.showToast('✅ 設定已儲存，重新整理中...');
@@ -2136,7 +2161,8 @@
       }
       State.syncSettings = {
         mode: GM_getValue(CONSTANTS.KEYS.SYNC_MODE, 'instant'),
-        custom: GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, 60),
+        customSec: GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, 60),
+        customPct: GM_getValue(CONSTANTS.KEYS.CUSTOM_PCT, 80),
       };
 
       const video = await _.waitForElement(CONSTANTS.SELECTORS.PAGE.videoElement, 120000);
@@ -2178,7 +2204,7 @@
         return;
       }
 
-      const { mode, custom } = State.syncSettings;
+      const { mode, customSec, customPct } = State.syncSettings;
       let shouldSync = false;
 
       if (mode === CONSTANTS.SYNC_MODES.INSTANT.value) {
@@ -2187,8 +2213,10 @@
         shouldSync = video.currentTime > 120;
       } else if (mode === CONSTANTS.SYNC_MODES.EIGHTY_PCT.value) {
         shouldSync = video.duration > 0 && video.currentTime / video.duration > 0.8;
-      } else if (mode === CONSTANTS.SYNC_MODES.CUSTOM.value) {
-        shouldSync = video.currentTime > custom;
+      } else if (mode === CONSTANTS.SYNC_MODES.CUSTOM_SEC.value) {
+        shouldSync = video.currentTime > customSec;
+      } else if (mode === CONSTANTS.SYNC_MODES.CUSTOM_PCT.value) {
+        shouldSync = video.duration > 0 && video.currentTime / video.duration > customPct / 100;
       }
 
       if (shouldSync) {
