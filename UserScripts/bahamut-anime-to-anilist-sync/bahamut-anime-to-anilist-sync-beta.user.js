@@ -679,46 +679,69 @@
      * @param {Array} chain - AniList 的系列作列表
      * @param {Number} targetId - 定錨的作品 ID (使用者當前選中或綁定的 ID)
      * @param {Number} anchorStart - 定錨作品在巴哈的起始集數
-     * @returns {Array} 處理過的 chain，每個物件會多一個 calculatedStart 屬性
+     * @param {Object} uiState - 目前畫面上的啟用狀態與手動輸入值 (例如: {123: 1, 456: null})
      */
-    calculateOffsets(chain, targetId, anchorStart) {
-      // 1. 找出錨點位置
+    calculateOffsets(chain, targetId, anchorStart, uiState = {}) {
       let anchorIndex = chain.findIndex((m) => {
         return m.id === targetId;
       });
-
-      // 如果鏈中沒有目標 ID，手動加入
       if (anchorIndex === -1 && targetId) {
         return chain;
       }
 
-      // 2. 絕對定錨
+      // 檢查 targetId 是否在 uiState 有手動輸入，優先使用
+      let baseStart = anchorStart;
+      if (uiState[targetId] !== undefined && uiState[targetId] !== null) {
+        baseStart = uiState[targetId];
+      }
       if (chain[anchorIndex]) {
-        chain[anchorIndex].calculatedStart = anchorStart;
+        chain[anchorIndex].calculatedStart = baseStart;
       }
 
-      // 3. 向前推算 (Pre-quels)
+      // 向前推算 (Pre-quels)
+      let nextValidStart = chain[anchorIndex].calculatedStart;
       for (let i = anchorIndex - 1; i >= 0; i--) {
-        const next = chain[i + 1];
         const current = chain[i];
-        if (next.calculatedStart === undefined) {
-          break;
+        const epCount = current.episodes || 12;
+
+        // 若 UI 有手動輸入數值，優先使用；否則自動推算
+        if (uiState[current.id] !== undefined && uiState[current.id] !== null) {
+          current.calculatedStart = uiState[current.id];
+        } else {
+          current.calculatedStart = nextValidStart - epCount;
         }
-        const epCount = current.episodes || 12; // 若無集數資料，預設 12 (避免無限回推錯誤)
-        current.calculatedStart = next.calculatedStart - epCount;
+
+        // 判斷此作品是否啟用 (存在於 uiState，或未傳入規則時預設全開)
+        const isRuleActive =
+          Object.keys(uiState).length === 0 ||
+          uiState.hasOwnProperty(current.id) ||
+          current.id === targetId;
+        if (isRuleActive) {
+          nextValidStart = current.calculatedStart;
+        }
       }
 
-      // 4. 向後推算 (Sequels)
+      // 向後推算 (Sequels)
+      let prevValidStart = chain[anchorIndex].calculatedStart;
+      let prevValidEpisodes = chain[anchorIndex].episodes || 0;
+
       for (let i = anchorIndex + 1; i < chain.length; i++) {
-        const prev = chain[i - 1];
         const current = chain[i];
 
-        // 前作如果是連載中 (episodes: null) 或是計算中斷，則停止推算
-        if (!prev.episodes || prev.calculatedStart === undefined) {
-          break;
+        if (uiState[current.id] !== undefined && uiState[current.id] !== null) {
+          current.calculatedStart = uiState[current.id];
+        } else {
+          current.calculatedStart = prevValidStart + prevValidEpisodes;
         }
 
-        current.calculatedStart = prev.calculatedStart + prev.episodes;
+        const isRuleActive =
+          Object.keys(uiState).length === 0 ||
+          uiState.hasOwnProperty(current.id) ||
+          current.id === targetId;
+        if (isRuleActive) {
+          prevValidStart = current.calculatedStart;
+          prevValidEpisodes = current.episodes || 0;
+        }
       }
 
       return chain;
@@ -920,9 +943,10 @@
       // 1. 設定目標格式
       const rootFormat = root.format;
       let targetFormats = [];
-      if (['OVA', 'SPECIAL'].includes(rootFormat)) {
-        targetFormats = ['OVA', 'SPECIAL'];
-      } else if (rootFormat === 'MOVIE') {
+      // if (['OVA', 'SPECIAL'].includes(rootFormat)) {
+      //   targetFormats = ['OVA', 'SPECIAL'];
+      // } else
+      if (rootFormat === 'MOVIE') {
         targetFormats = ['MOVIE'];
       } else {
         targetFormats = ['TV', 'TV_SHORT', 'ONA', 'OVA', 'SPECIAL'];
@@ -1269,12 +1293,12 @@
           </td>
           <td style="text-align:center; width:50px;">${m.episodes || '?'}</td>
           <td style="text-align:center; width:70px;">
-             <input type="number" class="inp-start al-input al-input-sm" placeholder="巴哈" 
+             <input type="number" class="inp-start al-input al-input-sm" placeholder="1" 
                value="${bahaVal !== undefined ? bahaVal : ''}" style="width:100%;">
           </td>
           <td style="text-align:center; width:20px; color:var(--al-text-sub);">⮕</td>
           <td style="text-align:center; width:70px;">
-             <input type="number" class="inp-ani-start al-input al-input-sm" placeholder="Ani" 
+             <input type="number" class="inp-ani-start al-input al-input-sm" placeholder="1" 
                value="${defaultAniVal}" style="width:100%;">
           </td>
           <td style="text-align:center; width:80px;">
@@ -1823,7 +1847,12 @@
         // 如果有綁定過，用綁定的值當錨點；否則用頁面最小值
         const anchorStart = baseRule ? baseRule.bahaStart || baseRule.start : pageMin || 1;
 
-        SeriesLogic.calculateOffsets(chain, searchId, anchorStart);
+        const initialUIState = {};
+        State.rules.forEach((r) => {
+          initialUIState[r.id] = r.bahaStart !== undefined ? r.bahaStart : r.start;
+        });
+
+        SeriesLogic.calculateOffsets(chain, searchId, anchorStart, initialUIState);
 
         let rowsHtml = '';
         chain.forEach((m) => {
@@ -1888,6 +1917,38 @@
               <button id="save-series" class="al-btn al-btn-success al-btn-block al-mt-4">儲存系列設定</button>
           </div>
       `;
+        const refreshUIOffsets = () => {
+          const uiState = {};
+          _.$$('.series-row', container).forEach((r) => {
+            const cb = _.$('.cb-active', r);
+            if (cb.checked) {
+              const id = parseInt(r.dataset.id);
+              const val = parseInt(_.$('.inp-start', r).value);
+              // 如果勾選但沒輸入數字，保留 null 讓它自動推算；若有數字則強制作為基準
+              uiState[id] = isNaN(val) ? null : val;
+            }
+          });
+
+          // 即時重新計算
+          SeriesLogic.calculateOffsets(chain, searchId, anchorStart, uiState);
+
+          // 更新畫面上其他行的「建議數值」與輸入框提示 (placeholder)
+          _.$$('.series-row', container).forEach((r) => {
+            const id = parseInt(r.dataset.id);
+            const m = chain.find((x) => {
+              return x.id === id;
+            });
+            if (m && m.calculatedStart !== undefined) {
+              const btn = _.$('.btn-toggle', r);
+              btn.dataset.suggested = m.calculatedStart; // 偷藏在按鈕上的值
+
+              const cb = _.$('.cb-active', r);
+              if (!cb.checked) {
+                _.$('.inp-start', r).placeholder = m.calculatedStart;
+              }
+            }
+          });
+        };
 
         const updateRow = (row, active, val) => {
           const btn = _.$('.btn-toggle', row);
@@ -1927,6 +1988,7 @@
 
             inp.value = '';
           }
+          refreshUIOffsets();
         };
 
         _.$$('.btn-toggle', container).forEach((btn) => {
@@ -1981,9 +2043,15 @@
 
           App.saveRules(newRules);
 
-          UI.showToast('✅ 系列設定已儲存，請重新整理');
+          UI.showToast('✅ 系列設定已儲存，重新整理中...');
           _.fadeOut(_.$('#al-modal'));
+
+          setTimeout(() => {
+            return location.reload();
+          }, 500);
         });
+
+        refreshUIOffsets();
       } catch (e) {
         container.innerHTML = `<div class=".al-p-4" style="color:red;">載入失敗: ${e.message}</div>`;
       }
@@ -2468,7 +2536,11 @@
         const pageMax = EpisodeCalculator.getMax();
         const anchorStart = pageMin !== null ? pageMin : 1;
 
-        SeriesLogic.calculateOffsets(chain, targetId, anchorStart);
+        const currentUIState = {};
+        State.rules.forEach((r) => {
+          currentUIState[r.id] = r.bahaStart || r.start;
+        });
+        SeriesLogic.calculateOffsets(chain, targetId, anchorStart, currentUIState);
 
         const targetMedia = chain.find((x) => {
           return x.id === targetId;
