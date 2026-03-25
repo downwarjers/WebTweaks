@@ -639,19 +639,28 @@
       return null;
     },
     _getAllEpisodes() {
-      const seasonUls = _.$$(CONSTANTS.SELECTORS.PAGE.seasonUl);
-      if (seasonUls.length === 0) {
+      // 1. 優先尋找「正在播放 (.playing)」集數所在列表 (ul)
+      const playingEl = _.$(
+        `${CONSTANTS.SELECTORS.PAGE.seasonList}${CONSTANTS.SELECTORS.PAGE.playing}`,
+      );
+      let targetUl = playingEl ? playingEl.closest('ul') : null;
+
+      // 2. 找不到正在播放的元素，抓取第一個列表
+      if (!targetUl) {
+        targetUl = _.$(CONSTANTS.SELECTORS.PAGE.seasonUl);
+      }
+
+      if (!targetUl) {
         return [];
       }
 
       const episodes = [];
-      seasonUls.forEach((ul) => {
-        ul.querySelectorAll('li').forEach((li) => {
-          const t = li.textContent.trim();
-          if (/^\d+$/.test(t)) {
-            episodes.push(parseInt(t, 10));
-          }
-        });
+      targetUl.querySelectorAll('li').forEach((li) => {
+        const t = li.textContent.trim();
+        // 確認內容是純數字才加入 (排除像是 36.5 這種小數點集數)
+        if (/^\d+$/.test(t)) {
+          episodes.push(parseInt(t, 10));
+        }
       });
       return episodes;
     },
@@ -943,10 +952,9 @@
       // 1. 設定目標格式
       const rootFormat = root.format;
       let targetFormats = [];
-      // if (['OVA', 'SPECIAL'].includes(rootFormat)) {
-      //   targetFormats = ['OVA', 'SPECIAL'];
-      // } else
-      if (rootFormat === 'MOVIE') {
+      if (['OVA', 'SPECIAL'].includes(rootFormat)) {
+        targetFormats = ['OVA', 'SPECIAL'];
+      } else if (rootFormat === 'MOVIE') {
         targetFormats = ['MOVIE'];
       } else {
         targetFormats = ['TV', 'TV_SHORT', 'ONA', 'OVA', 'SPECIAL'];
@@ -989,8 +997,8 @@
         const dateA = Utils.toJsDate(a.startDate);
         const dateB = Utils.toJsDate(b.startDate);
 
-        const timeA = dateA ? dateA.getTime() : 0;
-        const timeB = dateB ? dateB.getTime() : 0;
+        const timeA = dateA ? dateA.getTime() : Infinity;
+        const timeB = dateB ? dateB.getTime() : Infinity;
 
         if (timeA === timeB) {
           return a.id - b.id;
