@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.9.2
+// @version              6.9.3
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -2406,6 +2406,9 @@
         } else if (errStr.includes('Too Many Requests')) {
           State.stopSync = true;
           UI.showToast('⚠️ 請求過於頻繁，已暫停同步');
+        } else if (errStr.includes('維護中')) {
+          State.stopSync = true;
+          UI.showToast('⚠️ 伺服器維護中，已暫停自動同步');
         } else {
           UI.updateNav(CONSTANTS.STATUS.ERROR, '同步失敗');
           setTimeout(() => {
