@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.9.3
+// @version              6.9.4
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -365,6 +365,7 @@
     hasSynced: false, // 本集是否已執行過同步 (防止重複發送)
     isHunting: false, // 是否正在搜尋播放器元素 (<video>)
     stopSync: false, // 全域停止同步開關 (發生嚴重錯誤或頻繁請求時)
+    isMaintenance: false, // 伺服器維護狀態
     // huntTimer: null, // 搜尋播放器的 setInterval ID
     lastTimeUpdate: 0, // 上次處理 timeupdate 事件的時間戳
 
@@ -809,6 +810,8 @@
                   );
                 },
                 execute: () => {
+                  State.isMaintenance = true;
+                  State.stopSync = true;
                   const info = 'AniList 維護中';
                   UI.updateNav(CONSTANTS.STATUS.ERROR, info);
                   UI.showToast('⚠️ 伺服器維護中，API 暫時關閉，詳情請至 AniList Discord 查看');
@@ -1315,6 +1318,25 @@
         </tr>
       `;
     },
+    errorCard: (msg, isMaintenance) => {
+      if (isMaintenance) {
+        return `
+          <div class="al-p-4">
+            <div class="al-card" style="border-color: var(--al-danger); background: rgba(239, 68, 68, 0.05);">
+              <div class="al-font-bold al-text-danger al-mb-2 al-flex al-items-center al-gap-2">
+                <span style="font-size:18px;">⚠️</span> 伺服器維護中
+              </div>
+              <div class="al-text-sm al-text-sub" style="line-height: 1.5;">
+                AniList 目前正在進行維護，暫時無法取得相關資料。<br><br>
+                <a href="https://discord.com/invite/anilist" target="_blank" class="al-btn al-btn-outline al-btn-sm al-w-full" style="justify-content: center;">
+                  前往官方 Discord 查看最新狀態
+                </a>
+              </div>
+            </div>
+          </div>`;
+      }
+      return `<div class="al-p-4" style="color:var(--al-danger); font-weight:bold;">Error: ${msg}</div>`;
+    },
   };
 
   const UI = {
@@ -1580,12 +1602,16 @@
 
             const title = _.$('#auth-title', container);
             if (title) {
-              title.textContent = 'Token 無效';
+              title.textContent = State.isMaintenance ? '伺服器維護中' : 'Token 無效';
             }
 
             const sub = _.$('#auth-sub', container);
             if (sub) {
-              sub.textContent = '請檢查 Token 或重新登入';
+              if (State.isMaintenance) {
+                sub.innerHTML = `API 暫時關閉。<a href="https://discord.com/invite/anilist" target="_blank" class="al-link">前往 Discord 查看狀態</a>`;
+              } else {
+                sub.textContent = '請檢查 Token 或重新登入';
+              }
             }
           });
       }
@@ -1765,7 +1791,7 @@
           UI.loadTabContent('home');
         });
       } catch (e) {
-        container.innerHTML = `<div class=".al-p-4" style="color:red;">Error: ${e.message}</div>`;
+        container.innerHTML = Templates.errorCard(e.message, State.isMaintenance);
       }
     },
     renderHomeUnbound(container) {
@@ -1799,7 +1825,7 @@
             });
           });
         } catch (e) {
-          resContainer.innerHTML = `<div style="color:red;">Error: ${e.message}</div>`;
+          resContainer.innerHTML = Templates.errorCard(e.message, State.isMaintenance);
         }
       };
 
@@ -2061,7 +2087,7 @@
 
         refreshUIOffsets();
       } catch (e) {
-        container.innerHTML = `<div class=".al-p-4" style="color:red;">載入失敗: ${e.message}</div>`;
+        container.innerHTML = Templates.errorCard(e.message, State.isMaintenance);
       }
     },
   };
@@ -2397,7 +2423,9 @@
       } catch (e) {
         const errStr = e.message;
         UI.updateNav(CONSTANTS.STATUS.ERROR, '同步失敗');
-        if (errStr.includes('Token') || errStr.includes('Invalid Token')) {
+        if (State.isMaintenance) {
+          UI.showToast('⚠️ 伺服器維護中，已暫停自動同步');
+        } else if (errStr.includes('Token') || errStr.includes('Invalid Token')) {
           State.tokenErrorCount++;
           if (State.tokenErrorCount >= 3) {
             State.stopSync = true;
@@ -2406,9 +2434,6 @@
         } else if (errStr.includes('Too Many Requests')) {
           State.stopSync = true;
           UI.showToast('⚠️ 請求過於頻繁，已暫停同步');
-        } else if (errStr.includes('維護中')) {
-          State.stopSync = true;
-          UI.showToast('⚠️ 伺服器維護中，已暫停自動同步');
         } else {
           UI.updateNav(CONSTANTS.STATUS.ERROR, '同步失敗');
           setTimeout(() => {
