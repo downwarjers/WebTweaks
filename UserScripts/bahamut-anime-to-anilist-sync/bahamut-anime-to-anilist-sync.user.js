@@ -1446,6 +1446,7 @@
           CONSTANTS.STATUS.SYNCING,
           CONSTANTS.STATUS.DONE,
           CONSTANTS.STATUS.INFO,
+          CONSTANTS.STATUS.ERROR,
         ].includes(type);
 
       if (showTitle) {
@@ -2008,7 +2009,11 @@
 
             // 自動填入建議值
             if (val !== undefined && val !== '') {
-              inp.value = val;
+              let suggestedVal = parseInt(val, 10);
+              if (suggestedVal < 1) {
+                suggestedVal = 1;
+              }
+              inp.value = suggestedVal;
             }
             if (inpAni.value === '') {
               inpAni.value = 1;
@@ -2021,6 +2026,7 @@
             btn.classList.add('al-btn-outline'); // 線框按鈕
 
             inp.value = '';
+            inpAni.value = '';
           }
           refreshUIOffsets();
         };
@@ -2039,11 +2045,22 @@
 
         _.$$('.inp-start', container).forEach((inp) => {
           inp.addEventListener('input', function () {
+            if (this.value !== '' && Number(this.value) < 0) {
+              this.value = 0;
+            }
             const row = this.closest('tr');
             if (this.value) {
               updateRow(row, true);
             } else {
               updateRow(row, false);
+            }
+          });
+        });
+
+        _.$$('.inp-ani-start', container).forEach((inp) => {
+          inp.addEventListener('input', function () {
+            if (this.value !== '' && Number(this.value) < 0) {
+              this.value = 0;
             }
           });
         });
@@ -2281,7 +2298,7 @@
           State.isHunting = false;
 
           if (State.rules.length > 0) {
-            UI.updateNav(CONSTANTS.STATUS.BOUND);
+            this.updateUIStatus();
           }
         }
       } else {
@@ -2710,6 +2727,7 @@
     updateUIStatus() {
       if (!GM_getValue(CONSTANTS.KEYS.TOKEN)) {
         UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
+        return;
       }
       const isVideoPage = location.href.includes(CONSTANTS.URLS.VIDEO_PAGE);
       if (!isVideoPage) {
@@ -2718,6 +2736,8 @@
       }
       if (State.rules.length === 0) {
         UI.updateNav(CONSTANTS.STATUS.UNBOUND);
+      } else if (State.isMaintenance) {
+        UI.updateNav(CONSTANTS.STATUS.ERROR, 'AniList 維護中');
       } else {
         UI.updateNav(CONSTANTS.STATUS.BOUND);
       }
