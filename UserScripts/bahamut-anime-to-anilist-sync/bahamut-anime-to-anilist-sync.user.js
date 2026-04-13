@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.9.5
+// @version              6.9.6
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -237,6 +237,14 @@
         return newObj;
       }
       return input;
+    },
+    decodeHTML(html) {
+      if (!html) {
+        return '';
+      }
+      const txt = document.createElement('textarea');
+      txt.innerHTML = html;
+      return txt.value;
     },
     jsDateToInt: (d) => {
       return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
@@ -1450,8 +1458,9 @@
         ].includes(type);
 
       if (showTitle) {
-        $title.textContent = rule.title;
-        $title.title = rule.title;
+        const decodedTitle = Utils.decodeHTML(rule.title);
+        $title.textContent = decodedTitle;
+        $title.title = decodedTitle;
         $title.style.display = 'inline-block';
         if (State.userStatus) {
           const { status, progress } = State.userStatus;
@@ -1714,13 +1723,13 @@
       container.innerHTML = '<div class=".al-p-4">讀取中...</div>';
 
       let rule = State.activeRule;
-      let isUnknownEp = false;
+      // 修改這裡：直接讓系統判斷取出的集數是不是 null (例如總集篇的小數點)
+      let isUnknownEp = EpisodeCalculator.getRawCurrent() === null;
 
       // 如果當前集數沒有對應規則，則借用第一條規則的 ID 來顯示資訊
       if (!rule) {
         if (State.rules.length > 0) {
           rule = State.rules[0]; // 借用系列 ID
-          isUnknownEp = true; // 標記為未知集數
         } else {
           return this.renderHomeUnbound(container);
         }
@@ -2250,16 +2259,22 @@
       }
       const currentEp = EpisodeCalculator.getRawCurrent();
 
-      // 如果 currentEp 是 null，則不套用任何規則
-      if (currentEp !== null) {
+      // 如果 currentEp 為 null（例如總集篇 X.5），使用 parseFromTitle 獲取浮點數判斷
+      let targetEp = currentEp;
+      if (targetEp === null) {
+        targetEp = EpisodeCalculator.parseFromTitle();
+      }
+
+      if (targetEp !== null) {
         State.activeRule =
           State.rules.find((r) => {
-            return currentEp >= r.start;
+            return targetEp >= r.start;
           }) || State.rules[State.rules.length - 1];
       } else {
-        // 正在看小數點集數，暫時不對應規則
-        State.activeRule = null;
+        // 找不到集數，預設抓第一條規則顯示 UI
+        State.activeRule = State.rules[0];
       }
+
       if (State.activeRule && GM_getValue(CONSTANTS.KEYS.TOKEN)) {
         try {
           const data = await AniListAPI.getMediaAndStatus(State.activeRule.id);
