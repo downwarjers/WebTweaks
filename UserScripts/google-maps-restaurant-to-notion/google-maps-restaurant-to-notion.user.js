@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Google Maps Share to Notion
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.2.3
+// @version      3.2.4
 // @description  在 Google Maps 分享視窗嵌入 Notion 面板，自動擷取店名/地址/行政區/URL，支援重複檢查、分類選擇與備註填寫。
 // @author       downwarjers
 // @license      MIT
@@ -55,7 +55,7 @@
       // 台灣 22 縣市列表
       CITIES: [
         '基隆市',
-        '台北市',
+        '臺北市',
         '新北市',
         '桃園市',
         '新竹市',
@@ -486,24 +486,82 @@
 
   // CSS
   GM_addStyle(`
+        /* 保留原有的舊版樣式 */
         .LenJEf { display: flex !important; justify-content: flex-end !important; gap: 5px !important; margin-top: 5px !important; opacity: 0.6; transition: opacity 0.2s; }
         .LenJEf:hover { opacity: 1; }
         .LenJEf button { flex-direction: row !important; padding: 4px 8px !important; height: auto !important; border: 1px solid #eee !important; border-radius: 15px !important; background: transparent !important; }
         .LenJEf .XDlzbe { display: none !important; }
         .LenJEf .fCbqBc { width: 20px !important; height: 20px !important; margin: 0 !important; }
         .LenJEf img, .LenJEf span.google-symbols { width: 20px !important; height: 20px !important; font-size: 20px !important; }
-    `);
 
+        /* 新增：Notion 面板的絕對不溢出樣式 */
+        #notion-custom-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px; 
+            width: 100%; 
+            max-width: 100%; /* 🌟 絕對禁止超出父容器 */
+            box-sizing: border-box; /* 🌟 確保邊框和內距都算在寬度內 */
+            padding: 16px 0px; /* 🌟 左右 padding 設為 0，直接使用 Google Maps 預設的邊距 */
+            margin: 0; 
+            border-top: 1px solid #dadce0;
+        }
+        .notion-row {
+            display: flex;
+            align-items: center;
+            gap: 10px; 
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        .notion-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #3c4043;
+            white-space: nowrap; 
+            min-width: 35px; /* 確保標籤文字不換行 */
+        }
+        .notion-input {
+            flex: 1; 
+            min-width: 0; /* 🌟 防呆關鍵：強制允許 Flex 子元素縮小到 0，不撐破外框 */
+            width: 100%;
+            padding: 8px 12px; 
+            border-radius: 8px;
+            border: 1px solid #dadce0;
+            font-size: 14px;
+            background-color: white;
+            color: #202124;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s; 
+        }
+        .notion-input:focus {
+            border-color: #1a73e8; 
+        }
+        .notion-btn {
+            color: white;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            width: 100%;
+            box-sizing: border-box; /* 確保按鈕不會超出版面 */
+            margin-top: 4px; 
+            transition: background-color 0.2s;
+        }
+  `);
   // 監聽器
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.addedNodes.length) {
         const shareModal = document.querySelector('div[role="dialog"]');
-        // 確保視窗存在、尚未插入面板，且視窗內有 input (通常是分享連結框)，避免誤判其他彈窗
+        // 確保視窗存在，尚未插入面板，且出現了新版的預覽區塊
         if (
           shareModal &&
           !document.querySelector('#notion-custom-panel') &&
-          shareModal.querySelector('input')
+          shareModal.querySelector('div[data-skw-id="preview"]')
         ) {
           injectUI(shareModal);
         }
@@ -514,21 +572,10 @@
 
   // UI 注入
   function injectUI(modal) {
-    const linkInput = modal.querySelector('input');
-    if (!linkInput) {
-      return;
-    }
-
-    // 通常 input 的父層的父層就是社交按鈕區塊的容器
-    // 這裡使用 closest('div') 往上找一層，再找 parentElement，這在目前的 Google Maps 版本是穩定的結構
-    const socialSection = linkInput.closest('div')?.parentElement;
-
-    // 再次確認 container 存在
+    const socialSection = modal.querySelector('div[data-skw-id="app-sharing"]');
     const container = socialSection?.parentNode;
 
-    // 如果找不到 container，表示結構又變了，直接放棄以避免報錯
     if (!container || !socialSection) {
-      // console.log('Notion Script: 找不到插入點，請檢查 Google Maps 結構');
       return;
     }
 
@@ -538,22 +585,17 @@
 
     const panel = document.createElement('div');
     panel.id = 'notion-custom-panel';
-    panel.style.cssText = `margin-top: 0px; padding: 10px 0px; border-top: 1px solid #dadce0; display: flex; flex-direction: column; gap: 8px;`;
 
     const createRow = () => {
       const div = document.createElement('div');
-      div.style.display = 'flex';
-      div.style.alignItems = 'center';
-      div.style.gap = '10px';
+      div.className = 'notion-row'; // 套用 CSS
       return div;
     };
+
     const createLabel = (text) => {
       const lbl = document.createElement('label');
+      lbl.className = 'notion-label'; // 套用 CSS
       lbl.innerText = text;
-      lbl.style.fontSize = '13px';
-      lbl.style.fontWeight = 'bold';
-      lbl.style.color = '#202124';
-      lbl.style.minWidth = '35px';
       return lbl;
     };
 
@@ -562,14 +604,14 @@
     const nameInput = document.createElement('input');
     nameInput.type = 'text';
     nameInput.value = initialData.name;
-    nameInput.style.cssText = `flex-grow: 1; padding: 6px 8px; border-radius: 4px; border: 1px solid #dadce0; font-size: 14px;`;
+    nameInput.className = 'notion-input'; // 套用 CSS
     row1.appendChild(createLabel('名稱:'));
     row1.appendChild(nameInput);
 
-    // Row 2: Category (From CONFIG)
+    // Row 2: Category
     const row2 = createRow();
     const select = document.createElement('select');
-    select.style.cssText = `flex-grow: 1; padding: 6px; border-radius: 4px; border: 1px solid #dadce0; background-color: white;`;
+    select.className = 'notion-input'; // 套用 CSS
     const defaultOption = document.createElement('option');
     defaultOption.text = '-- 請選擇 --';
     defaultOption.value = '';
@@ -594,22 +636,24 @@
     const noteInput = document.createElement('input');
     noteInput.type = 'text';
     noteInput.placeholder = '選填...';
-    noteInput.style.cssText = `flex-grow: 1; padding: 6px 8px; border-radius: 4px; border: 1px solid #dadce0; font-size: 14px;`;
+    noteInput.className = 'notion-input'; // 套用 CSS
     row3.appendChild(createLabel('備註:'));
     row3.appendChild(noteInput);
 
-    // Row 4: Location (Editable)
+    // Row 4: Location (自動均分空間)
     const row4 = createRow();
     const cityInput = document.createElement('input');
     cityInput.type = 'text';
     cityInput.value = initialData.city;
     cityInput.placeholder = '縣市';
-    cityInput.style.cssText = `flex-grow: 1; width: 50%; padding: 6px 8px; border-radius: 4px; border: 1px solid #dadce0; font-size: 14px;`;
+    cityInput.className = 'notion-input'; // 套用 CSS
+
     const districtInput = document.createElement('input');
     districtInput.type = 'text';
     districtInput.value = initialData.district;
     districtInput.placeholder = '行政區';
-    districtInput.style.cssText = `flex-grow: 1; width: 50%; padding: 6px 8px; border-radius: 4px; border: 1px solid #dadce0; font-size: 14px;`;
+    districtInput.className = 'notion-input'; // 套用 CSS
+
     row4.appendChild(createLabel('位置:'));
     row4.appendChild(cityInput);
     row4.appendChild(districtInput);
@@ -618,15 +662,19 @@
     const statusMsg = document.createElement('div');
     statusMsg.style.fontSize = '12px';
     statusMsg.style.color = '#d93025';
+    statusMsg.style.textAlign = 'center';
 
     const btn = document.createElement('button');
+    btn.className = 'notion-btn'; // 套用 CSS
+
     if (!isConfigured) {
       btn.innerText = '⚠️ 請點此設定 API Key';
-      btn.style.cssText = `background-color: #fbbc04; color: black; padding: 8px 16px; border: none; border-radius: 18px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s;`;
+      btn.style.backgroundColor = '#fbbc04';
+      btn.style.color = '#202124';
       btn.onclick = askForSecrets;
     } else {
       btn.innerText = '新增至 Notion';
-      btn.style.cssText = `background-color: #1a73e8; color: white; padding: 8px 16px; border: none; border-radius: 18px; cursor: pointer; font-weight: 500; width: 100%; transition: 0.2s;`;
+      btn.style.backgroundColor = '#1a73e8';
       btn.onclick = async () => {
         const category = select.value;
         const finalName = nameInput.value.trim();
@@ -643,8 +691,8 @@
           return;
         }
 
-        const freshUrlInput = modal.querySelector('input.vrsrZe');
-        const freshUrl = freshUrlInput ? freshUrlInput.value : window.location.href;
+        const freshUrlEl = modal.querySelector('span.OT9z9b');
+        const freshUrl = freshUrlEl ? freshUrlEl.innerText.trim() : window.location.href;
 
         btn.disabled = true;
         btn.innerText = '檢查中...';
@@ -671,11 +719,14 @@
             btn.disabled = false;
           } else {
             btn.innerText = '寫入中...';
+            btn.style.backgroundColor = '#1a73e8';
             await sendToNotion(finalData, TOKEN, DB_ID);
             btn.innerText = '✅ 完成';
             btn.style.backgroundColor = '#188038';
             setTimeout(() => {
-              const closeBtn = modal.parentNode.querySelector('button[aria-label="關閉"]');
+              const closeBtn =
+                modal.querySelector('#header-close-button') ||
+                modal.querySelector('button[aria-label="Close"]');
               if (closeBtn) {
                 closeBtn.click();
               }
@@ -699,78 +750,41 @@
     panel.appendChild(btn);
     container.insertBefore(panel, socialSection);
   }
-
   // 資料提取 (使用 CONFIG 中的變數)
   // ==========================================
   // 🟢 請替換原本的 extractData 函式 (基於圖片錨點版)
   // ==========================================
+  // 資料提取 (支援新版介面)
   function extractData(modal) {
     let name = '';
     let address = '';
+    let shortUrl = window.location.href;
 
-    // 【核心策略：利用圖片定位】
-    // 你的觀察：圖片旁邊就是文字區塊。
-    // 1. 在 modal 裡找那張縮圖 (通常 src 會有 'streetviewpixels' 或 'googleusercontent'，或者寬度大於 50px)
-    const images = Array.from(modal.querySelectorAll('img'));
-    const thumbImg = images.find(
-      (img) => {
-        return (
-          (img.src.includes('streetviewpixels') ||
-            img.src.includes('googleusercontent') ||
-            img.width > 50) &&
-          !img.closest('button')
-        );
-      }, // 排除按鈕裡的 icon
-    );
-
-    if (thumbImg) {
-      // 2. 找到圖片的父容器 (那個 64x64 的 div)
-      const imgContainer = thumbImg.parentNode;
-
-      // 3. 找到圖片容器的「下一個兄弟元素」 (就是文字區塊 .iAj9Vc)
-      const textContainer = imgContainer.nextElementSibling;
-
-      if (textContainer) {
-        // 4. 文字區塊的第一個子元素通常是【店名】
-        if (textContainer.children[0]) {
-          name = textContainer.children[0].innerText.trim();
-        }
-        // 5. 文字區塊的第二個子元素通常是【地址】
-        if (textContainer.children[1]) {
-          address = textContainer.children[1].innerText.trim();
-        }
-      }
-    }
-
-    // 【備援策略：如果結構改變，退回到使用特定 Class】
-    // 這是為了防止萬一 Google 把圖片移走了，我們還能靠舊方法撐一下
-    if (!name) {
-      const nameEl = modal.querySelector('.TDF87d') || modal.querySelector('h1');
-      if (nameEl) {
-        name = nameEl.innerText.trim();
-      }
-    }
-    if (!address) {
-      const addressEl =
-        modal.querySelector('.vKmG2c') || modal.querySelector('[data-item-id="address"]');
-      if (addressEl) {
-        address = addressEl.innerText.replace('地址:', '').trim();
-      }
-    }
-
-    // 【最後防線：網頁標題】
-    if (!name || name === '分享' || name === 'Share') {
+    // 1. 擷取店名 (新版 class: lGA1Fd)
+    const nameEl = modal.querySelector('.lGA1Fd');
+    if (nameEl) {
+      name = nameEl.innerText.trim();
+    } else {
+      // 備援：從網頁標題擷取
       name = document.title.replace(/ - Google.*$/, '').trim();
     }
 
-    // --- 抓取 URL 與 解析行政區 (保持不變) ---
-    const urlInput = modal.querySelector('input');
-    const shortUrl = urlInput ? urlInput.value : window.location.href;
+    // 2. 擷取地址 (新版 class: jFtnKd)
+    const addressEl = modal.querySelector('.jFtnKd');
+    if (addressEl) {
+      address = addressEl.innerText.trim();
+    }
+
+    // 3. 擷取短網址 (新版放在 span.OT9z9b 內)
+    const urlEl = modal.querySelector('span.OT9z9b');
+    if (urlEl) {
+      shortUrl = urlEl.innerText.trim();
+    }
 
     let city = '';
     let district = '';
 
-    // 1. 抓取縣市
+    // 4. 抓取縣市
     const foundCity = CONFIG.DATA.CITIES.find((c) => {
       return address.includes(c);
     });
@@ -778,7 +792,7 @@
       city = foundCity;
     }
 
-    // 2. 抓取行政區
+    // 5. 抓取行政區
     const foundDistrict = CONFIG.DATA.DISTRICTS.find((d) => {
       return address.includes(d);
     });
