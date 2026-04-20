@@ -1,0 +1,33 @@
+/* ==UserStyle==
+@name         Miobt 版面重新排序
+@namespace    github.com/openstyles/stylus
+@version      0.1
+@description  強制將「下載地址」與「文件清單」移動到頁面最上方
+@author       downwarjers
+@license      MIT
+@updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/reorder-miobt-layout/reorder-miobt-layout.user.css
+==/UserStyle== */
+
+@-moz-document regexp("https?://(.*\\.)?(miobt\\.com|kisssub\\.org|comicat\\.org)/show-.*\\.html")
+{
+  .c2 {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .c2 > .clear {
+    display: none !important;
+  }
+
+  .c2 > * {
+    order: 10 !important;
+  }
+
+  #box_download {
+    order: 1 !important;
+  }
+
+  .c2 > .box:has(a[name='file']) {
+    order: 2 !important;
+  }
+}
