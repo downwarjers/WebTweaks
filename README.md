@@ -204,3 +204,8 @@
 * **說明**: 強制移除巴哈姆特小屋（home.gamer.com.tw）的自訂背景圖片，將背景設為無。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/remove-baha-home-background/remove-baha-home-background.user.css)
 
+### Miobt 版面重新排序
+* **資料夾名稱**: `reorder-miobt-layout`
+* **說明**: 強制將「下載地址」與「文件清單」移動到頁面最上方
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/reorder-miobt-layout/reorder-miobt-layout.user.css)
+
