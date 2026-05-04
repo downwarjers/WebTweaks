@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.10.0
+// @version              6.11.0
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -110,6 +110,15 @@
       REPEATING: { value: 'REPEATING', label: '🔁 重看中', anilist_label: 'Rewatching' },
       PAUSED: { value: 'PAUSED', label: '⏸️ 暫停', anilist_label: 'Paused' },
       DROPPED: { value: 'DROPPED', label: '🗑️ 棄番', anilist_label: 'Dropped' },
+    },
+
+    // --- 放映狀態 ---
+    MEDIA_STATUS: {
+      FINISHED: '已完結',
+      RELEASING: '連載中',
+      NOT_YET_RELEASED: '尚未開播',
+      CANCELLED: '已取消',
+      HIATUS: '暫停連載',
     },
 
     // --- 同步策略選項 ---
@@ -260,18 +269,42 @@
     jsDateToInt: (d) => {
       return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
     },
-    toJsDate(dObj) {
+    toJsDate(dObj, maximize = false) {
       if (!dObj?.year) {
         return null;
       }
-      return new Date(dObj.year, (dObj.month || 1) - 1, dObj.day || 1);
+
+      let month = dObj.month;
+      let day = dObj.day;
+
+      if (maximize) {
+        month = month || 12;
+        day = day || new Date(dObj.year, month, 0).getDate();
+      } else {
+        month = month || 1;
+        day = day || 1;
+      }
+
+      return new Date(dObj.year, month - 1, day);
     },
     formatDate: (dObj) => {
-      return !dObj || !dObj.year
-        ? '日期未定'
-        : `${dObj.year}/${String(dObj.month || 1).padStart(2, '0')}/${String(
-            dObj.day || 1,
-          ).padStart(2, '0')}`;
+      // 1. 若無年份，直接回傳未定
+      if (!dObj || !dObj.year) {
+        return '日期未定';
+      }
+
+      // 2. 若無月份，僅顯示年份
+      if (!dObj.month) {
+        return `${dObj.year}`;
+      }
+
+      // 3. 若無日期，顯示至月份
+      if (!dObj.day) {
+        return `${dObj.year}/${String(dObj.month).padStart(2, '0')}`;
+      }
+
+      // 4. 具備完整年、月、日
+      return `${dObj.year}/${String(dObj.month).padStart(2, '0')}/${String(dObj.day).padStart(2, '0')}`;
     },
     getFuzzyDateRange(dateObj, toleranceDays) {
       const target = this.toJsDate(dateObj);
@@ -398,10 +431,10 @@
 
   // #region ================= [GraphQL] 查詢字串 =================
   const GQL = {
-    MEDIA_FIELDS: `id title { romaji native } coverImage { medium } format episodes seasonYear startDate { year month day }`,
-    SEARCH: `query($s:String){Page(page:1,perPage:10){media(search:$s,type:ANIME,sort:SEARCH_MATCH){id title{romaji english native}coverImage{medium} episodes seasonYear startDate{year month day} format externalLinks{url site}}}}`,
-    SEARCH_RANGE: `query ($start:FuzzyDateInt,$end:FuzzyDateInt){Page(page:1,perPage:100){media(startDate_greater:$start,startDate_lesser:$end,type:ANIME,format_in:[MOVIE]){id title{romaji native}startDate{year month day}externalLinks{url site}}}}`,
-    GET_MEDIA: `query ($id:Int){Media(id:$id){id title{romaji native}coverImage{medium}seasonYear episodes startDate{year month day} format }}`,
+    MEDIA_FIELDS: `id title { romaji native } status coverImage { medium } format episodes seasonYear startDate { year month day }`,
+    SEARCH: `query($s:String){Page(page:1,perPage:10){media(search:$s,type:ANIME,sort:SEARCH_MATCH){id title{romaji english native} status coverImage{medium} episodes seasonYear startDate{year month day} format externalLinks{url site}}}}`,
+    SEARCH_RANGE: `query ($start:FuzzyDateInt,$end:FuzzyDateInt){Page(page:1,perPage:100){media(startDate_greater:$start,startDate_lesser:$end,type:ANIME,format_in:[MOVIE]){id title{romaji native} status startDate{year month day}externalLinks{url site}}}}`,
+    GET_MEDIA: `query ($id:Int){Media(id:$id){id title{romaji native} status coverImage{medium}seasonYear episodes startDate{year month day} format }}`,
     GET_USER_STATUS: `query ($id:Int){Media(id:$id){mediaListEntry{status progress}}}`,
     UPDATE_PROGRESS: `mutation ($id:Int,$p:Int){SaveMediaListEntry(mediaId:$id,progress:$p){id progress status}}`,
     UPDATE_STATUS: `mutation ($id:Int,$status:MediaListStatus){SaveMediaListEntry(mediaId:$id,status:$status){id progress status}}`,
@@ -413,7 +446,7 @@
     },
     GET_MEDIA_AND_STATUS: `query ($id: Int) {
         Media(id: $id) {
-            id title { romaji native } coverImage { medium } episodes seasonYear startDate { year month day } format
+            id title { romaji native } status coverImage { medium } episodes seasonYear startDate { year month day } format
             mediaListEntry { status progress id }
         }
     }`,
@@ -623,7 +656,7 @@
       if (match) {
         return parseFloat(match[1]); // 這裡回傳數字 (支援小數點)
       }
-      return 1;
+      return null;
     },
 
     getRawCurrent() {
@@ -690,7 +723,7 @@
         return Math.min(...eps);
       }
       const titleEp = this.parseFromTitle();
-      return Number.isInteger(titleEp) ? titleEp : null;
+      return titleEp !== null ? Math.ceil(titleEp) : null;
     },
     getMax() {
       const eps = this._getAllEpisodes();
@@ -698,7 +731,7 @@
         return Math.max(...eps);
       }
       const titleEp = this.parseFromTitle();
-      return Number.isInteger(titleEp) ? titleEp : 0;
+      return titleEp !== null ? Math.ceil(titleEp) : null;
     },
   };
 
@@ -1016,8 +1049,8 @@
       });
 
       resultChain.sort((a, b) => {
-        const dateA = Utils.toJsDate(a.startDate);
-        const dateB = Utils.toJsDate(b.startDate);
+        const dateA = Utils.toJsDate(a.startDate, true);
+        const dateB = Utils.toJsDate(b.startDate, true);
 
         const timeA = dateA ? dateA.getTime() : Infinity;
         const timeB = dateB ? dateB.getTime() : Infinity;
@@ -1181,6 +1214,7 @@
                   ${info.title.romaji}</div>
                 <div class="al-mb-1 al-mt-1">ID: ${rule.id}</div>
                 <div class="al-mb-1 al-mt-1">開播日: ${Utils.formatDate(info.startDate)}</div>
+                <div class="al-mb-1 al-mt-1">放送狀態: ${CONSTANTS.MEDIA_STATUS[info.status] || info.status || '未知'}</div>
                 <div class="al-mb-1 al-mt-1">播映方式: ${info.format}</div>
                 <div class="al-mb-1 al-mt-1">總集數: ${info.episodes || '?'}</div>
               </div>
@@ -1264,7 +1298,7 @@
             ${m.title.romaji}
           </div>
           <div class="al-text-sub al-text-xs">
-            ${Utils.formatDate(m.startDate)} | ${m.format} | ${m.episodes || '?'}集
+            ${Utils.formatDate(m.startDate)} | ${CONSTANTS.MEDIA_STATUS[m.status] || m.status} | ${m.format} | ${m.episodes || '?'}集
           </div>
         </div>
         <button class="al-btn al-btn-primary al-btn-sm bind-it" 
@@ -1322,13 +1356,12 @@
                  <img src="${m.coverImage.medium}" class="al-cover al-cover-sm">
                </a>
                <div style="min-width:0;">
-                 <a href="https://anilist.co/anime/${
-                   m.id
-                 }" target="_blank" class="al-link al-text-sm al-font-bold al-mb-1" style="display:block; line-height:1.3;">
+                 <a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link al-text-sm al-font-bold al-mb-1" style="display:block; line-height:1.3;">
                    ${m.title.native || m.title.romaji}
                  </a>
                  <div class="al-text-sub al-text-xs">
-                  ${Utils.formatDate(m.startDate)} | ${m.format}</div>
+                  ${Utils.formatDate(m.startDate)} | ${CONSTANTS.MEDIA_STATUS[m.status] || m.status} | ${m.format}
+                 </div>
                </div>
             </div>
           </td>
