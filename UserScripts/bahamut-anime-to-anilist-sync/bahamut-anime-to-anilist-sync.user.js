@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.9.6
+// @version              6.10.0
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -58,6 +58,7 @@
       SYNC_MODE: 'SYNC_MODE', // 同步模式的設定
       CUSTOM_SEC: 'SYNC_CUSTOM_SECONDS', // 自訂秒數的數值
       CUSTOM_PCT: 'SYNC_CUSTOM_PERCENTAGE', // 自訂百分比的數值
+      OVERRIDE_MODE: 'SYNC_OVERRIDE_MODE', // 同步策略
     },
 
     // --- DOM 元素選擇器 (Selectors) ---
@@ -97,7 +98,7 @@
       INSTANT: { value: 'instant', label: '🚀 即時同步 (播放 5 秒後)' },
       TWO_MIN: { value: '2min', label: '⏳ 觀看確認 (播放 2 分鐘後)' },
       EIGHTY_PCT: { value: '80pct', label: '🏁 快看完時 (進度 80%)' },
-      CUSTOM_SEC: { value: 'custom_sec', label: '⚙️ 自訂時間' },
+      CUSTOM_SEC: { value: 'custom_sec', label: '⚙️ 自訂時間 (秒)' },
       CUSTOM_PCT: { value: 'custom_pct', label: '📊 自訂進度 (%)' },
     },
 
@@ -109,6 +110,16 @@
       REPEATING: { value: 'REPEATING', label: '🔁 重看中', anilist_label: 'Rewatching' },
       PAUSED: { value: 'PAUSED', label: '⏸️ 暫停', anilist_label: 'Paused' },
       DROPPED: { value: 'DROPPED', label: '🗑️ 棄番', anilist_label: 'Dropped' },
+    },
+
+    // --- 同步策略選項 ---
+    OVERRIDE_MODES: {
+      PROTECT: { value: 'protect', label: '🛡️ 保護進度 (總是以最新觀看集數為主)' },
+      PROMPT: {
+        value: 'prompt',
+        label: '💬 彈出詢問 (以最新觀看集數為主，觀看舊集數時詢問是否覆蓋)',
+      },
+      ALWAYS: { value: 'always', label: '⚠️ 強制覆蓋 (總是以當前觀看集數為主)' },
     },
   };
 
@@ -1039,10 +1050,16 @@
       <div id="tab-settings" class="al-tab-pane ${activeTab === 'settings' ? 'active' : ''}"></div>
     `;
     },
-    settings: (token, mode, customSec, customPct) => {
+    settings: (token, mode, customSec, customPct, overrideMode) => {
       const optionsHtml = Object.values(CONSTANTS.SYNC_MODES)
         .map((m) => {
           return `<option value="${m.value}" ${mode === m.value ? 'selected' : ''}>
+              ${m.label}</option>`;
+        })
+        .join('');
+      const overrideOptionsHtml = Object.values(CONSTANTS.OVERRIDE_MODES)
+        .map((m) => {
+          return `<option value="${m.value}" ${overrideMode === m.value ? 'selected' : ''}>
               ${m.label}</option>`;
         })
         .join('');
@@ -1130,6 +1147,11 @@
               <input type="number" id="set-custom-pct" class="al-input al-input-sm" value="${customPct}" min="1" max="100" style="width:80px;">
               <span class="al-text-sub al-text-sm">% 後同步</span>
               </div>
+          </div>
+
+          <div class="al-card al-mt-2">
+            <label class="al-font-bold al-mb-1 al-text-sm" style="display:block;">集數更新策略</label>
+            <select id="set-override-mode" class="al-input">${overrideOptionsHtml}</select>
           </div>
 
           <button id="save-set" class="al-btn al-btn-success al-btn-block al-mt-2">儲存設定</button>
@@ -1564,6 +1586,10 @@
       const mode = GM_getValue(CONSTANTS.KEYS.SYNC_MODE, 'instant');
       const savedCustomSeconds = GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, 60);
       const savedCustomPercentage = GM_getValue(CONSTANTS.KEYS.CUSTOM_PCT, 80);
+      const overrideMode = GM_getValue(
+        CONSTANTS.KEYS.OVERRIDE_MODE,
+        CONSTANTS.OVERRIDE_MODES.PROTECT.value,
+      );
 
       // 一鍵驗證的連結
       const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${CONSTANTS.ANILIST_CLIENT_ID}&response_type=token`;
@@ -1573,6 +1599,7 @@
         mode,
         savedCustomSeconds,
         savedCustomPercentage,
+        overrideMode,
       );
 
       // 自動驗證
@@ -1712,6 +1739,8 @@
           const clampedPct = Math.min(Math.max(customPct, 1), 100);
           GM_setValue(CONSTANTS.KEYS.CUSTOM_PCT, clampedPct);
         }
+
+        GM_setValue(CONSTANTS.KEYS.OVERRIDE_MODE, _.$('#set-override-mode', container).value);
 
         UI.showToast('✅ 設定已儲存，重新整理中...');
         setTimeout(() => {
@@ -2436,7 +2465,24 @@
           await AniListAPI.updateUserStatus(rule.id, CONSTANTS.ANI_STATUS.CURRENT.value);
         }
 
-        if (checkData?.progress === progress) {
+        if (checkData?.progress > progress) {
+          const overrideMode = GM_getValue(
+            CONSTANTS.KEYS.OVERRIDE_MODE,
+            CONSTANTS.OVERRIDE_MODES.PROTECT.value,
+          );
+          if (overrideMode === CONSTANTS.OVERRIDE_MODES.PROTECT.value) {
+            UI.updateNav(CONSTANTS.STATUS.INFO, '略過同步(已同步)');
+            return;
+          } else if (overrideMode === CONSTANTS.OVERRIDE_MODES.PROMPT.value) {
+            const isConfirm = window.confirm(
+              `您目前正在觀看 Ep.${progress}\n但 AniList 紀錄已達 Ep.${checkData.progress}。\n\n請問是否要將雲端進度「往前回退」到 Ep.${progress}？`,
+            );
+            if (!isConfirm) {
+              UI.updateNav(CONSTANTS.STATUS.INFO, '略過同步(取消覆蓋)');
+              return;
+            }
+          }
+        } else if (checkData?.progress === progress) {
           UI.updateNav(CONSTANTS.STATUS.INFO, '略過同步(已同步)');
           return;
         }
