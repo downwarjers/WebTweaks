@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.11.1
+// @version              6.12.0
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -100,6 +100,7 @@
       EIGHTY_PCT: { value: '80pct', label: '🏁 快看完時 (進度 80%)' },
       CUSTOM_SEC: { value: 'custom_sec', label: '⚙️ 自訂時間 (秒)' },
       CUSTOM_PCT: { value: 'custom_pct', label: '📊 自訂進度 (%)' },
+      PAUSED: { value: 'paused', label: '⏸️ 暫停同步' },
     },
 
     // --- AniList 狀態 ---
@@ -2498,6 +2499,11 @@
       }
 
       const { mode, customSec, customPct } = State.syncSettings;
+
+      if (mode === CONSTANTS.SYNC_MODES.PAUSED.value) {
+        return;
+      }
+
       let shouldSync = false;
 
       if (mode === CONSTANTS.SYNC_MODES.INSTANT.value) {
@@ -2925,7 +2931,13 @@
       } else if (State.isMaintenance) {
         UI.updateNav(CONSTANTS.STATUS.ERROR, 'AniList 維護中');
       } else {
-        UI.updateNav(CONSTANTS.STATUS.BOUND);
+        if (
+          GM_getValue(CONSTANTS.KEYS.SYNC_MODE, 'instant') === CONSTANTS.SYNC_MODES.PAUSED.value
+        ) {
+          UI.updateNav(CONSTANTS.STATUS.INFO, '已暫停同步');
+        } else {
+          UI.updateNav(CONSTANTS.STATUS.BOUND);
+        }
       }
     },
   };
