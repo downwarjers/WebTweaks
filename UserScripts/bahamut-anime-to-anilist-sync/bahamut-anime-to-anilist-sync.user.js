@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.11.0
+// @version              6.11.1
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -2340,6 +2340,30 @@
       if (State.activeRule && GM_getValue(CONSTANTS.KEYS.TOKEN)) {
         try {
           const data = await AniListAPI.getMediaAndStatus(State.activeRule.id);
+
+          // --- 偵測集數溢位 ---
+          if (targetEp !== null) {
+            // 計算當前規則能涵蓋的最大集數：起點 + 總集數 - 1
+            const ruleStart =
+              State.activeRule.bahaStart !== undefined
+                ? State.activeRule.bahaStart
+                : State.activeRule.start;
+            const maxEpCovered = ruleStart + (data.episodes || 999) - 1;
+
+            // 若當前觀看集數超越了該規則的最大集數，代表遇到未記錄的 OVA 或續作
+            if (targetEp > maxEpCovered) {
+              Log.info(
+                `[溢位偵測] 當前集數 ${targetEp} 超出涵蓋範圍 ${maxEpCovered}，準備查驗新作品...`,
+              );
+              const hasAppended = await this.silentAppendNewOVA(State.activeRule.id, targetEp);
+
+              if (hasAppended) {
+                return this.determineActiveRule();
+              }
+            }
+          }
+          // ------------------------------------------
+
           if (data.mediaListEntry) {
             State.userStatus = data.mediaListEntry;
           } else {
@@ -2350,6 +2374,74 @@
         } catch (e) {
           Log.error('Fetch status error:', e);
         }
+      }
+    },
+
+    // --- 無損追加新系列設定 ---
+    async silentAppendNewOVA(baseId, currentEp) {
+      try {
+        // 1. 取得最新系列樹
+        const chain = await AniListAPI.getSequelChain(baseId);
+
+        // 2. 建立「全啟用」的模擬狀態，確保集數能正確累加
+        const mockUIState = {};
+        chain.forEach((m) => {
+          const existing = State.rules.find((r) => {
+            return r.id === m.id;
+          });
+          // 若手動設定存在則帶入具體數字，否則給 null 讓程式自動往下推算
+          mockUIState[m.id] = existing
+            ? existing.bahaStart !== undefined
+              ? existing.bahaStart
+              : existing.start
+            : null;
+        });
+
+        // 3. 帶入模擬設定，計算真正的連續集數
+        SeriesLogic.calculateOffsets(chain, baseId, State.activeRule.start, mockUIState);
+
+        let isModified = false;
+
+        // 4. 尋找「唯一」符合當前集數的新作品
+        for (const m of chain) {
+          const exists = State.rules.find((r) => {
+            return r.id === m.id;
+          });
+          if (!exists && m.calculatedStart !== undefined) {
+            const mStart = m.calculatedStart;
+            const mEnd = m.episodes ? mStart + m.episodes - 1 : 999999;
+
+            // 嚴格比對：當前集數必須落在此作品的區間內
+            if (currentEp >= mStart && currentEp <= mEnd) {
+              State.rules.push({
+                start: mStart,
+                bahaStart: mStart,
+                aniStart: 1,
+                id: m.id,
+                title: m.title.native || m.title.romaji,
+              });
+              isModified = true;
+              Log.info(`✨ 自動無損追加單一系列作: ${m.title.native} (起算集數: ${mStart})`);
+
+              // 找到目標後立即中斷，避免一次啟用多個作品
+              break;
+            }
+          }
+        }
+
+        // 5. 若有更新，靜默儲存並通知使用者
+        if (isModified) {
+          State.rules.sort((a, b) => {
+            return b.start - a.start;
+          }); // 確保大到小排序不被破壞
+          GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`, State.rules);
+          UI.showToast('✨ 偵測到新續作，已自動加入系列設定！');
+          return true;
+        }
+        return false;
+      } catch (e) {
+        Log.error('追加新 OVA 失敗:', e);
+        return false;
       }
     },
     async startVideoHunt() {
