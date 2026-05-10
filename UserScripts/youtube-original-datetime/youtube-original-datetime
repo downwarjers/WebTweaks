@@ -1,0 +1,112 @@
+// ==UserScript==
+// @name         YouTube 原始日期顯示
+// @namespace    https://github.com/downwarjers/WebTweaks
+// @version      0.1
+// @description  將影片原始日期顯示在下方
+// @author       downwarjers
+// @license      MIT
+// @match        https://www.youtube.com/*
+// @grant        GM_xmlhttpRequest
+// @connect      www.youtube.com
+// @run-at       document-end
+// @downloadURL  https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-original-datetime/youtube-original-datetime.user.js
+// @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/youtube-original-datetime/youtube-original-datetime.user.js
+
+// ==/UserScript==
+
+(function () {
+  'use strict';
+
+  const dateCache = new Map();
+
+  const formatDate = (isoString) => {
+    const d = new Date(isoString);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const fetchVideoDate = (videoId, callback) => {
+    if (dateCache.has(videoId)) {
+      callback(dateCache.get(videoId));
+      return;
+    }
+
+    const apiUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    GM_xmlhttpRequest({
+      method: 'GET',
+      url: apiUrl,
+      onload: function (response) {
+        const match = response.responseText.match(/"uploadDate":"([^"]+)"/);
+        if (match && match[1]) {
+          const absDate = formatDate(match[1]);
+          dateCache.set(videoId, absDate);
+          callback(absDate);
+        }
+      },
+    });
+  };
+
+  // 處理首頁與列表卡片
+  const processCards = () => {
+    // 定位元數據容器，改為尋找整個文字容器
+    const containers = document.querySelectorAll(
+      '.ytLockupMetadataViewModelTextContainer:not([data-date-processed])',
+    );
+
+    containers.forEach((container) => {
+      const lockup = container.closest('yt-lockup-view-model');
+      if (!lockup) return;
+
+      const anchor = lockup.querySelector('a.ytLockupViewModelContentImage');
+      if (!anchor) return;
+
+      const videoIdMatch = anchor.href.match(/v=([^&]+)/);
+      if (!videoIdMatch) return;
+      const videoId = videoIdMatch[1];
+
+      container.setAttribute('data-date-processed', 'true');
+
+      fetchVideoDate(videoId, (absDate) => {
+        // 建立一個新的行容器
+        const newRow = document.createElement('div');
+        newRow.style.marginTop = '4px';
+        newRow.style.fontSize = '14px';
+        newRow.style.color = '#aaa';
+        newRow.style.fontWeight = '500';
+        newRow.style.display = 'block';
+        newRow.textContent = `發布日期：${absDate}`;
+
+        // 插入到文字容器的最後，這會讓它出現在「觀看次數」下方
+        container.appendChild(newRow);
+      });
+    });
+  };
+
+  // 處理觀看頁面
+  const processWatchPage = () => {
+    const titleContainer = document.querySelector('ytd-watch-metadata #title');
+    if (titleContainer && !document.getElementById('watch-abs-date')) {
+      const scripts = document.querySelectorAll('script');
+      for (let s of scripts) {
+        const match = s.textContent.match(/"uploadDate":"([^"]+)"/);
+        if (match) {
+          const absDate = formatDate(match[1]);
+          const div = document.createElement('div');
+          div.id = 'watch-abs-date';
+          div.style = 'font-size: 14px; color: #aaa; margin-top: 8px;';
+          div.textContent = `發布日期：${absDate}`;
+          titleContainer.appendChild(div);
+          break;
+        }
+      }
+    }
+  };
+
+  const observer = new MutationObserver(() => {
+    processCards();
+    if (window.location.href.includes('watch')) {
+      processWatchPage();
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+})();
