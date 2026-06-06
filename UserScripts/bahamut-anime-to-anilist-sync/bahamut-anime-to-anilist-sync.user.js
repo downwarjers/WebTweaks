@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.12.0
+// @version              6.12.1
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -1183,7 +1183,7 @@
               </div>
           </div>
 
-          <div class="al-card al-mt-2">
+          <div class="al-card al-mt-2" id="override-mode-group">
             <label class="al-font-bold al-mb-1 al-text-sm" style="display:block;">集數更新策略</label>
             <select id="set-override-mode" class="al-input">${overrideOptionsHtml}</select>
           </div>
@@ -1748,6 +1748,10 @@
           modeValue === 'custom_sec' ? 'flex' : 'none';
         _.$('#custom-pct-group', container).style.display =
           modeValue === 'custom_pct' ? 'flex' : 'none';
+        const overrideGroup = _.$('#override-mode-group', container);
+        if (overrideGroup) {
+          overrideGroup.style.display = modeValue === 'paused' ? 'none' : 'block';
+        }
       };
       _.$('#set-mode', container).addEventListener('change', toggleCustom);
       toggleCustom();
