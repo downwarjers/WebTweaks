@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.12.1
+// @version              6.12.2
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -688,6 +688,13 @@
           return null;
         }
         return titleEp;
+      }
+
+      // 4. 如果沒按鈕且標題抓不到數字
+      // 檢查下方是否完全沒有其他集數列表，若是，代表這是獨立單集作品，直接預設為第 1 集
+      const eps = this._getAllEpisodes();
+      if (eps.length === 0) {
+        return 1;
       }
 
       return null;
@@ -1975,8 +1982,14 @@
           let isOut = true;
 
           if (m.suggestedStart !== undefined) {
-            const mEnd = m.episodes ? m.suggestedStart + m.episodes - 1 : 999999;
-            isOut = pageMax > 0 ? m.suggestedStart > pageMax || mEnd < pageMin : false;
+            if (pageMin !== null && pageMax !== null) {
+              // 正常番劇頁面：依據頁面最大/最小集數判定
+              const mEnd = m.episodes ? m.suggestedStart + m.episodes - 1 : 999999;
+              isOut = m.suggestedStart > pageMax || mEnd < pageMin;
+            } else {
+              // 獨立單集/電影頁面（pageMin 為 null）：除了目前綁定的這部作品，其餘皆視為「非本頁」
+              isOut = m.id !== searchId;
+            }
           }
 
           const isSuggestion = !isActive && !isOut;
