@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList (Beta)
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList (Beta)
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.9.1
+// @version              6.13.0
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI(Beta 版本)
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI(Beta 版本)
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI(Beta 版本)
@@ -12,6 +12,7 @@
 // @match                https://ani.gamer.com.tw/*
 // @connect              acg.gamer.com.tw
 // @connect              graphql.anilist.co
+// @connect              myanimelist.net
 // @icon                 https://ani.gamer.com.tw/apple-touch-icon-144.jpg
 // @run-at               document-idle
 // @grant                GM_xmlhttpRequest
@@ -58,24 +59,32 @@
       SYNC_MODE: 'SYNC_MODE', // 同步模式的設定
       CUSTOM_SEC: 'SYNC_CUSTOM_SECONDS', // 自訂秒數的數值
       CUSTOM_PCT: 'SYNC_CUSTOM_PERCENTAGE', // 自訂百分比的數值
+      OVERRIDE_MODE: 'SYNC_OVERRIDE_MODE', // 同步策略
     },
 
     // --- DOM 元素選擇器 (Selectors) ---
-    // 巴哈姆特資訊
     SELECTORS: {
-      // 當前頁面頁面操作
-      PAGE: {
-        seasonList: '.season ul li', // 動畫瘋播放頁下方的集數列表
-        seasonUl: '.season ul', // 動畫瘋播放頁下方的全部列表
-        playing: '.playing', // 正在播放的 CSS class
-        acgLink: 'a[href*="acgDetail.php"]', // 作品資料頁的連結
-        acgLinkAlt: 'a', // 備用選擇器 (用於 contains 文字搜尋)
-        videoElement: 'video', // 網頁上的影片播放器元素 (<video>)
+      // 巴哈姆特資訊
+      BAHA: {
+        // 當前頁面頁面操作
+        PAGE: {
+          seasonList: '.season ul li', // 動畫瘋播放頁下方的集數列表
+          seasonUl: '.season ul', // 動畫瘋播放頁下方的全部列表
+          playing: '.playing', // 正在播放的 CSS class
+          acgLink: 'a[href*="acgDetail.php"]', // 作品資料頁的連結
+          acgLinkAlt: 'a', // 備用選擇器 (用於 contains 文字搜尋)
+          videoElement: 'video', // 網頁上的影片播放器元素 (<video>)
+        },
+        // 背景爬蟲
+        PARSER: {
+          infoTitle: '.ACG-info-container > h2', // 作品標題
+          infoList: '.ACG-box1listA > li', // 作品資訊列表
+        },
       },
-      // 背景爬蟲
-      PARSER: {
-        infoTitle: '.ACG-info-container > h2', // 作品標題
-        infoList: '.ACG-box1listA > li', // 作品資訊列表
+      //MyAmimeList.net (MAL) 的資訊
+      MAL: {
+        externalLinks: '.external_links', // 外部連結區
+        syoboiLink: 'a[href*="cal.syoboi.jp/tid/"]', // Syoboi Url
       },
     },
 
@@ -97,8 +106,9 @@
       INSTANT: { value: 'instant', label: '🚀 即時同步 (播放 5 秒後)' },
       TWO_MIN: { value: '2min', label: '⏳ 觀看確認 (播放 2 分鐘後)' },
       EIGHTY_PCT: { value: '80pct', label: '🏁 快看完時 (進度 80%)' },
-      CUSTOM_SEC: { value: 'custom_sec', label: '⚙️ 自訂時間' },
+      CUSTOM_SEC: { value: 'custom_sec', label: '⚙️ 自訂時間 (秒)' },
       CUSTOM_PCT: { value: 'custom_pct', label: '📊 自訂進度 (%)' },
+      PAUSED: { value: 'paused', label: '⏸️ 暫停同步' },
     },
 
     // --- AniList 狀態 ---
@@ -109,6 +119,25 @@
       REPEATING: { value: 'REPEATING', label: '🔁 重看中', anilist_label: 'Rewatching' },
       PAUSED: { value: 'PAUSED', label: '⏸️ 暫停', anilist_label: 'Paused' },
       DROPPED: { value: 'DROPPED', label: '🗑️ 棄番', anilist_label: 'Dropped' },
+    },
+
+    // --- 放映狀態 ---
+    MEDIA_STATUS: {
+      FINISHED: '已完結',
+      RELEASING: '連載中',
+      NOT_YET_RELEASED: '尚未開播',
+      CANCELLED: '已取消',
+      HIATUS: '暫停連載',
+    },
+
+    // --- 同步策略選項 ---
+    OVERRIDE_MODES: {
+      PROTECT: { value: 'protect', label: '🛡️ 保護進度 (總是以最新觀看集數為主)' },
+      PROMPT: {
+        value: 'prompt',
+        label: '💬 彈出詢問 (以最新觀看集數為主，觀看舊集數時詢問是否覆蓋)',
+      },
+      ALWAYS: { value: 'always', label: '⚠️ 強制覆蓋 (總是以當前觀看集數為主)' },
     },
   };
 
@@ -238,21 +267,53 @@
       }
       return input;
     },
+    decodeHTML(html) {
+      if (!html) {
+        return '';
+      }
+      const txt = document.createElement('textarea');
+      txt.innerHTML = html;
+      return txt.value;
+    },
     jsDateToInt: (d) => {
       return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
     },
-    toJsDate(dObj) {
+    toJsDate(dObj, maximize = false) {
       if (!dObj?.year) {
         return null;
       }
-      return new Date(dObj.year, (dObj.month || 1) - 1, dObj.day || 1);
+
+      let month = dObj.month;
+      let day = dObj.day;
+
+      if (maximize) {
+        month = month || 12;
+        day = day || new Date(dObj.year, month, 0).getDate();
+      } else {
+        month = month || 1;
+        day = day || 1;
+      }
+
+      return new Date(dObj.year, month - 1, day);
     },
     formatDate: (dObj) => {
-      return !dObj || !dObj.year
-        ? '日期未定'
-        : `${dObj.year}/${String(dObj.month || 1).padStart(2, '0')}/${String(
-            dObj.day || 1,
-          ).padStart(2, '0')}`;
+      // 1. 若無年份，直接回傳未定
+      if (!dObj || !dObj.year) {
+        return '日期未定';
+      }
+
+      // 2. 若無月份，僅顯示年份
+      if (!dObj.month) {
+        return `${dObj.year}`;
+      }
+
+      // 3. 若無日期，顯示至月份
+      if (!dObj.day) {
+        return `${dObj.year}/${String(dObj.month).padStart(2, '0')}`;
+      }
+
+      // 4. 具備完整年、月、日
+      return `${dObj.year}/${String(dObj.month).padStart(2, '0')}/${String(dObj.day).padStart(2, '0')}`;
     },
     getFuzzyDateRange(dateObj, toleranceDays) {
       const target = this.toJsDate(dateObj);
@@ -336,12 +397,12 @@
 
     // 檢查當前頁面
     validatePage() {
-      return this._validateGroup(document, CONSTANTS.SELECTORS.PAGE, 'Page (UI)');
+      return this._validateGroup(document, CONSTANTS.SELECTORS.BAHA.PAGE, 'Page (UI)');
     },
 
     // 檢查背景解析
     validateParser(doc) {
-      return this._validateGroup(doc, CONSTANTS.SELECTORS.PARSER, 'Parser (Data)');
+      return this._validateGroup(doc, CONSTANTS.SELECTORS.BAHA.PARSER, 'Parser (Data)');
     },
   };
   // #endregion
@@ -365,6 +426,7 @@
     hasSynced: false, // 本集是否已執行過同步 (防止重複發送)
     isHunting: false, // 是否正在搜尋播放器元素 (<video>)
     stopSync: false, // 全域停止同步開關 (發生嚴重錯誤或頻繁請求時)
+    isMaintenance: false, // 伺服器維護狀態
     // huntTimer: null, // 搜尋播放器的 setInterval ID
     lastTimeUpdate: 0, // 上次處理 timeupdate 事件的時間戳
 
@@ -378,10 +440,10 @@
 
   // #region ================= [GraphQL] 查詢字串 =================
   const GQL = {
-    MEDIA_FIELDS: `id title { romaji native } coverImage { medium } format episodes seasonYear startDate { year month day }`,
-    SEARCH: `query($s:String){Page(page:1,perPage:10){media(search:$s,type:ANIME,sort:SEARCH_MATCH){id title{romaji english native}coverImage{medium} episodes seasonYear startDate{year month day} format externalLinks{url site}}}}`,
-    SEARCH_RANGE: `query ($start:FuzzyDateInt,$end:FuzzyDateInt){Page(page:1,perPage:100){media(startDate_greater:$start,startDate_lesser:$end,type:ANIME,format_in:[MOVIE]){id title{romaji native}startDate{year month day}externalLinks{url site}}}}`,
-    GET_MEDIA: `query ($id:Int){Media(id:$id){id title{romaji native}coverImage{medium}seasonYear episodes startDate{year month day} format }}`,
+    MEDIA_FIELDS: `id idMal title { romaji native } status coverImage { medium } format episodes seasonYear startDate { year month day }`,
+    SEARCH: `query($s:String){Page(page:1,perPage:10){media(search:$s,type:ANIME,sort:SEARCH_MATCH){id idMal title{romaji english native} status coverImage{medium} episodes seasonYear startDate{year month day} format externalLinks{url site}}}}`,
+    SEARCH_RANGE: `query ($start:FuzzyDateInt,$end:FuzzyDateInt){Page(page:1,perPage:100){media(startDate_greater:$start,startDate_lesser:$end,type:ANIME,format_in:[MOVIE]){id idMal title{romaji native} status startDate{year month day}externalLinks{url site}}}}`,
+    GET_MEDIA: `query ($id:Int){Media(id:$id){id idMal title{romaji native} status coverImage{medium}seasonYear episodes startDate{year month day} format }}`,
     GET_USER_STATUS: `query ($id:Int){Media(id:$id){mediaListEntry{status progress}}}`,
     UPDATE_PROGRESS: `mutation ($id:Int,$p:Int){SaveMediaListEntry(mediaId:$id,progress:$p){id progress status}}`,
     UPDATE_STATUS: `mutation ($id:Int,$status:MediaListStatus){SaveMediaListEntry(mediaId:$id,status:$status){id progress status}}`,
@@ -393,7 +455,7 @@
     },
     GET_MEDIA_AND_STATUS: `query ($id: Int) {
         Media(id: $id) {
-            id title { romaji native } coverImage { medium } episodes seasonYear startDate { year month day } format
+            id idMal title { romaji native } status coverImage { medium } episodes seasonYear startDate { year month day } format
             mediaListEntry { status progress id }
         }
     }`,
@@ -603,7 +665,7 @@
       if (match) {
         return parseFloat(match[1]); // 這裡回傳數字 (支援小數點)
       }
-      return 1;
+      return null;
     },
 
     getRawCurrent() {
@@ -611,10 +673,12 @@
       const currentSn = urlParams.get('sn');
 
       // 1. 優先嘗試：尋找按鈕
-      let anchor = _.$(`${CONSTANTS.SELECTORS.PAGE.seasonList} a[href*="sn=${currentSn}"]`);
+      let anchor = _.$(`${CONSTANTS.SELECTORS.BAHA.PAGE.seasonList} a[href*="sn=${currentSn}"]`);
       let targetLi = anchor ? anchor.closest('li') : null;
       if (!targetLi) {
-        targetLi = _.$(`${CONSTANTS.SELECTORS.PAGE.seasonList}${CONSTANTS.SELECTORS.PAGE.playing}`);
+        targetLi = _.$(
+          `${CONSTANTS.SELECTORS.BAHA.PAGE.seasonList}${CONSTANTS.SELECTORS.BAHA.PAGE.playing}`,
+        );
       }
 
       // 2. 如果有按鈕，照舊讀取
@@ -636,18 +700,25 @@
         return titleEp;
       }
 
+      // 4. 如果沒按鈕且標題抓不到數字
+      // 檢查下方是否完全沒有其他集數列表，若是，代表這是獨立單集作品，直接預設為第 1 集
+      const eps = this._getAllEpisodes();
+      if (eps.length === 0) {
+        return 1;
+      }
+
       return null;
     },
     _getAllEpisodes() {
       // 1. 優先尋找「正在播放 (.playing)」集數所在列表 (ul)
       const playingEl = _.$(
-        `${CONSTANTS.SELECTORS.PAGE.seasonList}${CONSTANTS.SELECTORS.PAGE.playing}`,
+        `${CONSTANTS.SELECTORS.BAHA.PAGE.seasonList}${CONSTANTS.SELECTORS.BAHA.PAGE.playing}`,
       );
       let targetUl = playingEl ? playingEl.closest('ul') : null;
 
       // 2. 找不到正在播放的元素，抓取第一個列表
       if (!targetUl) {
-        targetUl = _.$(CONSTANTS.SELECTORS.PAGE.seasonUl);
+        targetUl = _.$(CONSTANTS.SELECTORS.BAHA.PAGE.seasonUl);
       }
 
       if (!targetUl) {
@@ -670,7 +741,7 @@
         return Math.min(...eps);
       }
       const titleEp = this.parseFromTitle();
-      return Number.isInteger(titleEp) ? titleEp : null;
+      return titleEp !== null ? Math.ceil(titleEp) : null;
     },
     getMax() {
       const eps = this._getAllEpisodes();
@@ -678,7 +749,7 @@
         return Math.max(...eps);
       }
       const titleEp = this.parseFromTitle();
-      return Number.isInteger(titleEp) ? titleEp : 0;
+      return titleEp !== null ? Math.ceil(titleEp) : null;
     },
   };
 
@@ -809,6 +880,8 @@
                   );
                 },
                 execute: () => {
+                  State.isMaintenance = true;
+                  State.stopSync = true;
                   const info = 'AniList 維護中';
                   UI.updateNav(CONSTANTS.STATUS.ERROR, info);
                   UI.showToast('⚠️ 伺服器維護中，API 暫時關閉，詳情請至 AniList Discord 查看');
@@ -994,8 +1067,8 @@
       });
 
       resultChain.sort((a, b) => {
-        const dateA = Utils.toJsDate(a.startDate);
-        const dateB = Utils.toJsDate(b.startDate);
+        const dateA = Utils.toJsDate(a.startDate, true);
+        const dateB = Utils.toJsDate(b.startDate, true);
 
         const timeA = dateA ? dateA.getTime() : Infinity;
         const timeB = dateB ? dateB.getTime() : Infinity;
@@ -1007,6 +1080,58 @@
       });
 
       return resultChain;
+    },
+  };
+  // #endregion
+
+  // #region ================= [API] MAL 通訊層 =================
+  const MALAPI = {
+    async fetchSyoboiUrl(malId) {
+      const url = `https://myanimelist.net/anime/${malId}`;
+      try {
+        const html = await new Promise((r, j) => {
+          return GM_xmlhttpRequest({
+            method: 'GET',
+            url,
+            onload: (x) => {
+              return r(x.responseText);
+            },
+            onerror: j,
+          });
+        });
+
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+
+        if (typeof CONSTANTS !== 'undefined' && CONSTANTS.DEBUG) {
+          if (typeof Utils !== 'undefined' && Utils.validateParser) {
+            Utils.validateParser(doc);
+          }
+        } else {
+          if (!doc.querySelector(CONSTANTS.SELECTORS.MAL.externalLinks)) {
+            if (typeof Log !== 'undefined') {
+              Log.error('Parser Error: 找不到外部資源區塊，MAL 可能改版');
+            }
+          }
+        }
+
+        const syoboiEl = doc.querySelector(CONSTANTS.SELECTORS.MAL.syoboiLink);
+
+        if (syoboiEl) {
+          // 成功找到元素，直接回傳 href 屬性文字
+          return syoboiEl.getAttribute('href') || '';
+        }
+
+        // 找不到元素時的防禦與提示
+        if (typeof Log !== 'undefined') {
+          Log.warn(`MAL Parser Warning: 該作品頁面未建立 Syoboi 連結 (MALID: ${malId})`);
+        }
+        return '';
+      } catch (e) {
+        if (typeof Log !== 'undefined') {
+          Log.error('MAL Data Fetch Error', e);
+        }
+        return null;
+      }
     },
   };
   // #endregion
@@ -1028,10 +1153,16 @@
       <div id="tab-settings" class="al-tab-pane ${activeTab === 'settings' ? 'active' : ''}"></div>
     `;
     },
-    settings: (token, mode, customSec, customPct) => {
+    settings: (token, mode, customSec, customPct, overrideMode) => {
       const optionsHtml = Object.values(CONSTANTS.SYNC_MODES)
         .map((m) => {
           return `<option value="${m.value}" ${mode === m.value ? 'selected' : ''}>
+              ${m.label}</option>`;
+        })
+        .join('');
+      const overrideOptionsHtml = Object.values(CONSTANTS.OVERRIDE_MODES)
+        .map((m) => {
+          return `<option value="${m.value}" ${overrideMode === m.value ? 'selected' : ''}>
               ${m.label}</option>`;
         })
         .join('');
@@ -1121,6 +1252,11 @@
               </div>
           </div>
 
+          <div class="al-card al-mt-2" id="override-mode-group">
+            <label class="al-font-bold al-mb-1 al-text-sm" style="display:block;">集數更新策略</label>
+            <select id="set-override-mode" class="al-input">${overrideOptionsHtml}</select>
+          </div>
+
           <button id="save-set" class="al-btn al-btn-success al-btn-block al-mt-2">儲存設定</button>
         </div>
       `;
@@ -1148,8 +1284,11 @@
                   ${info.title.romaji}</div>
                 <div class="al-mb-1 al-mt-1">ID: ${rule.id}</div>
                 <div class="al-mb-1 al-mt-1">開播日: ${Utils.formatDate(info.startDate)}</div>
+                <div class="al-mb-1 al-mt-1">放送狀態: ${CONSTANTS.MEDIA_STATUS[info.status] || info.status || '未知'}</div>
                 <div class="al-mb-1 al-mt-1">播映方式: ${info.format}</div>
                 <div class="al-mb-1 al-mt-1">總集數: ${info.episodes || '?'}</div>
+                <div class="al-mb-1 al-mt-1">idMal: ${info.idMal}</div>
+                <div class="al-mb-1 al-mt-1">syoboiUrl: ${info.syoboiUrl}</div>
               </div>
             </div>
             <div class="al-text-success al-text-sm al-pt-2 al-mt-1" style="border-top:1px dashed var(--al-border);">
@@ -1231,7 +1370,7 @@
             ${m.title.romaji}
           </div>
           <div class="al-text-sub al-text-xs">
-            ${Utils.formatDate(m.startDate)} | ${m.format} | ${m.episodes || '?'}集
+            ${Utils.formatDate(m.startDate)} | ${CONSTANTS.MEDIA_STATUS[m.status] || m.status} | ${m.format} | ${m.episodes || '?'}集
           </div>
         </div>
         <button class="al-btn al-btn-primary al-btn-sm bind-it" 
@@ -1289,13 +1428,12 @@
                  <img src="${m.coverImage.medium}" class="al-cover al-cover-sm">
                </a>
                <div style="min-width:0;">
-                 <a href="https://anilist.co/anime/${
-                   m.id
-                 }" target="_blank" class="al-link al-text-sm al-font-bold al-mb-1" style="display:block; line-height:1.3;">
+                 <a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link al-text-sm al-font-bold al-mb-1" style="display:block; line-height:1.3;">
                    ${m.title.native || m.title.romaji}
                  </a>
                  <div class="al-text-sub al-text-xs">
-                  ${Utils.formatDate(m.startDate)} | ${m.format}</div>
+                  ${Utils.formatDate(m.startDate)} | ${CONSTANTS.MEDIA_STATUS[m.status] || m.status} | ${m.format}
+                 </div>
                </div>
             </div>
           </td>
@@ -1314,6 +1452,25 @@
           </td>
         </tr>
       `;
+    },
+    errorCard: (msg, isMaintenance) => {
+      if (isMaintenance) {
+        return `
+          <div class="al-p-4">
+            <div class="al-card" style="border-color: var(--al-danger); background: rgba(239, 68, 68, 0.05);">
+              <div class="al-font-bold al-text-danger al-mb-2 al-flex al-items-center al-gap-2">
+                <span style="font-size:18px;">⚠️</span> 伺服器維護中
+              </div>
+              <div class="al-text-sm al-text-sub" style="line-height: 1.5;">
+                AniList 目前正在進行維護，暫時無法取得相關資料。<br><br>
+                <a href="https://discord.com/invite/anilist" target="_blank" class="al-btn al-btn-outline al-btn-sm al-w-full" style="justify-content: center;">
+                  前往官方 Discord 查看最新狀態
+                </a>
+              </div>
+            </div>
+          </div>`;
+      }
+      return `<div class="al-p-4" style="color:var(--al-danger); font-weight:bold;">Error: ${msg}</div>`;
     },
   };
 
@@ -1424,11 +1581,13 @@
           CONSTANTS.STATUS.SYNCING,
           CONSTANTS.STATUS.DONE,
           CONSTANTS.STATUS.INFO,
+          CONSTANTS.STATUS.ERROR,
         ].includes(type);
 
       if (showTitle) {
-        $title.textContent = rule.title;
-        $title.title = rule.title;
+        const decodedTitle = Utils.decodeHTML(rule.title);
+        $title.textContent = decodedTitle;
+        $title.title = decodedTitle;
         $title.style.display = 'inline-block';
         if (State.userStatus) {
           const { status, progress } = State.userStatus;
@@ -1532,6 +1691,10 @@
       const mode = GM_getValue(CONSTANTS.KEYS.SYNC_MODE, 'instant');
       const savedCustomSeconds = GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, 60);
       const savedCustomPercentage = GM_getValue(CONSTANTS.KEYS.CUSTOM_PCT, 80);
+      const overrideMode = GM_getValue(
+        CONSTANTS.KEYS.OVERRIDE_MODE,
+        CONSTANTS.OVERRIDE_MODES.PROTECT.value,
+      );
 
       // 一鍵驗證的連結
       const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${CONSTANTS.ANILIST_CLIENT_ID}&response_type=token`;
@@ -1541,6 +1704,7 @@
         mode,
         savedCustomSeconds,
         savedCustomPercentage,
+        overrideMode,
       );
 
       // 自動驗證
@@ -1580,12 +1744,16 @@
 
             const title = _.$('#auth-title', container);
             if (title) {
-              title.textContent = 'Token 無效';
+              title.textContent = State.isMaintenance ? '伺服器維護中' : 'Token 無效';
             }
 
             const sub = _.$('#auth-sub', container);
             if (sub) {
-              sub.textContent = '請檢查 Token 或重新登入';
+              if (State.isMaintenance) {
+                sub.innerHTML = `API 暫時關閉。<a href="https://discord.com/invite/anilist" target="_blank" class="al-link">前往 Discord 查看狀態</a>`;
+              } else {
+                sub.textContent = '請檢查 Token 或重新登入';
+              }
             }
           });
       }
@@ -1651,6 +1819,10 @@
           modeValue === 'custom_sec' ? 'flex' : 'none';
         _.$('#custom-pct-group', container).style.display =
           modeValue === 'custom_pct' ? 'flex' : 'none';
+        const overrideGroup = _.$('#override-mode-group', container);
+        if (overrideGroup) {
+          overrideGroup.style.display = modeValue === 'paused' ? 'none' : 'block';
+        }
       };
       _.$('#set-mode', container).addEventListener('change', toggleCustom);
       toggleCustom();
@@ -1677,6 +1849,8 @@
           GM_setValue(CONSTANTS.KEYS.CUSTOM_PCT, clampedPct);
         }
 
+        GM_setValue(CONSTANTS.KEYS.OVERRIDE_MODE, _.$('#set-override-mode', container).value);
+
         UI.showToast('✅ 設定已儲存，重新整理中...');
         setTimeout(() => {
           return location.reload();
@@ -1687,13 +1861,13 @@
       container.innerHTML = '<div class=".al-p-4">讀取中...</div>';
 
       let rule = State.activeRule;
-      let isUnknownEp = false;
+      // 修改這裡：直接讓系統判斷取出的集數是不是 null (例如總集篇的小數點)
+      let isUnknownEp = EpisodeCalculator.getRawCurrent() === null;
 
       // 如果當前集數沒有對應規則，則借用第一條規則的 ID 來顯示資訊
       if (!rule) {
         if (State.rules.length > 0) {
           rule = State.rules[0]; // 借用系列 ID
-          isUnknownEp = true; // 標記為未知集數
         } else {
           return this.renderHomeUnbound(container);
         }
@@ -1765,7 +1939,7 @@
           UI.loadTabContent('home');
         });
       } catch (e) {
-        container.innerHTML = `<div class=".al-p-4" style="color:red;">Error: ${e.message}</div>`;
+        container.innerHTML = Templates.errorCard(e.message, State.isMaintenance);
       }
     },
     renderHomeUnbound(container) {
@@ -1799,7 +1973,7 @@
             });
           });
         } catch (e) {
-          resContainer.innerHTML = `<div style="color:red;">Error: ${e.message}</div>`;
+          resContainer.innerHTML = Templates.errorCard(e.message, State.isMaintenance);
         }
       };
 
@@ -1872,8 +2046,14 @@
           let isOut = true;
 
           if (m.suggestedStart !== undefined) {
-            const mEnd = m.episodes ? m.suggestedStart + m.episodes - 1 : 999999;
-            isOut = pageMax > 0 ? m.suggestedStart > pageMax || mEnd < pageMin : false;
+            if (pageMin !== null && pageMax !== null) {
+              // 正常番劇頁面：依據頁面最大/最小集數判定
+              const mEnd = m.episodes ? m.suggestedStart + m.episodes - 1 : 999999;
+              isOut = m.suggestedStart > pageMax || mEnd < pageMin;
+            } else {
+              // 獨立單集/電影頁面（pageMin 為 null）：除了目前綁定的這部作品，其餘皆視為「非本頁」
+              isOut = m.id !== searchId;
+            }
           }
 
           const isSuggestion = !isActive && !isOut;
@@ -1982,7 +2162,11 @@
 
             // 自動填入建議值
             if (val !== undefined && val !== '') {
-              inp.value = val;
+              let suggestedVal = parseInt(val, 10);
+              if (suggestedVal < 1) {
+                suggestedVal = 1;
+              }
+              inp.value = suggestedVal;
             }
             if (inpAni.value === '') {
               inpAni.value = 1;
@@ -1995,6 +2179,7 @@
             btn.classList.add('al-btn-outline'); // 線框按鈕
 
             inp.value = '';
+            inpAni.value = '';
           }
           refreshUIOffsets();
         };
@@ -2013,11 +2198,22 @@
 
         _.$$('.inp-start', container).forEach((inp) => {
           inp.addEventListener('input', function () {
+            if (this.value !== '' && Number(this.value) < 0) {
+              this.value = 0;
+            }
             const row = this.closest('tr');
             if (this.value) {
               updateRow(row, true);
             } else {
               updateRow(row, false);
+            }
+          });
+        });
+
+        _.$$('.inp-ani-start', container).forEach((inp) => {
+          inp.addEventListener('input', function () {
+            if (this.value !== '' && Number(this.value) < 0) {
+              this.value = 0;
             }
           });
         });
@@ -2061,7 +2257,7 @@
 
         refreshUIOffsets();
       } catch (e) {
-        container.innerHTML = `<div class=".al-p-4" style="color:red;">載入失敗: ${e.message}</div>`;
+        container.innerHTML = Templates.errorCard(e.message, State.isMaintenance);
       }
     },
   };
@@ -2128,7 +2324,7 @@
       }
     },
     resetEpisodeState() {
-      const video = document.querySelector(CONSTANTS.SELECTORS.PAGE.videoElement);
+      const video = document.querySelector(CONSTANTS.SELECTORS.BAHA.PAGE.videoElement);
       if (video) {
         video.removeEventListener('timeupdate', this.handleTimeUpdate);
       }
@@ -2191,13 +2387,15 @@
       this.updateUIStatus();
     },
     getAcgLink() {
-      const el = document.querySelector(CONSTANTS.SELECTORS.PAGE.acgLink);
+      const el = document.querySelector(CONSTANTS.SELECTORS.BAHA.PAGE.acgLink);
       if (el) {
         return el.getAttribute('href');
       }
-      const alt = [...document.querySelectorAll(CONSTANTS.SELECTORS.PAGE.acgLinkAlt)].find((a) => {
-        return a.textContent.includes('作品資料');
-      });
+      const alt = [...document.querySelectorAll(CONSTANTS.SELECTORS.BAHA.PAGE.acgLinkAlt)].find(
+        (a) => {
+          return a.textContent.includes('作品資料');
+        },
+      );
       return alt ? alt.getAttribute('href') : null;
     },
     async determineActiveRule() {
@@ -2207,19 +2405,53 @@
       }
       const currentEp = EpisodeCalculator.getRawCurrent();
 
-      // 如果 currentEp 是 null，則不套用任何規則
-      if (currentEp !== null) {
+      // 如果 currentEp 為 null（例如總集篇 X.5），使用 parseFromTitle 獲取浮點數判斷
+      let targetEp = currentEp;
+      if (targetEp === null) {
+        targetEp = EpisodeCalculator.parseFromTitle();
+      }
+
+      if (targetEp !== null) {
         State.activeRule =
           State.rules.find((r) => {
-            return currentEp >= r.start;
+            return targetEp >= r.start;
           }) || State.rules[State.rules.length - 1];
       } else {
-        // 正在看小數點集數，暫時不對應規則
-        State.activeRule = null;
+        // 找不到集數，預設抓第一條規則顯示 UI
+        State.activeRule = State.rules[0];
       }
+
       if (State.activeRule && GM_getValue(CONSTANTS.KEYS.TOKEN)) {
         try {
           const data = await AniListAPI.getMediaAndStatus(State.activeRule.id);
+
+          if (data && data.idMal) {
+            data.syoboiUrl = await MALAPI.fetchSyoboiUrl(data.idMal);
+          }
+
+          // --- 偵測集數溢位 ---
+          if (targetEp !== null) {
+            // 計算當前規則能涵蓋的最大集數：起點 + 總集數 - 1
+            const ruleStart =
+              State.activeRule.bahaStart !== undefined
+                ? State.activeRule.bahaStart
+                : State.activeRule.start;
+            const maxEpCovered = ruleStart + (data.episodes || 999) - 1;
+
+            // 若當前觀看集數超越了該規則的最大集數，代表遇到未記錄的 OVA 或續作
+            if (targetEp > maxEpCovered) {
+              Log.info(
+                `[溢位偵測] 當前集數 ${targetEp} 超出涵蓋範圍 ${maxEpCovered}，準備查驗新作品...`,
+              );
+              const hasAppended = await this.silentAppendNewOVA(State.activeRule.id, targetEp);
+
+              if (hasAppended) {
+                return this.determineActiveRule();
+              }
+            }
+          }
+          // ------------------------------------------
+
           if (data.mediaListEntry) {
             State.userStatus = data.mediaListEntry;
           } else {
@@ -2230,6 +2462,74 @@
         } catch (e) {
           Log.error('Fetch status error:', e);
         }
+      }
+    },
+
+    // --- 無損追加新系列設定 ---
+    async silentAppendNewOVA(baseId, currentEp) {
+      try {
+        // 1. 取得最新系列樹
+        const chain = await AniListAPI.getSequelChain(baseId);
+
+        // 2. 建立「全啟用」的模擬狀態，確保集數能正確累加
+        const mockUIState = {};
+        chain.forEach((m) => {
+          const existing = State.rules.find((r) => {
+            return r.id === m.id;
+          });
+          // 若手動設定存在則帶入具體數字，否則給 null 讓程式自動往下推算
+          mockUIState[m.id] = existing
+            ? existing.bahaStart !== undefined
+              ? existing.bahaStart
+              : existing.start
+            : null;
+        });
+
+        // 3. 帶入模擬設定，計算真正的連續集數
+        SeriesLogic.calculateOffsets(chain, baseId, State.activeRule.start, mockUIState);
+
+        let isModified = false;
+
+        // 4. 尋找「唯一」符合當前集數的新作品
+        for (const m of chain) {
+          const exists = State.rules.find((r) => {
+            return r.id === m.id;
+          });
+          if (!exists && m.calculatedStart !== undefined) {
+            const mStart = m.calculatedStart;
+            const mEnd = m.episodes ? mStart + m.episodes - 1 : 999999;
+
+            // 嚴格比對：當前集數必須落在此作品的區間內
+            if (currentEp >= mStart && currentEp <= mEnd) {
+              State.rules.push({
+                start: mStart,
+                bahaStart: mStart,
+                aniStart: 1,
+                id: m.id,
+                title: m.title.native || m.title.romaji,
+              });
+              isModified = true;
+              Log.info(`✨ 自動無損追加單一系列作: ${m.title.native} (起算集數: ${mStart})`);
+
+              // 找到目標後立即中斷，避免一次啟用多個作品
+              break;
+            }
+          }
+        }
+
+        // 5. 若有更新，靜默儲存並通知使用者
+        if (isModified) {
+          State.rules.sort((a, b) => {
+            return b.start - a.start;
+          }); // 確保大到小排序不被破壞
+          GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`, State.rules);
+          UI.showToast('✨ 偵測到新續作，已自動加入系列設定！');
+          return true;
+        }
+        return false;
+      } catch (e) {
+        Log.error('追加新 OVA 失敗:', e);
+        return false;
       }
     },
     async startVideoHunt() {
@@ -2246,7 +2546,7 @@
         customPct: GM_getValue(CONSTANTS.KEYS.CUSTOM_PCT, 80),
       };
 
-      const video = await _.waitForElement(CONSTANTS.SELECTORS.PAGE.videoElement, 120000);
+      const video = await _.waitForElement(CONSTANTS.SELECTORS.BAHA.PAGE.videoElement, 120000);
       if (video) {
         if (video.dataset.alHooked !== State.currentUrlSn) {
           video.dataset.alHooked = State.currentUrlSn;
@@ -2255,7 +2555,7 @@
           State.isHunting = false;
 
           if (State.rules.length > 0) {
-            UI.updateNav(CONSTANTS.STATUS.BOUND);
+            this.updateUIStatus();
           }
         }
       } else {
@@ -2286,6 +2586,11 @@
       }
 
       const { mode, customSec, customPct } = State.syncSettings;
+
+      if (mode === CONSTANTS.SYNC_MODES.PAUSED.value) {
+        return;
+      }
+
       let shouldSync = false;
 
       if (mode === CONSTANTS.SYNC_MODES.INSTANT.value) {
@@ -2378,7 +2683,24 @@
           await AniListAPI.updateUserStatus(rule.id, CONSTANTS.ANI_STATUS.CURRENT.value);
         }
 
-        if (checkData?.progress === progress) {
+        if (checkData?.progress > progress) {
+          const overrideMode = GM_getValue(
+            CONSTANTS.KEYS.OVERRIDE_MODE,
+            CONSTANTS.OVERRIDE_MODES.PROTECT.value,
+          );
+          if (overrideMode === CONSTANTS.OVERRIDE_MODES.PROTECT.value) {
+            UI.updateNav(CONSTANTS.STATUS.INFO, '略過同步(已同步)');
+            return;
+          } else if (overrideMode === CONSTANTS.OVERRIDE_MODES.PROMPT.value) {
+            const isConfirm = window.confirm(
+              `您目前正在觀看 Ep.${progress}\n但 AniList 紀錄已達 Ep.${checkData.progress}。\n\n請問是否要將雲端進度「往前回退」到 Ep.${progress}？`,
+            );
+            if (!isConfirm) {
+              UI.updateNav(CONSTANTS.STATUS.INFO, '略過同步(取消覆蓋)');
+              return;
+            }
+          }
+        } else if (checkData?.progress === progress) {
           UI.updateNav(CONSTANTS.STATUS.INFO, '略過同步(已同步)');
           return;
         }
@@ -2397,7 +2719,9 @@
       } catch (e) {
         const errStr = e.message;
         UI.updateNav(CONSTANTS.STATUS.ERROR, '同步失敗');
-        if (errStr.includes('Token') || errStr.includes('Invalid Token')) {
+        if (State.isMaintenance) {
+          UI.showToast('⚠️ 伺服器維護中，已暫停自動同步');
+        } else if (errStr.includes('Token') || errStr.includes('Invalid Token')) {
           State.tokenErrorCount++;
           if (State.tokenErrorCount >= 3) {
             State.stopSync = true;
@@ -2624,14 +2948,14 @@
         if (CONSTANTS.DEBUG) {
           Utils.validateParser(doc);
         } else {
-          if (!doc.querySelector(CONSTANTS.SELECTORS.PARSER.infoTitle)) {
+          if (!doc.querySelector(CONSTANTS.SELECTORS.BAHA.PARSER.infoTitle)) {
             Log.error('Parser Error: 找不到標題，巴哈可能改版');
           }
         }
 
         const titleJp =
-          doc.querySelector(CONSTANTS.SELECTORS.PARSER.infoTitle)?.textContent.trim() || '';
-        const titles = doc.querySelectorAll(CONSTANTS.SELECTORS.PARSER.infoTitle);
+          doc.querySelector(CONSTANTS.SELECTORS.BAHA.PARSER.infoTitle)?.textContent.trim() || '';
+        const titles = doc.querySelectorAll(CONSTANTS.SELECTORS.BAHA.PARSER.infoTitle);
         const titleEn = titles.length > 1 ? titles[1].textContent.trim() : '';
 
         const getTextFromList = (items, keyword) => {
@@ -2645,7 +2969,7 @@
           return parts.length > 1 ? parts[1].trim() : null;
         };
 
-        const listItems = [...doc.querySelectorAll(CONSTANTS.SELECTORS.PARSER.infoList)];
+        const listItems = [...doc.querySelectorAll(CONSTANTS.SELECTORS.BAHA.PARSER.infoList)];
         const dateJpStr = getTextFromList(listItems, '當地');
         const dateTwStr = getTextFromList(listItems, '台灣');
 
@@ -2682,6 +3006,7 @@
     updateUIStatus() {
       if (!GM_getValue(CONSTANTS.KEYS.TOKEN)) {
         UI.updateNav(CONSTANTS.STATUS.TOKEN_ERROR);
+        return;
       }
       const isVideoPage = location.href.includes(CONSTANTS.URLS.VIDEO_PAGE);
       if (!isVideoPage) {
@@ -2690,8 +3015,16 @@
       }
       if (State.rules.length === 0) {
         UI.updateNav(CONSTANTS.STATUS.UNBOUND);
+      } else if (State.isMaintenance) {
+        UI.updateNav(CONSTANTS.STATUS.ERROR, 'AniList 維護中');
       } else {
-        UI.updateNav(CONSTANTS.STATUS.BOUND);
+        if (
+          GM_getValue(CONSTANTS.KEYS.SYNC_MODE, 'instant') === CONSTANTS.SYNC_MODES.PAUSED.value
+        ) {
+          UI.updateNav(CONSTANTS.STATUS.INFO, '已暫停同步');
+        } else {
+          UI.updateNav(CONSTANTS.STATUS.BOUND);
+        }
       }
     },
   };
