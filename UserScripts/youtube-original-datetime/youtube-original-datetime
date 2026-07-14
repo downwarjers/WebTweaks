@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 原始日期顯示
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      0.2
+// @version      0.3
 // @description  將影片原始日期顯示在下方
 // @author       downwarjers
 // @license      MIT
@@ -16,104 +16,158 @@
 (function () {
   'use strict';
 
+  // 快取 map，儲存 videoId -> Promise<string>
   const dateCache = new Map();
 
+  // 將 ISO 時間字串格式化為 YYYY-MM-DD
   const formatDate = (isoString) => {
     const d = new Date(isoString);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
 
-  const fetchVideoDate = (videoId, callback) => {
-    if (dateCache.has(videoId)) {
-      callback(dateCache.get(videoId));
-      return;
+  // 取得影片 ID 的安全函式
+  const getVideoId = (href) => {
+    if (!href) return null;
+    try {
+      const url = new URL(href, window.location.origin);
+      return url.searchParams.get('v');
+    } catch (e) {
+      const match = href.match(/[?&]v=([^&]+)/);
+      return match ? match[1] : null;
     }
-
-    const apiUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    GM_xmlhttpRequest({
-      method: 'GET',
-      url: apiUrl,
-      onload: function (response) {
-        const match = response.responseText.match(/"uploadDate":"([^"]+)"/);
-        if (match && match[1]) {
-          const absDate = formatDate(match[1]);
-          dateCache.set(videoId, absDate);
-          callback(absDate);
-        }
-      },
-    });
   };
 
-  // 處理首頁與列表卡片
+  // 採用原生 Fetch 並回傳 Promise，避免重複發送請求
+  const fetchVideoDate = (videoId) => {
+    if (dateCache.has(videoId)) {
+      return dateCache.get(videoId);
+    }
+
+    const promise = fetch(`/watch?v=${videoId}`)
+      .then((response) => {
+        if (!response.ok) throw new Error('網路請求失敗');
+        return response.text();
+      })
+      .then((html) => {
+        const match = html.match(/"uploadDate"\s*:\s*"([^"]+)"/) || html.match(/"publishDate"\s*:\s*"([^"]+)"/);
+        if (match && match[1]) {
+          return formatDate(match[1]);
+        }
+        throw new Error('找不到發布日期數據');
+      })
+      .catch((err) => {
+        // 若失敗則清除快取，允許後續重試
+        dateCache.delete(videoId);
+        throw err;
+      });
+
+    dateCache.set(videoId, promise);
+    return promise;
+  };
+
+  // 1. 處理首頁與列表卡片
   const processCards = () => {
-    const containers = document.querySelectorAll(
-      '.ytLockupMetadataViewModelTextContainer:not([data-date-processed])',
-    );
+    const containers = document.querySelectorAll('.ytLockupMetadataViewModelTextContainer');
 
     containers.forEach((container) => {
+      // 若已注入過日期，或正在等待載入，直接跳過
+      if (container.querySelector('.yt-original-date-pending') || container.querySelector('.yt-original-date-block')) return;
+
       const lockup = container.closest('yt-lockup-view-model');
       if (!lockup) return;
 
       const anchor = lockup.querySelector('a.ytLockupViewModelContentImage');
       if (!anchor) return;
 
-      const videoIdMatch = anchor.href.match(/v=([^&]+)/);
-      if (!videoIdMatch) return;
-      const videoId = videoIdMatch[1];
+      const videoId = getVideoId(anchor.getAttribute('href'));
+      if (!videoId) return;
 
-      container.setAttribute('data-date-processed', 'true');
+      // 取得 YouTube 原本放置觀看次數與時間的 metadata 區塊
+      const metadataContainer = container.querySelector('.ytLockupMetadataViewModelMetadata');
+      if (!metadataContainer) return; // 目標節點尚未渲染，等下一次 Observer 觸發
 
-      fetchVideoDate(videoId, (absDate) => {
-        const newRow = document.createElement('div');
-        newRow.style.marginTop = '4px';
-        newRow.style.fontSize = '14px';
-        newRow.style.color = '#aaa';
-        newRow.style.fontWeight = '500';
-        newRow.style.display = 'block';
-        newRow.textContent = `發布日期：${absDate}`;
+      // 建立臨時標記防止重複進入
+      const tempMark = document.createElement('span');
+      tempMark.className = 'yt-original-date-pending';
+      tempMark.style.display = 'none';
+      metadataContainer.appendChild(tempMark);
 
-        container.appendChild(newRow);
-      });
+      fetchVideoDate(videoId)
+        .then((absDate) => {
+          tempMark.remove();
+
+          // 再次安全確認沒有被重複注入
+          if (metadataContainer.querySelector('.yt-original-date-block')) return;
+
+          // 建立獨立的換行區塊 (div)，防止被卡片寬度擠壓截斷
+          const dateBlock = document.createElement('div');
+          dateBlock.className = 'yt-original-date-block';
+          
+          // 設置樣式：強制換行、調整間距，並複用 YouTube 內建的次要文字字型與顏色規範
+          dateBlock.style.marginTop = '4px';
+          dateBlock.style.fontSize = '14px';
+          dateBlock.style.lineHeight = '18px';
+          dateBlock.style.color = 'var(--yt-spec-text-secondary, #aaa)';
+          dateBlock.style.fontWeight = '400';
+          dateBlock.style.display = 'block';
+          dateBlock.style.width = '100%';
+          dateBlock.style.whiteSpace = 'nowrap';
+          dateBlock.style.overflow = 'hidden';
+          dateBlock.style.textOverflow = 'ellipsis';
+          
+          // 設定顯示文字
+          dateBlock.textContent = `發布日期：${absDate}`;
+
+          // 將日期區塊附加在 metadataContainer 的最下方，自然形成新的一行
+          metadataContainer.appendChild(dateBlock);
+        })
+        .catch(() => {
+          tempMark.remove();
+        });
     });
   };
 
-  // 處理搜尋結果卡片
+  // 2. 處理搜尋結果卡片
   const processSearchCards = () => {
-    const searchRenderers = document.querySelectorAll(
-      'ytd-video-renderer:not([data-date-processed])',
-    );
+    const searchRenderers = document.querySelectorAll('ytd-video-renderer');
 
     searchRenderers.forEach((renderer) => {
+      if (renderer.querySelector('.yt-original-date-pending') || renderer.querySelector('.yt-original-date-added-text')) return;
+
       const anchor = renderer.querySelector('a#video-title');
       if (!anchor) return;
 
-      const videoIdMatch = anchor.href.match(/v=([^&]+)/);
-      if (!videoIdMatch) return;
-      const videoId = videoIdMatch[1];
+      const videoId = getVideoId(anchor.getAttribute('href'));
+      if (!videoId) return;
 
-      renderer.setAttribute('data-date-processed', 'true');
+      const metadataLine = renderer.querySelector('#metadata-line');
+      if (!metadataLine) return; // 尚未載入則等下一次
 
-      fetchVideoDate(videoId, (absDate) => {
-        // 【關鍵修改】：將目標改為外層的 ytd-video-meta-block
-        const metaBlock = renderer.querySelector('ytd-video-meta-block');
-        if (!metaBlock) return;
+      const tempMark = document.createElement('span');
+      tempMark.className = 'yt-original-date-pending';
+      tempMark.style.display = 'none';
+      metadataLine.appendChild(tempMark);
 
-        const newRow = document.createElement('div');
-        newRow.style.marginTop = '4px';
-        newRow.style.fontSize = '12px';
-        newRow.style.color = 'var(--yt-spec-text-secondary, #aaa)';
-        newRow.style.fontWeight = '500';
-        newRow.style.display = 'block';
-        newRow.style.width = '100%'; // 強制佔滿整行，防止擠壓
-        newRow.textContent = `發布日期：${absDate}`;
+      fetchVideoDate(videoId)
+        .then((absDate) => {
+          tempMark.remove();
 
-        // 附加在 metaBlock 內部，自然會排列在原有的 metadata 下方
-        metaBlock.appendChild(newRow);
-      });
+          if (metadataLine.querySelector('.yt-original-date-added-text')) return;
+
+          // 建立顯示節點（YouTube 內建 CSS 會自動處理 .inline-metadata-item 的前置圓點分隔）
+          const dateSpan = document.createElement('span');
+          dateSpan.className = 'inline-metadata-item style-scope ytd-video-meta-block yt-original-date-added-text';
+          dateSpan.textContent = absDate;
+
+          metadataLine.appendChild(dateSpan);
+        })
+        .catch(() => {
+          tempMark.remove();
+        });
     });
   };
 
-  // 處理觀看頁面
+  // 3. 處理觀看影片頁面
   const processWatchPage = () => {
     const titleContainer = document.querySelector('ytd-watch-metadata #title');
     if (titleContainer && !document.getElementById('watch-abs-date')) {
@@ -124,7 +178,7 @@
           const absDate = formatDate(match[1]);
           const div = document.createElement('div');
           div.id = 'watch-abs-date';
-          div.style = 'font-size: 14px; color: #aaa; margin-top: 8px;';
+          div.style = 'font-size: 14px; color: var(--yt-spec-text-secondary, #aaa); margin-top: 8px;';
           div.textContent = `發布日期：${absDate}`;
           titleContainer.appendChild(div);
           break;
@@ -133,7 +187,7 @@
     }
   };
 
-  // 監聽 DOM 變化
+  // 監聽 DOM 變化自動運行
   const observer = new MutationObserver(() => {
     processCards();
     processSearchCards();
