@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Google Maps Share to Notion
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.2.5
-// @description  在 Google Maps 分享視窗嵌入 Notion 面板，自動擷取店名/地址/行政區/URL，支援重複檢查、分類選擇與備註填寫。
+// @version      3.3.0
+// @description  在 Google Maps 分享視窗嵌入 Notion 面板，自動擷取店名/地址/行政區/URL，支援重複檢查、分類選擇與備註填寫。(抗改版升級版)
 // @author       downwarjers
 // @license      MIT
 // @match        https://www.google.com/maps/*
@@ -484,25 +484,16 @@
     };
   }
 
-  // CSS
+  // CSS 樣式修正
   GM_addStyle(`
-        /* 保留原有的舊版樣式 */
-        .LenJEf { display: flex !important; justify-content: flex-end !important; gap: 5px !important; margin-top: 5px !important; opacity: 0.6; transition: opacity 0.2s; }
-        .LenJEf:hover { opacity: 1; }
-        .LenJEf button { flex-direction: row !important; padding: 4px 8px !important; height: auto !important; border: 1px solid #eee !important; border-radius: 15px !important; background: transparent !important; }
-        .LenJEf .XDlzbe { display: none !important; }
-        .LenJEf .fCbqBc { width: 20px !important; height: 20px !important; margin: 0 !important; }
-        .LenJEf img, .LenJEf span.google-symbols { width: 20px !important; height: 20px !important; font-size: 20px !important; }
-
-        /* 新增：Notion 面板的絕對不溢出樣式 */
         #notion-custom-panel {
             display: flex;
             flex-direction: column;
             gap: 16px; 
             width: 100%; 
-            max-width: 100%; /* 🌟 絕對禁止超出父容器 */
-            box-sizing: border-box; /* 🌟 確保邊框和內距都算在寬度內 */
-            padding: 16px 0px; /* 🌟 左右 padding 設為 0，直接使用 Google Maps 預設的邊距 */
+            max-width: 100%;
+            box-sizing: border-box;
+            padding: 16px 24px; /* 配合 Google 新版 Dialog 的左右縮排 */
             margin: 0; 
             border-top: 1px solid #dadce0;
         }
@@ -519,11 +510,11 @@
             font-weight: 500;
             color: #3c4043;
             white-space: nowrap; 
-            min-width: 35px; /* 確保標籤文字不換行 */
+            min-width: 45px;
         }
         .notion-input {
             flex: 1; 
-            min-width: 0; /* 🌟 防呆關鍵：強制允許 Flex 子元素縮小到 0，不撐破外框 */
+            min-width: 0;
             width: 100%;
             padding: 8px 12px; 
             border-radius: 8px;
@@ -547,21 +538,22 @@
             font-weight: 500;
             font-size: 14px;
             width: 100%;
-            box-sizing: border-box; /* 確保按鈕不會超出版面 */
+            box-sizing: border-box;
             margin-top: 4px; 
             transition: background-color 0.2s;
         }
   `);
+
   // 監聽器
   const observer = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
       if (mutation.addedNodes.length) {
         const shareModal = document.querySelector('div[role="dialog"]');
-        // 確保視窗存在，尚未插入面板，且出現了新版的預覽區塊
+        // 一勞永逸判斷法：視窗存在、面板尚未注入，且分享用的唯讀 input 已經產生
         if (
           shareModal &&
           !document.querySelector('#notion-custom-panel') &&
-          shareModal.querySelector('div[data-skw-id="preview"]')
+          shareModal.querySelector('input[readonly]')
         ) {
           injectUI(shareModal);
         }
@@ -572,10 +564,16 @@
 
   // UI 注入
   function injectUI(modal) {
-    const socialSection = modal.querySelector('div[data-skw-id="app-sharing"]');
-    const container = socialSection?.parentNode;
+    // 抗改版結構定位：尋找社群分享區塊（新版為包含多個社群 Button 的容器，或直接找 input 的祖先節點區塊）
+    const urlInput = modal.querySelector('input[readonly]');
+    if (!urlInput) {
+      return;
+    }
 
-    if (!container || !socialSection) {
+    // 尋找要插入面板的父容器：定位到滾動內容區
+    const scrollContainer =
+      urlInput.closest('.m6QErb.dS8AEf') || urlInput.closest('.yFnP6d') || modal;
+    if (!scrollContainer) {
       return;
     }
 
@@ -588,13 +586,13 @@
 
     const createRow = () => {
       const div = document.createElement('div');
-      div.className = 'notion-row'; // 套用 CSS
+      div.className = 'notion-row';
       return div;
     };
 
     const createLabel = (text) => {
       const lbl = document.createElement('label');
-      lbl.className = 'notion-label'; // 套用 CSS
+      lbl.className = 'notion-label';
       lbl.innerText = text;
       return lbl;
     };
@@ -604,14 +602,14 @@
     const nameInput = document.createElement('input');
     nameInput.type = 'text';
     nameInput.value = initialData.name;
-    nameInput.className = 'notion-input'; // 套用 CSS
+    nameInput.className = 'notion-input';
     row1.appendChild(createLabel('名稱:'));
     row1.appendChild(nameInput);
 
     // Row 2: Category
     const row2 = createRow();
     const select = document.createElement('select');
-    select.className = 'notion-input'; // 套用 CSS
+    select.className = 'notion-input';
     const defaultOption = document.createElement('option');
     defaultOption.text = '-- 請選擇 --';
     defaultOption.value = '';
@@ -636,23 +634,23 @@
     const noteInput = document.createElement('input');
     noteInput.type = 'text';
     noteInput.placeholder = '選填...';
-    noteInput.className = 'notion-input'; // 套用 CSS
+    noteInput.className = 'notion-input';
     row3.appendChild(createLabel('備註:'));
     row3.appendChild(noteInput);
 
-    // Row 4: Location (自動均分空間)
+    // Row 4: Location
     const row4 = createRow();
     const cityInput = document.createElement('input');
     cityInput.type = 'text';
     cityInput.value = initialData.city;
     cityInput.placeholder = '縣市';
-    cityInput.className = 'notion-input'; // 套用 CSS
+    cityInput.className = 'notion-input';
 
     const districtInput = document.createElement('input');
     districtInput.type = 'text';
     districtInput.value = initialData.district;
     districtInput.placeholder = '行政區';
-    districtInput.className = 'notion-input'; // 套用 CSS
+    districtInput.className = 'notion-input';
 
     row4.appendChild(createLabel('位置:'));
     row4.appendChild(cityInput);
@@ -665,7 +663,7 @@
     statusMsg.style.textAlign = 'center';
 
     const btn = document.createElement('button');
-    btn.className = 'notion-btn'; // 套用 CSS
+    btn.className = 'notion-btn';
 
     if (!isConfigured) {
       btn.innerText = '⚠️ 請點此設定 API Key';
@@ -691,8 +689,9 @@
           return;
         }
 
-        const freshUrlEl = modal.querySelector('span.OT9z9b');
-        const freshUrl = freshUrlEl ? freshUrlEl.innerText.trim() : window.location.href;
+        // 一勞永逸：直接重抓唯讀輸入框內的短網址
+        const freshUrlEl = modal.querySelector('input[readonly]');
+        const freshUrl = freshUrlEl ? freshUrlEl.value.trim() : window.location.href;
 
         btn.disabled = true;
         btn.innerText = '檢查中...';
@@ -725,7 +724,8 @@
             btn.style.backgroundColor = '#188038';
             setTimeout(() => {
               const closeBtn =
-                modal.querySelector('#header-close-button') ||
+                modal.querySelector('button[jsaction="modal.close"]') ||
+                modal.querySelector('button[aria-label="關閉"]') ||
                 modal.querySelector('button[aria-label="Close"]');
               if (closeBtn) {
                 closeBtn.click();
@@ -748,43 +748,57 @@
     panel.appendChild(row4);
     panel.appendChild(statusMsg);
     panel.appendChild(btn);
-    container.insertBefore(panel, socialSection);
+
+    // 一勞永逸插入法：直接加在滾動容器的最底部
+    scrollContainer.appendChild(panel);
   }
-  // 資料提取 (使用 CONFIG 中的變數)
-  // ==========================================
-  // 🟢 請替換原本的 extractData 函式 (基於圖片錨點版)
-  // ==========================================
-  // 資料提取 (支援新版介面)
+
+  // 資料提取（全新結構語意定位法）
   function extractData(modal) {
     let name = '';
     let address = '';
     let shortUrl = window.location.href;
 
-    // 1. 擷取店名 (新版 class: lGA1Fd)
-    const nameEl = modal.querySelector('.lGA1Fd');
-    if (nameEl) {
-      name = nameEl.innerText.trim();
+    // 1. 擷取短網址：直接找唯讀的 input 元素取值
+    const urlInput = modal.querySelector('input[readonly]');
+    if (urlInput) {
+      shortUrl = urlInput.value.trim();
+    }
+
+    // 2. 結構精準定位店名與地址：尋找包含預覽圖片欄位的文字區塊
+    // 新版 HTML 特徵：店名在上方（TDF87d），地址在下方（vKmG2c），外層通常有圖片容器
+    const textContainer = modal.querySelector('.iAj9Vc');
+    if (textContainer && textContainer.children.length >= 2) {
+      name = textContainer.children[0].innerText.trim();
+      address = textContainer.children[1].innerText.trim();
     } else {
-      // 備援：從網頁標題擷取
+      // 結構備援方案：如果 class 又變了，直接抓對話框中前兩個非空白的 div 文字
+      const allDivs = Array.from(modal.querySelectorAll('div'));
+      const previewBlock = allDivs.find((d) => {
+        return d.innerText && d.innerText.includes('分享連結');
+      });
+      if (previewBlock) {
+        // 從分享連結區塊往上找兄弟節點
+        const upperBlock = previewBlock.previousElementSibling;
+        if (upperBlock) {
+          const divs = upperBlock.querySelectorAll('div');
+          if (divs.length >= 2) {
+            name = divs[0].innerText.trim();
+            address = divs[1].innerText.trim();
+          }
+        }
+      }
+    }
+
+    // 備援方案：若依然沒抓到店名，退回網頁標題
+    if (!name) {
       name = document.title.replace(/ - Google.*$/, '').trim();
-    }
-
-    // 2. 擷取地址 (新版 class: jFtnKd)
-    const addressEl = modal.querySelector('.jFtnKd');
-    if (addressEl) {
-      address = addressEl.innerText.trim();
-    }
-
-    // 3. 擷取短網址 (新版放在 span.OT9z9b 內)
-    const urlEl = modal.querySelector('span.OT9z9b');
-    if (urlEl) {
-      shortUrl = urlEl.innerText.trim();
     }
 
     let city = '';
     let district = '';
 
-    // 4. 抓取縣市
+    // 3. 匹配縣市
     const foundCity = CONFIG.DATA.CITIES.find((c) => {
       return address.includes(c);
     });
@@ -792,7 +806,7 @@
       city = foundCity;
     }
 
-    // 5. 抓取行政區
+    // 4. 匹配行政區
     const foundDistrict = CONFIG.DATA.DISTRICTS.find((d) => {
       return address.includes(d);
     });
@@ -803,7 +817,7 @@
     return { name, address, url: shortUrl, city, district };
   }
 
-  // API: Check Duplicate (使用 CONFIG.NOTION_PROPS)
+  // API: Check Duplicate
   function checkDuplicate(name, token, dbId) {
     return new Promise((resolve, reject) => {
       GM_xmlhttpRequest({
@@ -816,7 +830,7 @@
         },
         data: JSON.stringify({
           filter: {
-            property: CONFIG.NOTION_PROPS.NAME, // 變數化欄位
+            property: CONFIG.NOTION_PROPS.NAME,
             title: { equals: name },
           },
         }),
@@ -834,10 +848,9 @@
     });
   }
 
-  // API: Send to Notion (使用 CONFIG.NOTION_PROPS)
+  // API: Send to Notion
   function sendToNotion(data, token, dbId) {
     return new Promise((resolve, reject) => {
-      // 動態構建 properties 物件
       const props = {};
       props[CONFIG.NOTION_PROPS.NAME] = { title: [{ text: { content: data.name } }] };
       props[CONFIG.NOTION_PROPS.URL] = { url: data.url };
@@ -858,7 +871,7 @@
         data: JSON.stringify({
           parent: { database_id: dbId },
           icon: { type: 'emoji', emoji: CONFIG.PREFS.PAGE_ICON },
-          properties: props, // 使用上面構建的物件
+          properties: props,
         }),
         onload: (response) => {
           if (response.status === 200) {
