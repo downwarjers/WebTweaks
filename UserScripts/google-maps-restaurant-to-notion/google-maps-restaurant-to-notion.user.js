@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Google Maps Share to Notion
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.3.0
-// @description  在 Google Maps 分享視窗嵌入 Notion 面板，自動擷取店名/地址/行政區/URL，支援重複檢查、分類選擇與備註填寫。(抗改版升級版)
+// @version      3.3.1
+// @description  在 Google Maps 分享視窗嵌入 Notion 面板，自動擷取店名/地址/行政區/URL，支援重複檢查、分類選擇與備註填寫。
 // @author       downwarjers
 // @license      MIT
 // @match        https://www.google.com/maps/*
