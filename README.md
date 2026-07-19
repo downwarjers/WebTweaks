@@ -97,7 +97,7 @@
 
 ### Google Maps Share to Notion
 * **資料夾名稱**: `google-maps-restaurant-to-notion`
-* **說明**: 在 Google Maps 分享視窗嵌入 Notion 面板，自動擷取店名/地址/行政區/URL，支援重複檢查、分類選擇與備註填寫。(抗改版升級版)
+* **說明**: 在 Google Maps 分享視窗嵌入 Notion 面板，自動擷取店名/地址/行政區/URL，支援重複檢查、分類選擇與備註填寫。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/google-maps-restaurant-to-notion/google-maps-restaurant-to-notion.user.js)
 
 ### Manga-Zip Detail Page Follow Button
