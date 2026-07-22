@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.14.0
+// @version              6.14.1
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -676,10 +676,59 @@
     .al-theme-dark .al-card-suggest { background: #451a03; border-color: #78350f; }
 
     /* 8. 表格 (系列設定) */
-    .al-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; table-layout: fixed; }
-    .al-table th { text-align: left; padding: 10px 8px; border-bottom: 2px solid var(--al-border); color: var(--al-text-sub); font-size: 12px; white-space: nowrap; }
-    .al-table td { padding: 8px; border-bottom: 1px solid var(--al-border); vertical-align: middle; height: 80px; }
-    
+    .al-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 13px;
+      margin-top: 8px;
+      table-layout: fixed;
+    }
+    .al-table th {
+      text-align: center;
+      padding: 8px 10px;
+      border-bottom: 2px solid var(--al-border);
+      color: var(--al-text-sub);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      background: var(--al-bg-sec);
+    }
+    .al-table th:nth-child(2) { text-align: left; }
+    .al-table td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--al-border);
+      vertical-align: middle;
+      height: 64px;
+    }
+    .al-table .inp-start::-webkit-outer-spin-button,
+    .al-table .inp-start::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .al-table .inp-start {
+      -moz-appearance: textfield;
+      text-align: center;
+      font-weight: 600;
+      height: 32px;
+      border-radius: 6px;
+      border: 1px solid var(--al-border);
+      background: var(--al-bg);
+      transition: all 0.15s ease;
+    }
+    .al-table .inp-start:focus {
+      border-color: var(--al-primary);
+      box-shadow: 0 0 0 2px rgba(61, 180, 242, 0.2);
+    }
+    .al-table .btn-toggle {
+      width: 64px;
+      height: 32px;
+      padding: 0;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+    }
+
     .al-row-active { background-color: rgba(61, 180, 242, 0.08); } 
     .al-row-suggest { background-color: rgba(245, 158, 11, 0.08); }
 
@@ -900,7 +949,7 @@
         // 判斷此作品是否啟用 (存在於 uiState，或未傳入規則時預設全開)
         const isRuleActive =
           Object.keys(uiState).length === 0 ||
-          uiState.hasOwn(current.id) ||
+          Object.prototype.hasOwnProperty.call(uiState, current.id) ||
           current.id === targetId;
         if (isRuleActive) {
           nextValidStart = current.calculatedStart;
@@ -922,7 +971,7 @@
 
         const isRuleActive =
           Object.keys(uiState).length === 0 ||
-          uiState.hasOwn(current.id) ||
+          Object.prototype.hasOwnProperty.call(uiState, current.id) ||
           current.id === targetId;
         if (isRuleActive) {
           prevValidStart = current.calculatedStart;
@@ -1793,10 +1842,9 @@
      * @param {boolean} isSuggestion - 是否為建議狀態
      * @param {boolean} isOut - 是否為外部狀態
      * @param {number} bahaVal - 巴哈姆特值
-     * @param {number} aniVal - AniList值
      * @returns {string} - 生成的 HTML 字串
      */
-    seriesRow: (m, isActive, isSuggestion, isOut, bahaVal, aniVal) => {
+    seriesRow: (m, isActive, isSuggestion, isOut, bahaVal) => {
       const displayStart = m.calculatedStart !== undefined ? m.calculatedStart : '';
       let statusHtml, rowClass, btnTxt, btnClass;
 
@@ -1804,36 +1852,29 @@
         statusHtml = `<span class="al-tag success">使用中</span>`;
         rowClass = 'al-row-active';
         btnTxt = '取消';
-        btnClass = 'al-btn-danger al-btn-sm';
+        btnClass = 'al-btn-danger';
       } else if (isSuggestion) {
         statusHtml = `<span class="al-tag warn">建議</span>`;
         rowClass = 'al-row-suggest';
         btnTxt = '套用';
-        btnClass = 'al-btn-primary al-btn-sm';
+        btnClass = 'al-btn-primary';
       } else if (isOut) {
         statusHtml = `<span class="al-tag error">非本頁</span>`;
         rowClass = '';
         btnTxt = '啟用';
-        btnClass = 'al-btn-outline al-btn-sm';
+        btnClass = 'al-btn-outline';
       } else {
         statusHtml = `<span class="al-tag default">未使用</span>`;
         rowClass = '';
         btnTxt = '啟用';
-        btnClass = 'al-btn-outline al-btn-sm';
-      }
-
-      let defaultAniVal = '';
-      if (isActive) {
-        defaultAniVal = aniVal;
-      } else if (isSuggestion) {
-        defaultAniVal = 1;
+        btnClass = 'al-btn-outline';
       }
 
       return `
         <tr class="series-row ${rowClass}" data-id="${m.id}" data-title="${Utils.deepSanitize(
           m.title.native || m.title.romaji,
         )}">
-          <td style="text-align:center; width:80px;">
+          <td style="text-align:center;">
              ${statusHtml}
              <input type="checkbox" class="cb-active" style="display:none;" ${
                isActive ? 'checked' : ''
@@ -1844,27 +1885,19 @@
                <a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-shrink-0">
                  <img src="${m.coverImage.medium}" class="al-cover al-cover-sm">
                </a>
-               <div style="min-width:0;">
-                 <a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link al-text-sm al-font-bold al-mb-1" style="display:block; line-height:1.3;">
-                   ${m.title.native || m.title.romaji}
+               <div style="min-width:0; flex:1;">
+                 <a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link al-text-sm al-font-bold" style="display:block; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">    ${m.title.native || m.title.romaji}
                  </a>
-                 <div class="al-text-sub al-text-xs">
-                  ${Utils.formatDate(m.startDate)} | ${CONSTANTS.MEDIA_STATUS[m.status] || m.status} | ${m.format}
-                 </div>
+                 <div class="al-text-sub al-text-xs al-mt-1">
+                  ${Utils.formatDate(m.startDate)} · ${CONSTANTS.MEDIA_STATUS[m.status] || m.status} · ${m.format}</div>
                </div>
             </div>
           </td>
-          <td style="text-align:center; width:50px;">${m.episodes || '?'}</td>
-          <td style="text-align:center; width:70px;">
-             <input type="number" class="inp-start al-input al-input-sm" placeholder="1" 
-               value="${bahaVal !== undefined ? bahaVal : ''}" style="width:100%;">
-          </td>
-          <td style="text-align:center; width:20px; color:var(--al-text-sub);">⮕</td>
-          <td style="text-align:center; width:70px;">
-             <input type="number" class="inp-ani-start al-input al-input-sm" placeholder="1" 
-               value="${defaultAniVal}" style="width:100%;">
-          </td>
-          <td style="text-align:center; width:80px;">
+          <td style="text-align:center; font-weight:600; color:var(--al-text-sub);">${m.episodes || '?'}</td>
+          <td style="text-align:center;">
+             <input type="number" class="inp-start al-input" placeholder="${displayStart}" 
+               value="${bahaVal !== undefined ? bahaVal : ''}"></td>
+          <td style="text-align:center;">
              <button class="al-btn btn-toggle ${btnClass}" data-suggested="${displayStart}">${btnTxt}</button>
           </td>
         </tr>
@@ -2002,13 +2035,11 @@
         <table class="al-table">
           <thead>
             <tr>
-              <th style="width:80px; text-align:center;">狀態</th>
-              <th>作品</th>
-              <th style="width:50px; text-align:center;">總集</th>
-              <th style="width:70px; text-align:center;">巴哈起始</th>
-              <th style="width:20px;"></th>
-              <th style="width:70px; text-align:center;">Ani起始</th>
-              <th style="width:70px; text-align:center;">操作</th>
+              <th style="width:70px;">狀態</th>
+              <th>作品名稱</th>
+              <th style="width:55px;">總集</th>
+              <th style="width:85px;">巴哈起始集數</th>
+              <th style="width:75px;">操作</th>
             </tr>
           </thead>
           <tbody>${rowsHtml}</tbody>
@@ -2630,12 +2661,11 @@
         const pageMin = EpisodeCalculator.getMin();
         const pageMax = EpisodeCalculator.getMax();
 
-        // 如果有綁定過，用綁定的值當錨點；否則用頁面最小值
-        const anchorStart = baseRule ? baseRule.bahaStart || baseRule.start : pageMin || 1;
+        const anchorStart = baseRule ? baseRule.bahaStart : pageMin || 1;
 
         const initialUIState = {};
         State.rules.forEach((r) => {
-          initialUIState[r.id] = r.bahaStart !== undefined ? r.bahaStart : r.start;
+          initialUIState[r.id] = r.bahaStart;
         });
 
         SeriesLogic.calculateOffsets(chain, searchId, anchorStart, initialUIState);
@@ -2700,9 +2730,7 @@
             bahaVal = '';
           }
 
-          const aniVal = existing ? (existing.aniStart !== undefined ? existing.aniStart : 1) : 1;
-
-          rowsHtml += Templates.seriesRow(m, isActive, isSuggestion, isOut, bahaVal, aniVal);
+          rowsHtml += Templates.seriesRow(m, isActive, isSuggestion, isOut, bahaVal);
         });
 
         container.innerHTML = Templates.seriesTab({
@@ -2751,7 +2779,6 @@
           const statusSpan = _.$('.al-tag', row);
           const cb = _.$('.cb-active', row);
           const inp = _.$('.inp-start', row);
-          const inpAni = _.$('.inp-ani-start', row);
 
           cb.checked = active;
           row.classList.remove('al-row-active', 'al-row-suggest');
@@ -2776,9 +2803,6 @@
               }
               inp.value = suggestedVal;
             }
-            if (inpAni.value === '') {
-              inpAni.value = 1;
-            }
           } else {
             statusSpan.textContent = '未用';
             statusSpan.classList.add('default'); // 灰色標籤
@@ -2787,7 +2811,6 @@
             btn.classList.add('al-btn-outline'); // 線框按鈕
 
             inp.value = '';
-            inpAni.value = '';
           }
           refreshUIOffsets();
         };
@@ -2818,14 +2841,6 @@
           });
         });
 
-        _.$$('.inp-ani-start', container).forEach((inp) => {
-          inp.addEventListener('input', function () {
-            if (this.value !== '' && Number(this.value) < 0) {
-              this.value = 0;
-            }
-          });
-        });
-
         _.$('#btn-refresh-series', container).addEventListener('click', async function () {
           State.cachedSeriesChain = null;
           UI.renderSeries(container);
@@ -2841,14 +2856,11 @@
           _.$$('.series-row', container).forEach((row) => {
             const cb = _.$('.cb-active', row);
             const bahaVal = parseInt(_.$('.inp-start', row).value);
-            const aniVal = parseInt(_.$('.inp-ani-start', row).value);
 
             // 允許輸入 0，只要不是 NaN 即可
-            if (cb.checked && !isNaN(bahaVal) && !isNaN(aniVal)) {
+            if (cb.checked && !isNaN(bahaVal)) {
               newRules.push({
-                start: bahaVal, // 用於排序
                 bahaStart: bahaVal, // 儲存明確變數
-                aniStart: aniVal, // 儲存明確變數
                 id: parseInt(row.dataset.id),
                 title: row.dataset.title,
               });
@@ -3074,14 +3086,14 @@
         } else {
           State.rules = [
             {
-              start: 1,
+              bahaStart: 1,
               id: savedRules.id || savedRules,
               title: savedRules.title || 'Unknown',
             },
           ];
         }
         State.rules.sort((a, b) => {
-          return b.start - a.start;
+          return (b.bahaStart || 0) - (a.bahaStart || 0);
         });
       } else {
         State.rules = [];
@@ -3123,7 +3135,7 @@
       if (targetEp !== null) {
         State.activeRule =
           State.rules.find((r) => {
-            return targetEp >= r.start;
+            return targetEp >= r.bahaStart;
           }) || State.rules[State.rules.length - 1];
       } else {
         // 找不到集數，預設抓第一條規則顯示 UI
@@ -3141,10 +3153,7 @@
           // --- 偵測集數溢位 ---
           if (targetEp !== null) {
             // 計算當前規則能涵蓋的最大集數：起點 + 總集數 - 1
-            const ruleStart =
-              State.activeRule.bahaStart !== undefined
-                ? State.activeRule.bahaStart
-                : State.activeRule.start;
+            const ruleStart = State.activeRule.bahaStart;
             const maxEpCovered = ruleStart + (data.episodes || 999) - 1;
 
             // 若當前觀看集數超越了該規則的最大集數，代表遇到未記錄的 OVA 或續作
@@ -3189,15 +3198,11 @@
             return r.id === m.id;
           });
           // 若手動設定存在則帶入具體數字，否則給 null 讓程式自動往下推算
-          mockUIState[m.id] = existing
-            ? existing.bahaStart !== undefined
-              ? existing.bahaStart
-              : existing.start
-            : null;
+          mockUIState[m.id] = existing ? existing.bahaStart : null;
         });
 
         // 3. 帶入模擬設定，計算真正的連續集數
-        SeriesLogic.calculateOffsets(chain, baseId, State.activeRule.start, mockUIState);
+        SeriesLogic.calculateOffsets(chain, baseId, State.activeRule.bahaStart, mockUIState);
 
         let isModified = false;
 
@@ -3213,9 +3218,7 @@
             // 嚴格比對：當前集數必須落在此作品的區間內
             if (currentEp >= mStart && currentEp <= mEnd) {
               State.rules.push({
-                start: mStart,
                 bahaStart: mStart,
-                aniStart: 1,
                 id: m.id,
                 title: m.title.native || m.title.romaji,
               });
@@ -3231,7 +3234,7 @@
         // 5. 若有更新，靜默儲存並通知使用者
         if (isModified) {
           State.rules.sort((a, b) => {
-            return b.start - a.start;
+            return (b.bahaStart || 0) - (a.bahaStart || 0);
           }); // 確保大到小排序不被破壞
           GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`, State.rules);
           UI.showToast('✨ 偵測到新續作，已自動加入系列設定！');
@@ -3332,7 +3335,7 @@
     },
     saveRules(newRules) {
       newRules.sort((a, b) => {
-        return b.start - a.start;
+        return (b.bahaStart || 0) - (a.bahaStart || 0);
       });
       State.rules = newRules;
       State.cachedCreditsData = null;
@@ -3359,13 +3362,9 @@
 
       const rule = State.activeRule;
 
-      // 3. 讀取設定值
-      const bahaStart = rule.bahaStart !== undefined ? rule.bahaStart : rule.start;
-      const aniStart = rule.aniStart !== undefined ? rule.aniStart : 1;
-
-      // 4. 公式：按鈕數字 - 巴哈起始 + AniList起始
+      // 3. 公式：按鈕數字 - 巴哈起始 + AniList起始
       // 範例：第80集 (80 - 1 + 1 = 80)、第0集 (0 - 0 + 1 = 1)
-      let progress = rawEp - bahaStart + aniStart;
+      let progress = rawEp - rule.bahaStart + 1;
 
       UI.updateNav(CONSTANTS.STATUS.SYNCING, `同步 Ep.${progress}...`);
       Log.info(`Syncing progress: Ep.${progress} for media ${rule.id}`);
@@ -3582,7 +3581,7 @@
 
         const currentUIState = {};
         State.rules.forEach((r) => {
-          currentUIState[r.id] = r.bahaStart || r.start;
+          currentUIState[r.id] = r.bahaStart;
         });
         SeriesLogic.calculateOffsets(chain, targetId, anchorStart, currentUIState);
 
@@ -3610,9 +3609,7 @@
 
           if (m.id === targetId || isOverlapping) {
             newRules.push({
-              start: mStart,
               bahaStart: mStart,
-              aniStart: 1,
               id: m.id,
               title: m.title.native || m.title.romaji,
             });
@@ -3626,9 +3623,7 @@
       if (newRules.length === 0) {
         const fallback = EpisodeCalculator.getMin() || 1;
         newRules.push({
-          start: fallback,
           bahaStart: fallback,
-          aniStart: 1,
           id: targetId,
           title: title,
         });
