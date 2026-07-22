@@ -1,10 +1,9 @@
 // ==UserScript==
-// ==UserScript==
 // @name                 Bahamut Anime to AniList Sync
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.13.0
+// @version              6.14.0
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -14,6 +13,8 @@
 // @connect              acg.gamer.com.tw
 // @connect              graphql.anilist.co
 // @connect              myanimelist.net
+// @connect              cal.syoboi.jp
+// @connect              ja.wikipedia.org
 // @icon                 https://ani.gamer.com.tw/apple-touch-icon-144.jpg
 // @run-at               document-idle
 // @grant                GM_xmlhttpRequest
@@ -23,8 +24,8 @@
 // @grant                GM_addStyle
 // @grant                GM_setClipboard
 // @noframes
-// @downloadURL          https://update.greasyfork.org/scripts/563959/Bahamut%20Anime%20to%20AniList%20Sync.user.js
-// @updateURL            https://update.greasyfork.org/scripts/563959/Bahamut%20Anime%20to%20AniList%20Sync.meta.js
+// @downloadURL https://update.greasyfork.org/scripts/563959/Bahamut%20Anime%20to%20AniList%20Sync.user.js
+// @updateURL https://update.greasyfork.org/scripts/563959/Bahamut%20Anime%20to%20AniList%20Sync.meta.js
 // // ==/UserScript==
 
 (function () {
@@ -62,6 +63,7 @@
       CUSTOM_PCT: 'SYNC_CUSTOM_PERCENTAGE', // 自訂百分比的數值
       OVERRIDE_MODE: 'SYNC_OVERRIDE_MODE', // 同步策略
       SHOW_ALL_SERIES: 'SYNC_SHOW_ALL_SERIES', // 是否顯示系列完整格式
+      SHOW_INLINE_INFO: 'SYNC_SHOW_INLINE_INFO', // 頁面內嵌聲優/主題曲開關
     },
 
     // --- DOM 元素選擇器 (Selectors) ---
@@ -76,6 +78,7 @@
           acgLink: 'a[href*="acgDetail.php"]', // 作品資料頁的連結
           acgLinkAlt: 'a', // 備用選擇器 (用於 contains 文字搜尋)
           videoElement: 'video', // 網頁上的影片播放器元素 (<video>)
+          inlineContainer: '.anime-option', // 內嵌資訊容器 (聲優/主題曲)
         },
         // 背景爬蟲
         PARSER: {
@@ -140,6 +143,15 @@
         label: '💬 彈出詢問 (以最新觀看集數為主，觀看舊集數時詢問是否覆蓋)',
       },
       ALWAYS: { value: 'always', label: '⚠️ 強制覆蓋 (總是以當前觀看集數為主)' },
+    },
+
+    DEFAULTS: {
+      TOKEN: '',
+      SYNC_MODE: 'instant',
+      CUSTOM_SEC: 60,
+      CUSTOM_PCT: 80,
+      OVERRIDE_MODE: 'protect',
+      SHOW_INLINE_INFO: false,
     },
   };
 
@@ -368,6 +380,58 @@
         return null;
       }
     },
+    extractCast(mediaData) {
+      if (!mediaData?.characters?.edges) {
+        return [];
+      }
+
+      return mediaData.characters.edges
+        .map((edge) => {
+          // 角色名稱：優先使用 native (日文原名)，若無則用 full
+          const charName = edge.node?.name?.native || edge.node?.name?.full || '未知角色';
+
+          // 日本配音員：取第一個日文 CV
+          const actor = edge.voiceActors?.[0];
+          if (!actor) {
+            return null;
+          }
+
+          const cvName = actor.name?.native || actor.name?.full || '未知聲優';
+
+          return {
+            char: charName,
+            cv: cvName,
+            role: edge.role, // MAIN (主角) 或 SUPPORTING (配角)
+          };
+        })
+        .filter(Boolean); // 過濾掉沒有 CV 的項目
+    },
+    /**
+     * 根據 URL 動態解析並回傳友善的來源名稱
+     * @param {string} url - 資料來源的網址
+     * @returns {string} - 友善顯示名稱
+     */
+    getSourceName(url) {
+      if (!url) {
+        return '未知來源';
+      }
+
+      if (url.includes('syoboi.jp')) {
+        return 'しょぼいカレンダー';
+      }
+      if (url.includes('anilist.co')) {
+        return 'AniList';
+      }
+
+      // 若為其他外連網址，動態擷取 Hostname 作為預設顯示名稱
+      try {
+        const hostname = new URL(url).hostname.replace(/^www\./, '');
+        return hostname;
+      } catch (e) {
+        Log.error('URL Parse Error', e);
+        return '外部來源';
+      }
+    },
     // 選擇器檢查
     _validateGroup(scope, selectors, groupName) {
       Log.group(`🔍 Selector 檢查: ${groupName}`);
@@ -431,12 +495,14 @@
     isMaintenance: false, // 伺服器維護狀態
     // huntTimer: null, // 搜尋播放器的 setInterval ID
     lastTimeUpdate: 0, // 上次處理 timeupdate 事件的時間戳
+    currentRequestId: 0, // 請求版本號（解決 Race Condition）
 
     // --- 4. API 資料快取 (Cache) ---
     cachedViewer: null, // [主頁快取] 使用者資訊
     cachedMediaInfo: null, // [主頁快取] 作品詳細資訊 + 使用者狀態 (合併查詢結果)
     cachedSeriesChain: null, // [系列頁快取] 系列作關聯列表 (Sequel Chain)
     cachedSeriesBaseId: null, // [系列頁快取識別] 記錄目前的系列快取是基於哪個 ID 查詢的
+    cachedCreditsData: null, // Syoboi 與 Wiki 資料快取
   };
   // #endregion
 
@@ -459,6 +525,18 @@
         Media(id: $id) {
             id idMal title { romaji native } status coverImage { medium } episodes seasonYear startDate { year month day } format
             mediaListEntry { status progress id }
+            characters(sort: [ROLE, RELEVANCE], perPage: 25) {
+                edges {
+                    role
+                    node {
+                        name { native full }
+                    }
+                    voiceActors(language: JAPANESE) {
+                        id
+                        name { native full }
+                    }
+                }
+            }
         }
     }`,
   };
@@ -654,6 +732,31 @@
         opacity: 1;
         transition: opacity 0.2s ease-in-out;
     }
+
+.al-info-split-layout {
+  display: flex;
+  gap: 12px;
+}
+
+.al-info-split-col {
+  flex: 1;
+  min-width: 0; 
+  display: flex;         
+  flex-direction: column;
+}
+
+.al-inline-mode {
+  background: transparent !important;
+  border: 1px solid var(--al-border) !important;
+}
+
+/* 螢幕較窄時自動變回上下疊放，保證行動端/小視窗瀏覽體驗 */
+@media (max-width: 768px) {
+  .al-info-split-layout {
+    flex-direction: column;
+  }
+}
+
     @keyframes al-fadein { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     @media (max-width: 768px) { #al-title, #al-user-status { display: none !important; } }
   `);
@@ -797,7 +900,7 @@
         // 判斷此作品是否啟用 (存在於 uiState，或未傳入規則時預設全開)
         const isRuleActive =
           Object.keys(uiState).length === 0 ||
-          uiState.hasOwnProperty(current.id) ||
+          uiState.hasOwn(current.id) ||
           current.id === targetId;
         if (isRuleActive) {
           nextValidStart = current.calculatedStart;
@@ -819,7 +922,7 @@
 
         const isRuleActive =
           Object.keys(uiState).length === 0 ||
-          uiState.hasOwnProperty(current.id) ||
+          uiState.hasOwn(current.id) ||
           current.id === targetId;
         if (isRuleActive) {
           prevValidStart = current.calculatedStart;
@@ -905,7 +1008,7 @@
                       `連線過於頻繁，重試中...(${retryCount + 1}/${CONSTANTS.API_MAX_RETRIES})`,
                     );
                     setTimeout(() => {
-                      this.request(query, variables, retryCount + 1)
+                      AniListAPI.request(query, variables, retryCount + 1)
                         .then(resolve)
                         .catch(reject);
                     }, delay);
@@ -975,7 +1078,7 @@
               );
 
               setTimeout(() => {
-                this.request(query, variables, retryCount + 1)
+                AniListAPI.request(query, variables, retryCount + 1)
                   .then(resolve)
                   .catch(reject);
               }, delay);
@@ -1081,6 +1184,15 @@
   // #region ================= [API] MAL 通訊層 =================
   const MALAPI = {
     async fetchSyoboiUrl(malId) {
+      if (!malId) {
+        return '';
+      }
+      const cacheKey = `baha_mal_syoboi_${malId}`;
+      const cachedUrl = GM_getValue(cacheKey, null);
+      if (cachedUrl !== null) {
+        Log.info(`[MAL Cache] Hit for MAL ID ${malId}: ${cachedUrl}`);
+        return cachedUrl;
+      }
       const url = `https://myanimelist.net/anime/${malId}`;
       try {
         const html = await new Promise((r, j) => {
@@ -1112,13 +1224,16 @@
 
         if (syoboiEl) {
           // 成功找到元素，直接回傳 href 屬性文字
-          return syoboiEl.getAttribute('href') || '';
+          const syoboiUrl = syoboiEl.getAttribute('href') || '';
+          GM_setValue(cacheKey, syoboiUrl);
+          return syoboiUrl;
         }
 
         // 找不到元素時的防禦與提示
         if (typeof Log !== 'undefined') {
           Log.warn(`MAL Parser Warning: 該作品頁面未建立 Syoboi 連結 (MALID: ${malId})`);
         }
+        GM_setValue(cacheKey, '');
         return '';
       } catch (e) {
         if (typeof Log !== 'undefined') {
@@ -1130,24 +1245,270 @@
   };
   // #endregion
 
+  // #region ================= [API] Syoboi 通訊層 =================
+  const SyoboiAPI = {
+    /**
+     * 抓取並解析 Syoboi 頁面的 CAST 與主題曲
+     * @param {string} syoboiUrl
+     * @returns {Promise<{cast: Array, song: Array, source: string}|null>}
+     */
+    async fetchInfo(syoboiUrl) {
+      if (!syoboiUrl) {
+        return null;
+      }
+
+      try {
+        // 1. 發送 GET 請求取得 Syoboi 頁面的 HTML 原始碼
+        const html = await new Promise((resolve, reject) => {
+          GM_xmlhttpRequest({
+            method: 'GET',
+            url: syoboiUrl,
+            onload: (r) => {
+              return resolve(r.responseText);
+            },
+            onerror: reject,
+          });
+        });
+
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+
+        // 2. 解析 CAST (聲優名單)
+        const cast = [];
+        doc.querySelectorAll('.cast table tr').forEach((row) => {
+          const charEl = row.querySelector('th');
+          const cvEl = row.querySelector('td');
+          if (charEl && cvEl) {
+            cast.push({
+              char: charEl.textContent.trim(),
+              cv: cvEl.textContent.trim(),
+            });
+          }
+        });
+
+        // 3. 解析主題曲 (OP / ED / 插入曲)
+        const song = [];
+        const allSections = doc.querySelectorAll('.section');
+
+        allSections.forEach((sd) => {
+          const titleEl = sd.querySelector('.title');
+          if (!titleEl) {
+            return;
+          }
+
+          const titleText = titleEl.textContent;
+          const classList = sd.classList;
+
+          // 比對標籤
+          const isOp = classList.contains('op') || titleText.includes('オープニング');
+          const isEd = classList.contains('ed') || titleText.includes('エンディング');
+          const isSt = classList.contains('st') || titleText.includes('挿入歌');
+          const isOtherSong = titleText.includes('主題歌');
+
+          // 如果不符合任何音樂類型的 Class 或標題關鍵字，直接跳過該表格
+          if (!isOp && !isEd && !isSt && !isOtherSong) {
+            return;
+          }
+
+          // 判定音樂類型標籤
+          let type = '主題曲';
+          if (isOp) {
+            type = 'OP';
+          } else if (isEd) {
+            type = 'ED';
+          } else if (isSt) {
+            type = '插入曲';
+          }
+
+          // 複製標題 DOM 節點並移除 <small> 標籤
+          const titleClone = titleEl.cloneNode(true);
+          const smallEl = titleClone.querySelector('small');
+          if (smallEl) {
+            smallEl.remove();
+          }
+
+          // 清理前後的「」括號與多餘空白
+          const rawTitle = titleClone.textContent.trim().replace(/^「|」$/g, '');
+
+          // 擷取歌手資訊（尋找 <th> 欄位名稱包含「歌」的列）
+          const singerEl = [...sd.querySelectorAll('th')]
+            .find((th) => {
+              return th.textContent.includes('歌');
+            })
+            ?.parentElement?.querySelector('td');
+
+          if (rawTitle) {
+            song.push({
+              type: type,
+              title: rawTitle,
+              singer: singerEl ? singerEl.textContent.trim() : '-',
+            });
+          }
+        });
+
+        return { cast, song, source: syoboiUrl };
+      } catch (e) {
+        Log.error('Syoboi Fetch Error', e);
+        return null;
+      }
+    },
+  };
+  // #endregion
+
+  // #region ================= [API] Wikipedia 通訊層 =================
+  const WikiAPI = {
+    async getZhWikiLinks(castList) {
+      if (!castList || castList.length === 0) {
+        return {};
+      }
+
+      // 1. 整理傳入的 CV 名稱，並去除重複與無效項目
+      const cvNames = [
+        ...new Set(
+          castList
+            .map((c) => {
+              return c.cv;
+            })
+            .filter((cv) => {
+              return cv && cv !== '未知聲優' && cv !== '無配音';
+            }),
+        ),
+      ];
+
+      // 每 20 個名稱分批次向 Wikipedia API 查詢（避免 URL 過長）
+      const chunks = [];
+      for (let i = 0; i < cvNames.length; i += 20) {
+        chunks.push(cvNames.slice(i, i + 20));
+      }
+
+      const wikiResults = {};
+
+      for (const chunk of chunks) {
+        const titles = chunk.join('|');
+        const url = `https://ja.wikipedia.org/w/api.php?action=query&format=json&prop=langlinks|pageprops&titles=${encodeURIComponent(
+          titles,
+        )}&redirects=1&lllang=zh&lllimit=100&ppprop=disambiguation`;
+
+        try {
+          const jsonText = await new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+              method: 'GET',
+              url,
+              onload: (r) => {
+                return resolve(r.responseText);
+              },
+              onerror: reject,
+            });
+          });
+
+          const data = JSON.parse(jsonText);
+          const query = data.query || {};
+          const pages = query.pages || {};
+
+          // 2. 建立重定向與規格化映射地圖 (From -> To)
+          const titleMap = new Map();
+
+          // 處理規格化 (如小寫轉大寫)
+          if (query.normalized) {
+            query.normalized.forEach((item) => {
+              titleMap.set(item.to, item.from);
+            });
+          }
+
+          // 處理重定向
+          if (query.redirects) {
+            query.redirects.forEach((item) => {
+              const originalFrom = titleMap.get(item.from) || item.from;
+              titleMap.set(item.to, originalFrom);
+            });
+          }
+
+          // 3. 解析 API 回傳的 Wikipedia 頁面資料
+          Object.values(pages).forEach((page) => {
+            const jpTitle = page.title; // API 最終解析出的頁面標題
+            const originalTitle = titleMap.get(jpTitle) || jpTitle; // 原始查詢字串
+
+            const zhLangLink = page.langlinks?.[0]?.['*'];
+            let linkInfo = null;
+
+            if (zhLangLink) {
+              // 中文維基百科
+              linkInfo = {
+                url: `https://zh.wikipedia.org/zh-tw/${encodeURIComponent(zhLangLink)}`,
+                label: 'Wiki',
+              };
+            } else if (!page.missing) {
+              // 日文維基百科
+              linkInfo = {
+                url: `https://ja.wikipedia.org/wiki/${encodeURIComponent(jpTitle)}`,
+                label: 'WikiJP',
+              };
+            }
+
+            if (linkInfo) {
+              // 雙向 Key 寫入結果
+              wikiResults[jpTitle] = linkInfo;
+              wikiResults[originalTitle] = linkInfo;
+            }
+          });
+        } catch (e) {
+          Log.error('Wiki API Error', e);
+        }
+      }
+
+      // --------------------------------------------------
+      // 4. 保險機制 (Fallback)
+      // 針對 Wikipedia 查無條目的聲優，自動建立 Google 搜尋連結
+      // --------------------------------------------------
+      cvNames.forEach((cv) => {
+        if (!wikiResults[cv]) {
+          const searchQuery = encodeURIComponent(`${cv}`);
+          wikiResults[cv] = {
+            url: `https://www.google.com/search?q=${searchQuery}`,
+            label: 'Google',
+          };
+        }
+      });
+
+      return wikiResults;
+    },
+  };
+  // #endregion
+
   // #region ================= [UI] 畫面渲染與事件 =================
   const Templates = {
+    /**
+     * 產生標籤頁面
+     * @param {string} activeTab - 目前激活的標籤
+     * @param {boolean} isVideo - 是否為影片頁面
+     * @param {boolean} hasRules - 是否有規則
+     * @returns {string} - 生成的 HTML 字串
+     */
     tabs: (activeTab, isVideo, hasRules) => {
       return `
       <div class="al-tabs-nav">
         <button class="al-tab-item ${activeTab === 'home' ? 'active' : ''}" 
           data-tab="home" ${!isVideo ? 'disabled' : ''}>主頁 / 狀態</button>
+        <button class="al-tab-item ${activeTab === 'info' ? 'active' : ''}" 
+          data-tab="info" ${!hasRules ? 'disabled' : ''}>聲優 / 主題曲</button>
         <button class="al-tab-item ${activeTab === 'series' ? 'active' : ''}" 
           data-tab="series" ${!hasRules ? 'disabled' : ''}>系列設定</button>
         <button class="al-tab-item ${activeTab === 'settings' ? 'active' : ''}" 
           data-tab="settings">設定</button>
       </div>
       <div id="tab-home" class="al-tab-pane ${activeTab === 'home' ? 'active' : ''}"></div>
+      <div id="tab-info" class="al-tab-pane ${activeTab === 'info' ? 'active' : ''}"></div>
       <div id="tab-series" class="al-tab-pane ${activeTab === 'series' ? 'active' : ''}"></div>
       <div id="tab-settings" class="al-tab-pane ${activeTab === 'settings' ? 'active' : ''}"></div>
     `;
     },
-    settings: (token, mode, customSec, customPct, overrideMode) => {
+    /**
+     * 設定頁面
+     * @param {Object} config - 設定頁面所需的參數
+     * @param {string} config.token - AniList Token
+     * @param {string} config.mode - 同步模式
+     */
+    settings: (config = {}) => {
+      const { token, mode, customSec, customPct, overrideMode, showInlineInfo } = config;
       const optionsHtml = Object.values(CONSTANTS.SYNC_MODES)
         .map((m) => {
           return `<option value="${m.value}" ${mode === m.value ? 'selected' : ''}>
@@ -1251,12 +1612,50 @@
             <select id="set-override-mode" class="al-input">${overrideOptionsHtml}</select>
           </div>
 
+          <div class="al-card al-mt-2">
+            <label class="al-font-bold al-mb-2 al-text-sm" style="display:block;">擴充功能</label>
+            <label class="al-flex al-items-center al-gap-2 al-text-sm" style="cursor:pointer; user-select:none;">
+              <input type="checkbox" id="set-inline-info" ${showInlineInfo ? 'checked' : ''}>
+              <span>在播放頁面直接顯示聲優/主題曲資訊</span>
+            </label>
+          </div>
+
           <button id="save-set" class="al-btn al-btn-success al-btn-block al-mt-2">儲存設定</button>
         </div>
       `;
     },
-    homeBound: (rule, info, statusData, statusOptions) => {
+    /**
+     * 警告提示區塊樣板
+     * @param {string} msg 警告內容
+     */
+    warningNotice: (msg) => {
       return `
+        <div class="al-p-3 al-mb-3" style="background:#fff3cd; color:#856404; border-radius:4px; font-size:12px; border:1px solid #ffeeba;">
+          ⚠️ ${msg}
+        </div>
+      `.trim();
+    },
+    /**
+     * 未知集數/小數點集數警告樣板
+     */
+    unknownEpWarning: () => {
+      const msg =
+        '當前集數無法判定 (如小數點集數或特別篇)，<b>已暫停自動同步</b>，但您仍可手動管理狀態。';
+      return Templates.warningNotice(msg);
+    },
+    /**
+     * 資訊主頁面
+     * @param {object} rule 綁定規則
+     * @param {object} info 作品資訊
+     * @param {object} statusData 狀態資料
+     * @param {array} statusOptions 狀態選項
+     * @param {boolean} isUnknownEp 是否為未知集數
+     */
+    homeBound: (rule, info, statusData, statusOptions, isUnknownEp = false) => {
+      const warningHtml = isUnknownEp ? Templates.unknownEpWarning() : '';
+
+      return `
+      ${warningHtml}
       <div class="al-p-4 al-flex-col al-gap-3">
         <div class="al-flex al-justify-between al-items-center al-mb-2">
           <label class="al-text-sub al-font-bold al-text-xs">目前綁定作品</label>
@@ -1312,6 +1711,11 @@
       </div>
     `;
     },
+    /**
+     * 建議綁定頁面
+     * @param {object} candidate 建議綁定的作品資訊
+     * @param {string} searchName 搜尋名稱
+     */
     homeUnbound: (candidate, searchName) => {
       let suggestionHtml = '';
       if (candidate) {
@@ -1352,6 +1756,11 @@
         </div>
       `;
     },
+    /**
+     * 搜尋結果頁面
+     * @param {Object} m - 搜尋結果資料
+     * @returns {string} - 生成的 HTML 字串
+     */
     searchResult: (m) => {
       return `
       <div class="al-flex al-gap-3 al-items-center al-p-2" style="border-bottom:1px solid var(--al-border);">
@@ -1377,6 +1786,16 @@
       </div>
     `;
     },
+    /**
+     * 系列設定行
+     * @param {object} m - 系列資料
+     * @param {boolean} isActive - 是否為啟用狀態
+     * @param {boolean} isSuggestion - 是否為建議狀態
+     * @param {boolean} isOut - 是否為外部狀態
+     * @param {number} bahaVal - 巴哈姆特值
+     * @param {number} aniVal - AniList值
+     * @returns {string} - 生成的 HTML 字串
+     */
     seriesRow: (m, isActive, isSuggestion, isOut, bahaVal, aniVal) => {
       const displayStart = m.calculatedStart !== undefined ? m.calculatedStart : '';
       let statusHtml, rowClass, btnTxt, btnClass;
@@ -1451,6 +1870,159 @@
         </tr>
       `;
     },
+    /**
+     * しょぼいカレンダー資訊內容
+     * @param {object} creditsData - 出演資料
+     * @param {object} wikiMap - 維基資料映射
+     * @param {boolean} isInline - 是否為內嵌模式
+     * @returns {string} - 生成的 HTML 字串
+     */
+    syoboiInfoContent: (creditsData, wikiMap, isInline = false) => {
+      // 1. 聲優列表 (CAST)
+      const castRowsHtml = creditsData.cast
+        .map((item) => {
+          const charSafe = Utils.deepSanitize(item.char);
+          const cvSafe = Utils.deepSanitize(item.cv);
+          const wikiInfo = wikiMap[item.cv];
+          const wikiBtn = wikiInfo
+            ? `<a href="${wikiInfo.url}" target="_blank" class="al-link al-text-xs al-shrink-0">🔗 ${wikiInfo.label}</a>`
+            : '';
+
+          return `
+          <div class="al-flex al-justify-between al-items-center al-p-1" style="border-bottom: 1px dashed var(--al-border); font-size:13px;">
+            <div style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:8px;">
+              <span class="al-font-bold">${charSafe}</span>
+              <span class="al-text-sub al-text-xs al-ml-1">CV: ${cvSafe}</span>
+            </div>
+            ${wikiBtn}
+          </div>
+        `;
+        })
+        .join('');
+
+      // 2. 主題曲列表 (Song)
+      const songRowsHtml = creditsData.song
+        .map((item) => {
+          const titleSafe = Utils.deepSanitize(item.title);
+          const singerSafe = Utils.deepSanitize(item.singer);
+          const searchQuery = `${item.title} ${item.singer !== '-' ? item.singer : ''}`.trim();
+          const encodedQuery = encodeURIComponent(searchQuery);
+
+          return `
+          <div class="al-flex al-justify-between al-items-center al-p-1" style="border-bottom: 1px dashed var(--al-border); font-size:13px;">
+            <div style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:8px;">
+              <span class="al-tag default al-mr-1" style="padding:1px 4px; font-size:10px;">${item.type}</span>
+              <span class="al-font-bold">「${titleSafe}」</span>
+              <span class="al-text-sub al-text-xs">/ ${singerSafe}</span>
+            </div>
+            <div class="al-flex al-gap-2 al-shrink-0">
+              <a href="https://www.youtube.com/results?search_query=${encodedQuery}" target="_blank" class="al-link al-text-xs">🎧 Youtube</a>
+              <a href="https://open.spotify.com/search/${encodedQuery}" target="_blank" class="al-link al-text-xs">🎧 Spotify</a>
+            </div>
+          </div>
+        `;
+        })
+        .join('');
+
+      const layoutClass = isInline ? 'al-info-split-layout' : 'al-flex-col al-gap-3';
+      const containerClass = isInline ? 'al-p-3 al-inline-mode' : 'al-p-4';
+      const listScrollStyle = isInline
+        ? 'max-height: 260px; overflow-y: auto; padding-right: 4px;'
+        : 'max-height: 200px; overflow-y: auto; padding-right: 4px;';
+
+      const sourceUrl = creditsData.source || '#';
+      const sourceLabel = Utils.getSourceName(sourceUrl);
+
+      return `
+        <div id="al-syoboi-info-container" class="${containerClass}" style="background: var(--al-bg-sec); border: 1px solid var(--al-border); border-radius: var(--al-radius);">
+          <div class="${layoutClass}">
+            
+            <!-- 聲優名單卡片 -->
+            <div class="al-card al-info-split-col">
+              <div class="al-font-bold al-text-sm al-mb-2" style="color:var(--al-primary);">👥 聲優名單 (CV)</div>
+              <div style="${listScrollStyle}">
+                ${castRowsHtml || '<div class="al-text-sub al-text-xs">無 CAST 資料</div>'}
+              </div>
+            </div>
+
+            <!-- 主題曲卡片 -->
+            <div class="al-card al-info-split-col">
+              <div class="al-font-bold al-text-sm al-mb-2" style="color:var(--al-primary);">🎵 主題曲 (OP / ED / 插入曲)</div>
+              <div style="${listScrollStyle}">
+                ${songRowsHtml || '<div class="al-text-sub al-text-xs">無主題曲資料</div>'}
+              </div>
+            </div>
+
+          </div>
+
+          <div class="al-text-xs al-text-sub al-mt-2" style="text-align:right;">
+          資料來源：<a href="${sourceUrl}" target="_blank" rel="noopener noreferrer" class="al-link">${sourceLabel}</a>
+        </div>
+        </div>
+      `;
+    },
+    /**
+     * 顯示全部系列作的 Checkbox 樣板
+     * @param {boolean} showAllSeries - 是否顯示全部系列作
+     * @returns {string} - 生成的 HTML 字串
+     */
+    seriesFilterCheckbox: (showAllSeries) => {
+      const checkedAttr = showAllSeries ? 'checked' : '';
+      return `
+      <label class="al-text-xs al-text-sub al-gap-1 al-items-center" style="cursor:pointer; display:inline-flex; user-select:none;">
+        <input type="checkbox" id="chk-show-all-series" ${checkedAttr}>
+        🗂️ 顯示全部系列作
+      </label>
+    `.trim();
+    },
+    /**
+     * 系列設定頁面
+     * @param {object} data - 系列設定資料
+     * @returns {string} - 生成的 HTML 字串
+     */
+    seriesTab: (data) => {
+      const { pageMin, pageMax, rowsHtml, hasFilterableItems, showAllSeries } = data;
+      const rangeText = `${pageMin || '?'}~${pageMax || '?'}`;
+
+      const filterCheckboxHtml = hasFilterableItems
+        ? Templates.seriesFilterCheckbox(showAllSeries)
+        : '';
+
+      return `
+      <div class="al-p-4">
+        <div class="al-mb-3" style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="al-font-bold al-text-sub">系列作設定 (本頁範圍: ${rangeText})</span>
+          <div class="al-flex al-items-center al-gap-3">
+            ${filterCheckboxHtml}
+            <button id="btn-refresh-series" class="al-btn al-btn-outline al-btn-sm" title="強制重新抓取">
+              🔄 刷新
+            </button>
+          </div>
+        </div>
+        <table class="al-table">
+          <thead>
+            <tr>
+              <th style="width:80px; text-align:center;">狀態</th>
+              <th>作品</th>
+              <th style="width:50px; text-align:center;">總集</th>
+              <th style="width:70px; text-align:center;">巴哈起始</th>
+              <th style="width:20px;"></th>
+              <th style="width:70px; text-align:center;">Ani起始</th>
+              <th style="width:70px; text-align:center;">操作</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+        <button id="save-series" class="al-btn al-btn-success al-btn-block al-mt-4">儲存系列設定</button>
+      </div>
+    `.trim();
+    },
+    /**
+     * 錯誤資訊頁面
+     * @param {string} msg - 錯誤訊息
+     * @param {boolean} isMaintenance - 是否為維護狀態
+     * @returns {string} - 生成的 HTML 字串
+     */
     errorCard: (msg, isMaintenance) => {
       if (isMaintenance) {
         return `
@@ -1469,6 +2041,14 @@
           </div>`;
       }
       return `<div class="al-p-4" style="color:var(--al-danger); font-weight:bold;">Error: ${msg}</div>`;
+    },
+    /**
+     * 狀態通知
+     * @param {string} msg - 通知訊息
+     * @returns {string} - 生成的 HTML 字串
+     */
+    statusNotice: (msg) => {
+      return `<div class="al-p-4" style="text-align:center; color:var(--al-text-sub);">${msg}</div>`.trim();
     },
   };
 
@@ -1676,6 +2256,8 @@
         this.renderSettings(container);
       } else if (tabName === 'series') {
         this.renderSeries(container);
+      } else if (tabName === 'info') {
+        this.renderInfo(container); // 👈 路由導向 renderInfo
       } else {
         if (State.rules.length > 0) {
           this.renderHomeBound(container);
@@ -1685,28 +2267,24 @@
       }
     },
     renderSettings(container) {
-      const token = GM_getValue(CONSTANTS.KEYS.TOKEN, '');
-      const mode = GM_getValue(CONSTANTS.KEYS.SYNC_MODE, 'instant');
-      const savedCustomSeconds = GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, 60);
-      const savedCustomPercentage = GM_getValue(CONSTANTS.KEYS.CUSTOM_PCT, 80);
-      const overrideMode = GM_getValue(
-        CONSTANTS.KEYS.OVERRIDE_MODE,
-        CONSTANTS.OVERRIDE_MODES.PROTECT.value,
-      );
+      const config = {
+        token: GM_getValue(CONSTANTS.KEYS.TOKEN, CONSTANTS.DEFAULTS.TOKEN),
+        mode: GM_getValue(CONSTANTS.KEYS.SYNC_MODE, CONSTANTS.DEFAULTS.SYNC_MODE),
+        customSec: GM_getValue(CONSTANTS.KEYS.CUSTOM_SEC, CONSTANTS.DEFAULTS.CUSTOM_SEC),
+        customPct: GM_getValue(CONSTANTS.KEYS.CUSTOM_PCT, CONSTANTS.DEFAULTS.CUSTOM_PCT),
+        overrideMode: GM_getValue(CONSTANTS.KEYS.OVERRIDE_MODE, CONSTANTS.DEFAULTS.OVERRIDE_MODE),
+        showInlineInfo: GM_getValue(
+          CONSTANTS.KEYS.SHOW_INLINE_INFO,
+          CONSTANTS.DEFAULTS.SHOW_INLINE_INFO,
+        ),
+      };
 
       // 一鍵驗證的連結
       const authUrl = `https://anilist.co/api/v2/oauth/authorize?client_id=${CONSTANTS.ANILIST_CLIENT_ID}&response_type=token`;
 
-      container.innerHTML = Templates.settings(
-        token,
-        mode,
-        savedCustomSeconds,
-        savedCustomPercentage,
-        overrideMode,
-      );
+      container.innerHTML = Templates.settings(config);
 
-      // 自動驗證
-      if (token) {
+      if (config.token) {
         AniListAPI.getViewer()
           .then((viewer) => {
             const card = _.$('#auth-card', container);
@@ -1753,6 +2331,7 @@
                 sub.textContent = '請檢查 Token 或重新登入';
               }
             }
+            Log.error('Auth Error', err);
           });
       }
       // -----------------------------------------------------------
@@ -1848,6 +2427,7 @@
         }
 
         GM_setValue(CONSTANTS.KEYS.OVERRIDE_MODE, _.$('#set-override-mode', container).value);
+        GM_setValue(CONSTANTS.KEYS.SHOW_INLINE_INFO, _.$('#set-inline-info', container).checked);
 
         UI.showToast('✅ 設定已儲存，重新整理中...');
         setTimeout(() => {
@@ -1856,7 +2436,7 @@
       });
     },
     async renderHomeBound(container) {
-      container.innerHTML = '<div class=".al-p-4">讀取中...</div>';
+      container.innerHTML = Templates.statusNotice('讀取中...');
 
       let rule = State.activeRule;
       // 修改這裡：直接讓系統判斷取出的集數是不是 null (例如總集篇的小數點)
@@ -1928,6 +2508,7 @@
         _.$('#btn-unbind', container).addEventListener('click', () => {
           if (confirm('確定要解除此作品的所有綁定嗎？')) {
             GM_deleteValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`);
+            State.cachedCreditsData = null;
             location.reload();
           }
         });
@@ -1952,13 +2533,13 @@
 
       const doSearch = async () => {
         const resContainer = _.$('#search-res', container);
-        resContainer.innerHTML = '<div style="text-align:center;color:#666;">搜尋中...</div>';
+        resContainer.innerHTML = Templates.statusNotice('搜尋中...');
         try {
           const res = await AniListAPI.search(_.$('#search-in', container).value);
           let html = '';
           const list = res.data.Page.media || [];
           if (list.length === 0) {
-            html = '<div style="text-align:center;color:#666;">找不到結果</div>';
+            html = Templates.statusNotice('找不到結果');
           } else {
             list.forEach((m) => {
               html += Templates.searchResult(m);
@@ -1986,8 +2567,7 @@
       }
     },
     async renderSeries(container) {
-      container.innerHTML =
-        '<div class=".al-p-4" style="text-align:center;">讀取系列資訊中...</div>';
+      container.innerHTML = Templates.statusNotice('讀取系列資訊中...');
 
       const activeRules = State.rules;
       let baseRule = State.activeRule;
@@ -2003,8 +2583,7 @@
       }
 
       if (!baseRule && activeRules.length === 0) {
-        container.innerHTML =
-          '<div class=".al-p-4" style="text-align:center;color:#999;">請先在主頁綁定作品</div>';
+        container.innerHTML = Templates.statusNotice('請先在主頁綁定作品');
         return;
       }
 
@@ -2026,6 +2605,26 @@
           return x.id === searchId;
         });
         const rootFormat = rootMedia ? rootMedia.format : null;
+
+        const isItemFilterable = (m) => {
+          const isActive = State.rules.some((r) => {
+            return r.id === m.id;
+          });
+          if (isActive || !rootFormat) {
+            return false;
+          }
+
+          if (['OVA', 'SPECIAL'].includes(rootFormat)) {
+            return !['OVA', 'SPECIAL'].includes(m.format);
+          } else if (rootFormat === 'MOVIE') {
+            return m.format !== 'MOVIE';
+          } else {
+            return m.format === 'MOVIE';
+          }
+        };
+
+        // 檢查是否存在任何可被過濾隱藏的作品
+        const hasFilterableItems = chain.some(isItemFilterable);
 
         // 1. 取得頁面現況範圍
         const pageMin = EpisodeCalculator.getMin();
@@ -2105,37 +2704,14 @@
 
           rowsHtml += Templates.seriesRow(m, isActive, isSuggestion, isOut, bahaVal, aniVal);
         });
-        container.innerHTML = `
-          <div class="al-p-4">
-              <div class="al-mb-3" style="display:flex; justify-content:space-between; align-items:center;">
-                  <span class="al-font-bold al-text-sub">系列作設定 (本頁範圍: ${pageMin || '?'}~${pageMax || '?'})</span>
-                  <div class="al-flex al-items-center al-gap-3">
-                      <label class="al-text-xs al-text-sub al-gap-1 al-items-center" style="cursor:pointer; display:inline-flex; user-select:none;">
-                          <input type="checkbox" id="chk-show-all-series" ${showAllSeries ? 'checked' : ''}>
-                          🗂️ 顯示全部系列作
-                      </label>
-                      <button id="btn-refresh-series" class="al-btn al-btn-outline al-btn-sm" title="強制重新抓取">
-                        🔄 刷新
-                      </button>
-                  </div>
-              </div>
-              <table class="al-table">
-                  <thead>
-                      <tr>
-                          <th style="width:80px; text-align:center;">狀態</th>
-                          <th>作品</th>
-                          <th style="width:50px; text-align:center;">總集</th>
-                          <th style="width:70px; text-align:center;">巴哈起始</th>
-                          <th style="width:20px;"></th>
-                          <th style="width:70px; text-align:center;">Ani起始</th>
-                          <th style="width:70px; text-align:center;">操作</th>
-                      </tr>
-                  </thead>
-                  <tbody>${rowsHtml}</tbody>
-              </table>
-              <button id="save-series" class="al-btn al-btn-success al-btn-block al-mt-4">儲存系列設定</button>
-          </div>
-      `;
+
+        container.innerHTML = Templates.seriesTab({
+          pageMin,
+          pageMax,
+          rowsHtml,
+          hasFilterableItems,
+          showAllSeries,
+        });
 
         const refreshUIOffsets = () => {
           const uiState = {};
@@ -2297,6 +2873,95 @@
         container.innerHTML = Templates.errorCard(e.message, State.isMaintenance);
       }
     },
+    /**
+     * 1. 供 Modal 中的 Tab 使用
+     */
+    async renderInfo(container) {
+      container.innerHTML = Templates.statusNotice('讀取 Syoboi 與聲優資料中...');
+      const data = await App.getShowCreditsForActiveRule();
+
+      if (!data) {
+        container.innerHTML = Templates.statusNotice('無法取得聲優/主題曲資料或未綁定作品');
+        return;
+      }
+
+      container.innerHTML = Templates.syoboiInfoContent(data.creditsData, data.wikiMap);
+    },
+
+    /**
+     * 2. 供頁面直接內嵌使用 (.anime-option 區塊)
+     */
+    async renderInlineInfo() {
+      const showInline = GM_getValue(
+        CONSTANTS.KEYS.SHOW_INLINE_INFO,
+        CONSTANTS.DEFAULTS.SHOW_INLINE_INFO,
+      );
+      const targetContainer = document.querySelector(CONSTANTS.SELECTORS.BAHA.PAGE.inlineContainer);
+      let inlineCardEl = document.querySelector('#al-inline-info-wrapper');
+
+      if (!showInline || !targetContainer) {
+        if (inlineCardEl) {
+          inlineCardEl.remove();
+        }
+        return;
+      }
+
+      // 自動偵測動畫瘋開關並同步深色主題 Class
+      const updateThemeClass = (el) => {
+        const isDark =
+          document.body.classList.contains('theme-dark') ||
+          document.documentElement.classList.contains('dark') ||
+          !!document.getElementById('darkmode-moon')?.checked;
+
+        if (isDark) {
+          el.classList.add('al-theme-dark');
+        } else {
+          el.classList.remove('al-theme-dark');
+        }
+      };
+
+      if (!inlineCardEl) {
+        inlineCardEl = document.createElement('div');
+        inlineCardEl.id = 'al-inline-info-wrapper';
+        inlineCardEl.className = 'al-mt-3';
+        updateThemeClass(inlineCardEl);
+        inlineCardEl.innerHTML = Templates.statusNotice('載入聲優/主題曲資訊中...');
+        targetContainer.insertAdjacentElement('beforeend', inlineCardEl);
+      } else {
+        updateThemeClass(inlineCardEl);
+      }
+
+      // --- 即時主題切換監聽機制 ---
+      if (!inlineCardEl.dataset.themeObserved) {
+        inlineCardEl.dataset.themeObserved = 'true';
+
+        // 1. 監聽巴哈姆特深色模式開關 (Moon Checkbox)
+        const moonBtn = document.getElementById('darkmode-moon');
+        if (moonBtn) {
+          moonBtn.addEventListener('change', () => {
+            return updateThemeClass(inlineCardEl);
+          });
+        }
+
+        // 2. 監聽 body/documentElement 的 Class 變更 (因應切換開關時 Class 的改動)
+        const observer = new MutationObserver(() => {
+          return updateThemeClass(inlineCardEl);
+        });
+        observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['class'],
+        });
+      }
+
+      const data = await App.getShowCreditsForActiveRule();
+      if (!data) {
+        inlineCardEl.remove();
+        return;
+      }
+
+      inlineCardEl.innerHTML = Templates.syoboiInfoContent(data.creditsData, data.wikiMap, true);
+    },
   };
   // #endregion
 
@@ -2372,6 +3037,7 @@
       State.lastTimeUpdate = 0;
     },
     async loadEpisodeData() {
+      const requestId = ++State.currentRequestId;
       if (document.hidden) {
         Log.info('分頁在背景中，暫停同步...');
         UI.updateNav(CONSTANTS.STATUS.STANDBY);
@@ -2398,6 +3064,9 @@
       if (!State.bahaData) {
         State.bahaData = await this.fetchBahaData(acgLink);
       }
+      if (requestId !== State.currentRequestId) {
+        return;
+      } // 判定是否已被最新的切換請求覆蓋
       const savedRules = GM_getValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`);
       if (savedRules) {
         if (Array.isArray(savedRules)) {
@@ -2421,6 +3090,9 @@
         }
       }
       await this.determineActiveRule();
+      if (requestId !== State.currentRequestId) {
+        return;
+      } // 判定是否已被最新的切換請求覆蓋
       this.updateUIStatus();
     },
     getAcgLink() {
@@ -2500,6 +3172,8 @@
           Log.error('Fetch status error:', e);
         }
       }
+
+      UI.renderInlineInfo();
     },
 
     // --- 無損追加新系列設定 ---
@@ -2661,6 +3335,7 @@
         return b.start - a.start;
       });
       State.rules = newRules;
+      State.cachedCreditsData = null;
       GM_setValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`, newRules);
       this.determineActiveRule().then(() => {
         this.updateUIStatus();
@@ -3062,6 +3737,81 @@
         } else {
           UI.updateNav(CONSTANTS.STATUS.BOUND);
         }
+      }
+    },
+
+    /**
+     * 統一的資料抓取與快取中心
+     */
+    async getShowCreditsForActiveRule() {
+      const rule = State.activeRule;
+      if (!rule) {
+        return null;
+      }
+
+      try {
+        const mediaInfo = await App.getMediaData(rule.id);
+        if (!mediaInfo) {
+          return null;
+        }
+
+        // 快取憑據 Key
+        const cacheKey = `media_${mediaInfo.id}`;
+        if (State.cachedCreditsData && State.cachedCreditsData.cacheKey === cacheKey) {
+          return State.cachedCreditsData;
+        }
+
+        let finalCast = [];
+        let finalSongs = [];
+        let syoboiSource = '';
+        let hasSyoboiCast = false;
+
+        // --------------------------------------------------
+        // 階段 1：嘗試從 Syoboi 抓取資料 (第一優先)
+        // --------------------------------------------------
+        if (mediaInfo.syoboiUrl) {
+          const syoboiData = await SyoboiAPI.fetchInfo(mediaInfo.syoboiUrl);
+          if (syoboiData) {
+            finalSongs = syoboiData.song || [];
+            syoboiSource = syoboiData.source || mediaInfo.syoboiUrl;
+
+            // 檢查 Syoboi 是否有聲優資料
+            if (Array.isArray(syoboiData.cast) && syoboiData.cast.length > 0) {
+              finalCast = syoboiData.cast;
+              hasSyoboiCast = true;
+              Log.info('[Cast Source] 成功使用 Syoboi 聲優資料');
+            }
+          }
+        }
+
+        // --------------------------------------------------
+        // 階段 2：若 Syoboi 無聲優資料，備用改抓 AniList (Fallback)
+        // --------------------------------------------------
+        if (!hasSyoboiCast) {
+          Log.warn('[Cast Source] Syoboi 無聲優資料或連線失敗，備用切換至 AniList');
+          finalCast = Utils.extractCast(mediaInfo);
+        }
+
+        // --------------------------------------------------
+        // 階段 3：取得 Wiki 跨語言連結與打包回傳
+        // --------------------------------------------------
+        const wikiMap = await WikiAPI.getZhWikiLinks(finalCast);
+
+        const combinedData = {
+          creditsData: {
+            cast: finalCast,
+            song: finalSongs,
+            source: syoboiSource || `https://anilist.co/anime/${mediaInfo.id}`,
+          },
+          wikiMap,
+          cacheKey,
+        };
+
+        State.cachedCreditsData = combinedData;
+        return combinedData;
+      } catch (e) {
+        Log.error('Fetch Combined Info Error', e);
+        return null;
       }
     },
   };
