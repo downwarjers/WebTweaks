@@ -49,7 +49,8 @@
         return response.text();
       })
       .then((html) => {
-        const match = html.match(/"uploadDate"\s*:\s*"([^"]+)"/) || html.match(/"publishDate"\s*:\s*"([^"]+)"/);
+        const match =
+          html.match(/"uploadDate"\s*:\s*"([^"]+)"/) || html.match(/"publishDate"\s*:\s*"([^"]+)"/);
         if (match && match[1]) {
           return formatDate(match[1]);
         }
@@ -71,7 +72,11 @@
 
     containers.forEach((container) => {
       // 若已注入過日期，或正在等待載入，直接跳過
-      if (container.querySelector('.yt-original-date-pending') || container.querySelector('.yt-original-date-block')) return;
+      if (
+        container.querySelector('.yt-original-date-pending') ||
+        container.querySelector('.yt-original-date-block')
+      )
+        return;
 
       const lockup = container.closest('yt-lockup-view-model');
       if (!lockup) return;
@@ -102,7 +107,7 @@
           // 建立獨立的換行區塊 (div)，防止被卡片寬度擠壓截斷
           const dateBlock = document.createElement('div');
           dateBlock.className = 'yt-original-date-block';
-          
+
           // 設置樣式：強制換行、調整間距，並複用 YouTube 內建的次要文字字型與顏色規範
           dateBlock.style.marginTop = '4px';
           dateBlock.style.fontSize = '14px';
@@ -114,7 +119,7 @@
           dateBlock.style.whiteSpace = 'nowrap';
           dateBlock.style.overflow = 'hidden';
           dateBlock.style.textOverflow = 'ellipsis';
-          
+
           // 設定顯示文字
           dateBlock.textContent = `發布日期：${absDate}`;
 
@@ -132,7 +137,11 @@
     const searchRenderers = document.querySelectorAll('ytd-video-renderer');
 
     searchRenderers.forEach((renderer) => {
-      if (renderer.querySelector('.yt-original-date-pending') || renderer.querySelector('.yt-original-date-added-text')) return;
+      if (
+        renderer.querySelector('.yt-original-date-pending') ||
+        renderer.querySelector('.yt-original-date-added-text')
+      )
+        return;
 
       const anchor = renderer.querySelector('a#video-title');
       if (!anchor) return;
@@ -156,7 +165,8 @@
 
           // 建立顯示節點（YouTube 內建 CSS 會自動處理 .inline-metadata-item 的前置圓點分隔）
           const dateSpan = document.createElement('span');
-          dateSpan.className = 'inline-metadata-item style-scope ytd-video-meta-block yt-original-date-added-text';
+          dateSpan.className =
+            'inline-metadata-item style-scope ytd-video-meta-block yt-original-date-added-text';
           dateSpan.textContent = absDate;
 
           metadataLine.appendChild(dateSpan);
@@ -178,7 +188,8 @@
           const absDate = formatDate(match[1]);
           const div = document.createElement('div');
           div.id = 'watch-abs-date';
-          div.style = 'font-size: 14px; color: var(--yt-spec-text-secondary, #aaa); margin-top: 8px;';
+          div.style =
+            'font-size: 14px; color: var(--yt-spec-text-secondary, #aaa); margin-top: 8px;';
           div.textContent = `發布日期：${absDate}`;
           titleContainer.appendChild(div);
           break;
