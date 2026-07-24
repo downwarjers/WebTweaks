@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              6.14.1
+// @version              7.0.0
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -621,6 +621,8 @@
     /* 3. 文字與連結 */
     .al-text-sm { font-size: 13px; }
     .al-text-xs { font-size: 12px; }
+    .al-text-base { font-size: 14px; }
+    .al-text-lg { font-size: 15px; }
     .al-font-bold { font-weight: 600; }
     .al-text-sub { color: var(--al-text-sub); }
     .al-text-primary { color: var(--al-primary); }
@@ -782,29 +784,33 @@
         transition: opacity 0.2s ease-in-out;
     }
 
-.al-info-split-layout {
-  display: flex;
-  gap: 12px;
-}
+    .al-info-split-layout {
+      display: flex;
+      gap: 12px;
+    }
 
-.al-info-split-col {
-  flex: 1;
-  min-width: 0; 
-  display: flex;         
-  flex-direction: column;
-}
+    .al-info-split-col {
+      flex: 1;
+      min-width: 0; 
+      display: flex;         
+      flex-direction: column;
+    }
 
-.al-inline-mode {
-  background: transparent !important;
-  border: 1px solid var(--al-border) !important;
-}
+    .al-inline-mode {
+      background: transparent !important;
+      border: 1px solid var(--al-border) !important;
+    }
 
-/* 螢幕較窄時自動變回上下疊放，保證行動端/小視窗瀏覽體驗 */
-@media (max-width: 768px) {
-  .al-info-split-layout {
-    flex-direction: column;
-  }
-}
+    /* 螢幕較窄時自動變回上下疊放 */
+    @media (max-width: 768px) {
+      .al-info-split-layout {
+        flex-direction: column;
+      }
+    }
+
+    /* 聲優與主題曲專用列排版 */
+    .al-info-row { font-size: 14px; padding: 6px 4px; border-bottom: 1px dashed var(--al-border); }
+    .al-info-title { font-size: 15px; color: var(--al-primary); }
 
     @keyframes al-fadein { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     @media (max-width: 768px) { #al-title, #al-user-status { display: none !important; } }
@@ -937,7 +943,7 @@
       let nextValidStart = chain[anchorIndex].calculatedStart;
       for (let i = anchorIndex - 1; i >= 0; i--) {
         const current = chain[i];
-        const epCount = current.episodes || 12;
+        const epCount = current.episodes ?? 12;
 
         // 若 UI 有手動輸入數值，優先使用；否則自動推算
         if (uiState[current.id] !== undefined && uiState[current.id] !== null) {
@@ -958,7 +964,7 @@
 
       // 向後推算 (Sequels)
       let prevValidStart = chain[anchorIndex].calculatedStart;
-      let prevValidEpisodes = chain[anchorIndex].episodes || 0;
+      let prevValidEpisodes = chain[anchorIndex].episodes || Infinity;
 
       for (let i = anchorIndex + 1; i < chain.length; i++) {
         const current = chain[i];
@@ -966,7 +972,11 @@
         if (uiState[current.id] !== undefined && uiState[current.id] !== null) {
           current.calculatedStart = uiState[current.id];
         } else {
-          current.calculatedStart = prevValidStart + prevValidEpisodes;
+          if (prevValidEpisodes === Infinity) {
+            current.calculatedStart = Infinity;
+          } else {
+            current.calculatedStart = prevValidStart + prevValidEpisodes;
+          }
         }
 
         const isRuleActive =
@@ -975,7 +985,7 @@
           current.id === targetId;
         if (isRuleActive) {
           prevValidStart = current.calculatedStart;
-          prevValidEpisodes = current.episodes || 0;
+          prevValidEpisodes = current.episodes || Infinity;
         }
       }
 
@@ -1182,7 +1192,7 @@
       // 2. 遍歷鏈條
       const visited = new Map(); // 使用 Map 來避免重複並儲存節點
       // 定義要抓取的關聯類型
-      const targetRelations = ['SEQUEL', 'PREQUEL', 'SIDE_STORY', 'SPIN_OFF'];
+      const targetRelations = [ 'SEQUEL', 'PREQUEL', 'PARENT','SIDE_STORY', 'SPIN_OFF'];
 
       const traverse = (node) => {
         if (!node || visited.has(node.id)) {
@@ -1232,15 +1242,22 @@
 
   // #region ================= [API] MAL 通訊層 =================
   const MALAPI = {
-    async fetchSyoboiUrl(malId) {
-      if (!malId) {
+    async fetchSyoboiUrl(mediaInfo) {
+      if (!mediaInfo || !mediaInfo.idMal) {
         return '';
       }
-      const cacheKey = `baha_mal_syoboi_${malId}`;
-      const cachedUrl = GM_getValue(cacheKey, null);
-      if (cachedUrl !== null) {
-        Log.info(`[MAL Cache] Hit for MAL ID ${malId}: ${cachedUrl}`);
-        return cachedUrl;
+      const malId = mediaInfo.idMal;
+
+      // 1. 檢查目前播放季 (activeRule) 是否已有該季專屬的 Syoboi 網址快取
+      if (
+        State.activeRule &&
+        State.activeRule.aniId === mediaInfo.id &&
+        State.activeRule.syoboiUrl !== undefined
+      ) {
+        Log.info(
+          `[MAL Cache] Hit for AniList ID ${mediaInfo.id} (${State.activeRule.title}): ${State.activeRule.syoboiUrl}`,
+        );
+        return State.activeRule.syoboiUrl;
       }
       const url = `https://myanimelist.net/anime/${malId}`;
       try {
@@ -1271,19 +1288,24 @@
 
         const syoboiEl = doc.querySelector(CONSTANTS.SELECTORS.MAL.syoboiLink);
 
+        let syoboiUrl = '';
         if (syoboiEl) {
-          // 成功找到元素，直接回傳 href 屬性文字
-          const syoboiUrl = syoboiEl.getAttribute('href') || '';
-          GM_setValue(cacheKey, syoboiUrl);
-          return syoboiUrl;
+          syoboiUrl = syoboiEl.getAttribute('href') || '';
         }
 
         // 找不到元素時的防禦與提示
         if (typeof Log !== 'undefined') {
           Log.warn(`MAL Parser Warning: 該作品頁面未建立 Syoboi 連結 (MALID: ${malId})`);
         }
-        GM_setValue(cacheKey, '');
-        return '';
+
+        // 2. 將此季專屬的 malId 與 syoboiUrl 綁定至該季的 Rule 內並更新本機儲存
+        if (State.activeRule && State.activeRule.aniId === mediaInfo.id) {
+          State.activeRule.malId = malId;
+          State.activeRule.syoboiUrl = syoboiUrl;
+          App.saveRules(State.rules);
+        }
+
+        return syoboiUrl;
       } catch (e) {
         if (typeof Log !== 'undefined') {
           Log.error('MAL Data Fetch Error', e);
@@ -1703,6 +1725,25 @@
     homeBound: (rule, info, statusData, statusOptions, isUnknownEp = false) => {
       const warningHtml = isUnknownEp ? Templates.unknownEpWarning() : '';
 
+      const links = [];
+      if (info?.idMal) {
+        links.push(
+          `<a href="https://myanimelist.net/anime/${info.idMal}" target="_blank" rel="noopener noreferrer" class="al-link">MyAnimeList</a>`,
+        );
+      }
+      if (info?.syoboiUrl) {
+        links.push(
+          `<a href="${info.syoboiUrl}" target="_blank" rel="noopener noreferrer" class="al-link">しょぼいカレンダー</a>`,
+        );
+      }
+      let externalLinksHtml = '';
+      if (links.length > 0) {
+        externalLinksHtml = `<div class="al-flex al-items-center al-text-xs al-mt-2 al-pt-2 al-gap-2" style="border-top:1px dashed var(--al-border);">
+             <span class="al-text-sub">外部連結：</span>
+             ${links.join(' <span class="al-text-sub" style="opacity: 0.4;">|</span> ')}
+           </div>`;
+      }
+
       return `
       ${warningHtml}
       <div class="al-p-4 al-flex-col al-gap-3">
@@ -1712,19 +1753,19 @@
         </div>
 
         <div class="al-card al-flex al-gap-3">
-          <a href="https://anilist.co/anime/${rule.id}" target="_blank" class="al-shrink-0">
+          <a href="https://anilist.co/anime/${rule.aniId}" target="_blank" class="al-shrink-0">
             <img src="${info.coverImage.medium}" class="al-cover al-cover-lg">
           </a>
           <div class="al-flex al-flex-col al-justify-between al-flex-1" style="overflow:hidden;">
             <div>
-              <a href="https://anilist.co/anime/${rule.id}" target="_blank" 
+              <a href="https://anilist.co/anime/${rule.aniId}" target="_blank" 
                 class="al-link al-font-bold" style="font-size:15px; display:block;">
                 ${rule.title}
               </a>
               <div class="al-text-sub al-text-xs al-mt-1">
                 <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                   ${info.title.romaji}</div>
-                <div class="al-mb-1 al-mt-1">ID: ${rule.id}</div>
+                <div class="al-mb-1 al-mt-1">AniList ID: ${rule.aniId}</div>
                 <div class="al-mb-1 al-mt-1">開播日: ${Utils.formatDate(info.startDate)}</div>
                 <div class="al-mb-1 al-mt-1">放送狀態: ${CONSTANTS.MEDIA_STATUS[info.status] || info.status || '未知'}</div>
                 <div class="al-mb-1 al-mt-1">播映方式: ${info.format}</div>
@@ -1734,12 +1775,7 @@
             <div class="al-text-success al-text-sm al-pt-2 al-mt-1" style="border-top:1px dashed var(--al-border);">
               AniList 進度: ${statusData?.progress || 0} / ${info.episodes || '?'}
             </div>
-            <div class="al-flex al-items-center al-text-xs al-mt-2 al-pt-2  al-gap-2" style="border-top:1px dashed var(--al-border);">
-              <span class="al-text-sub">外部連結：</span>
-              <a href="https://myanimelist.net/anime/${info.idMal}" target="_blank" rel="noopener noreferrer" class="al-link">MyAnimeList</a>
-              <span class="al-text-sub" style="opacity: 0.4;">|</span>
-              <a href="${info.syoboiUrl}" target="_blank" rel="noopener noreferrer" class="al-link">しょぼい</a>
-            </div>   
+            ${externalLinksHtml}
           </div>
         </div>
 
@@ -1751,7 +1787,7 @@
         <div class="al-mb-3 al-mt-3">
           <label class="al-text-sub al-font-bold al-text-xs al-mb-1" style="display:block;">手動修改 ID</label>
           <div class="al-flex al-gap-2">
-            <input type="number" id="home-edit-id" class="al-input" value="${rule.id}">
+            <input type="number" id="home-edit-id" class="al-input" value="${rule.aniId}">
             <button id="home-save-id" class="al-btn al-btn-outline">更新</button>
           </div>
         </div>
@@ -1845,7 +1881,8 @@
      * @returns {string} - 生成的 HTML 字串
      */
     seriesRow: (m, isActive, isSuggestion, isOut, bahaVal) => {
-      const displayStart = m.calculatedStart !== undefined ? m.calculatedStart : '';
+      const isInfinite = m.calculatedStart === Infinity;
+      const displayStart = m.calculatedStart !== undefined && !isInfinite ? m.calculatedStart : '?';
       let statusHtml, rowClass, btnTxt, btnClass;
 
       if (isActive) {
@@ -1918,14 +1955,14 @@
           const cvSafe = Utils.deepSanitize(item.cv);
           const wikiInfo = wikiMap[item.cv];
           const wikiBtn = wikiInfo
-            ? `<a href="${wikiInfo.url}" target="_blank" class="al-link al-text-xs al-shrink-0">🔗 ${wikiInfo.label}</a>`
+            ? `<a href="${wikiInfo.url}" target="_blank" class="al-link al-text-sm al-shrink-0">🔗 ${wikiInfo.label}</a>`
             : '';
 
           return `
-          <div class="al-flex al-justify-between al-items-center al-p-1" style="border-bottom: 1px dashed var(--al-border); font-size:13px;">
+          <div class="al-flex al-justify-between al-items-center al-info-row">
             <div style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:8px;">
               <span class="al-font-bold">${charSafe}</span>
-              <span class="al-text-sub al-text-xs al-ml-1">CV: ${cvSafe}</span>
+              <span class="al-text-sub al-text-sm al-ml-1">CV: ${cvSafe}</span>
             </div>
             ${wikiBtn}
           </div>
@@ -1942,15 +1979,15 @@
           const encodedQuery = encodeURIComponent(searchQuery);
 
           return `
-          <div class="al-flex al-justify-between al-items-center al-p-1" style="border-bottom: 1px dashed var(--al-border); font-size:13px;">
+          <div class="al-flex al-justify-between al-items-center al-info-row">
             <div style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:8px;">
               <span class="al-tag default al-mr-1" style="padding:1px 4px; font-size:10px;">${item.type}</span>
               <span class="al-font-bold">「${titleSafe}」</span>
-              <span class="al-text-sub al-text-xs">/ ${singerSafe}</span>
+              <span class="al-text-sub al-text-sm">/ ${singerSafe}</span>
             </div>
             <div class="al-flex al-gap-2 al-shrink-0">
-              <a href="https://www.youtube.com/results?search_query=${encodedQuery}" target="_blank" class="al-link al-text-xs">🎧 Youtube</a>
-              <a href="https://open.spotify.com/search/${encodedQuery}" target="_blank" class="al-link al-text-xs">🎧 Spotify</a>
+              <a href="https://www.youtube.com/results?search_query=${encodedQuery}" target="_blank" class="al-link al-text-sm">🎧 Youtube</a>
+              <a href="https://open.spotify.com/search/${encodedQuery}" target="_blank" class="al-link al-text-sm">🎧 Spotify</a>
             </div>
           </div>
         `;
@@ -1960,8 +1997,8 @@
       const layoutClass = isInline ? 'al-info-split-layout' : 'al-flex-col al-gap-3';
       const containerClass = isInline ? 'al-p-3 al-inline-mode' : 'al-p-4';
       const listScrollStyle = isInline
-        ? 'max-height: 260px; overflow-y: auto; padding-right: 4px;'
-        : 'max-height: 200px; overflow-y: auto; padding-right: 4px;';
+        ? 'max-height: 280px; overflow-y: auto; padding-right: 4px;'
+        : 'max-height: 240px; overflow-y: auto; padding-right: 4px;';
 
       const sourceUrl = creditsData.source || '#';
       const sourceLabel = Utils.getSourceName(sourceUrl);
@@ -1972,23 +2009,23 @@
             
             <!-- 聲優名單卡片 -->
             <div class="al-card al-info-split-col">
-              <div class="al-font-bold al-text-sm al-mb-2" style="color:var(--al-primary);">👥 聲優名單 (CV)</div>
+              <div class="al-font-bold al-info-title al-mb-2">👥 聲優名單 (CV)</div>
               <div style="${listScrollStyle}">
-                ${castRowsHtml || '<div class="al-text-sub al-text-xs">無 CAST 資料</div>'}
+                ${castRowsHtml || '<div class="al-text-sub al-text-sm">無 CAST 資料</div>'}
               </div>
             </div>
 
             <!-- 主題曲卡片 -->
             <div class="al-card al-info-split-col">
-              <div class="al-font-bold al-text-sm al-mb-2" style="color:var(--al-primary);">🎵 主題曲 (OP / ED / 插入曲)</div>
+              <div class="al-font-bold al-info-title al-mb-2">🎵 主題曲 (OP / ED / 插入曲)</div>
               <div style="${listScrollStyle}">
-                ${songRowsHtml || '<div class="al-text-sub al-text-xs">無主題曲資料</div>'}
+                ${songRowsHtml || '<div class="al-text-sub al-text-sm">無主題曲資料</div>'}
               </div>
             </div>
 
           </div>
 
-          <div class="al-text-xs al-text-sub al-mt-2" style="text-align:right;">
+          <div class="al-text-sm al-text-sub al-mt-2" style="text-align:right;">
           資料來源：<a href="${sourceUrl}" target="_blank" rel="noopener noreferrer" class="al-link">${sourceLabel}</a>
         </div>
         </div>
@@ -2471,7 +2508,7 @@
 
       let rule = State.activeRule;
       // 修改這裡：直接讓系統判斷取出的集數是不是 null (例如總集篇的小數點)
-      let isUnknownEp = EpisodeCalculator.getRawCurrent() === null;
+      const isUnknownEp = EpisodeCalculator.getRawCurrent() === null;
 
       // 如果當前集數沒有對應規則，則借用第一條規則的 ID 來顯示資訊
       if (!rule) {
@@ -2483,7 +2520,7 @@
       }
 
       try {
-        const info = await App.getMediaData(rule.id);
+        const info = await App.getMediaData(rule.aniId);
         const statusData = info.mediaListEntry;
         State.userStatus = statusData;
         UI.updateNav(CONSTANTS.STATUS.BOUND);
@@ -2501,16 +2538,7 @@
           ${setting.label} (${setting.anilist_label})</option>`;
         });
 
-        const warningHtml = isUnknownEp
-          ? `<div class="al-p-3 al-mb-3" style="background:#fff3cd; color:#856404; border-radius:4px; font-size:12px; border:1px solid #ffeeba;">
-                 ⚠️ 當前集數無法判定 (如小數點集數或特別篇)，<b>已暫停自動同步</b>，但您仍可手動管理狀態。
-               </div>`
-          : '';
-
-        container.innerHTML = `
-            ${warningHtml}
-            ${Templates.homeBound(rule, info, statusData, opts)}
-        `;
+        container.innerHTML = Templates.homeBound(rule, info, statusData, opts, isUnknownEp);
 
         _.$('#home-status', container).addEventListener('change', async function () {
           const s = this.value;
@@ -2519,8 +2547,8 @@
           }
           this.disabled = true;
           try {
-            const newS = await AniListAPI.updateUserStatus(rule.id, s);
-            App.updateLocalStatus(rule.id, newS);
+            const newS = await AniListAPI.updateUserStatus(rule.aniId, s);
+            App.updateLocalStatus(rule.aniId, newS);
             UI.showToast('✅ 狀態已更新');
             UI.loadTabContent('home');
           } catch (e) {
@@ -2607,7 +2635,7 @@
       if (
         !baseRule ||
         !activeRules.find((r) => {
-          return r.id === baseRule.id;
+          return r.aniId === baseRule.aniId;
         })
       ) {
         baseRule = activeRules.length > 0 ? activeRules[0] : null;
@@ -2618,7 +2646,7 @@
         return;
       }
 
-      const searchId = baseRule ? baseRule.id : null;
+      const searchId = baseRule ? baseRule.aniId : null;
 
       try {
         let chain;
@@ -2639,7 +2667,7 @@
 
         const isItemFilterable = (m) => {
           const isActive = State.rules.some((r) => {
-            return r.id === m.id;
+            return r.aniId === m.id;
           });
           if (isActive || !rootFormat) {
             return false;
@@ -2665,7 +2693,7 @@
 
         const initialUIState = {};
         State.rules.forEach((r) => {
-          initialUIState[r.id] = r.bahaStart;
+          initialUIState[r.aniId] = r.bahaStart;
         });
 
         SeriesLogic.calculateOffsets(chain, searchId, anchorStart, initialUIState);
@@ -2673,7 +2701,7 @@
         let rowsHtml = '';
         chain.forEach((m) => {
           const existing = State.rules.find((r) => {
-            return r.id === m.id;
+            return r.aniId === m.id;
           });
           const isActive = !!existing;
 
@@ -2768,7 +2796,8 @@
 
               const cb = _.$('.cb-active', r);
               if (!cb.checked) {
-                _.$('.inp-start', r).placeholder = m.calculatedStart;
+                const isInf = m.calculatedStart === Infinity;
+                _.$('.inp-start', r).placeholder = isInf ? '?' : m.calculatedStart;
               }
             }
           });
@@ -2860,9 +2889,9 @@
             // 允許輸入 0，只要不是 NaN 即可
             if (cb.checked && !isNaN(bahaVal)) {
               newRules.push({
-                bahaStart: bahaVal, // 儲存明確變數
-                id: parseInt(row.dataset.id),
+                aniId: parseInt(row.dataset.id),
                 title: row.dataset.title,
+                bahaStart: bahaVal,
               });
             }
           });
@@ -3081,17 +3110,7 @@
       } // 判定是否已被最新的切換請求覆蓋
       const savedRules = GM_getValue(`${CONSTANTS.STORAGE_PREFIX}${State.bahaSn}`);
       if (savedRules) {
-        if (Array.isArray(savedRules)) {
-          State.rules = savedRules;
-        } else {
-          State.rules = [
-            {
-              bahaStart: 1,
-              id: savedRules.id || savedRules,
-              title: savedRules.title || 'Unknown',
-            },
-          ];
-        }
+        State.rules = Array.isArray(savedRules) ? savedRules : [];
         State.rules.sort((a, b) => {
           return (b.bahaStart || 0) - (a.bahaStart || 0);
         });
@@ -3144,10 +3163,10 @@
 
       if (State.activeRule && GM_getValue(CONSTANTS.KEYS.TOKEN)) {
         try {
-          const data = await AniListAPI.getMediaAndStatus(State.activeRule.id);
+          const data = await AniListAPI.getMediaAndStatus(State.activeRule.aniId);
 
           if (data && data.idMal) {
-            data.syoboiUrl = await MALAPI.fetchSyoboiUrl(data.idMal);
+            data.syoboiUrl = await MALAPI.fetchSyoboiUrl(data);
           }
 
           // --- 偵測集數溢位 ---
@@ -3161,7 +3180,7 @@
               Log.info(
                 `[溢位偵測] 當前集數 ${targetEp} 超出涵蓋範圍 ${maxEpCovered}，準備查驗新作品...`,
               );
-              const hasAppended = await this.silentAppendNewOVA(State.activeRule.id, targetEp);
+              const hasAppended = await this.silentAppendNewOVA(State.activeRule.aniId, targetEp);
 
               if (hasAppended) {
                 return this.determineActiveRule();
@@ -3195,7 +3214,7 @@
         const mockUIState = {};
         chain.forEach((m) => {
           const existing = State.rules.find((r) => {
-            return r.id === m.id;
+            return r.aniId === m.id;
           });
           // 若手動設定存在則帶入具體數字，否則給 null 讓程式自動往下推算
           mockUIState[m.id] = existing ? existing.bahaStart : null;
@@ -3209,7 +3228,7 @@
         // 4. 尋找「唯一」符合當前集數的新作品
         for (const m of chain) {
           const exists = State.rules.find((r) => {
-            return r.id === m.id;
+            return r.aniId === m.id;
           });
           if (!exists && m.calculatedStart !== undefined) {
             const mStart = m.calculatedStart;
@@ -3218,9 +3237,10 @@
             // 嚴格比對：當前集數必須落在此作品的區間內
             if (currentEp >= mStart && currentEp <= mEnd) {
               State.rules.push({
-                bahaStart: mStart,
-                id: m.id,
+                aniId: m.id,
                 title: m.title.native || m.title.romaji,
+                malId: m.idMal || null,
+                bahaStart: mStart,
               });
               isModified = true;
               Log.info(`✨ 自動無損追加單一系列作: ${m.title.native} (起算集數: ${mStart})`);
@@ -3367,10 +3387,10 @@
       let progress = rawEp - rule.bahaStart + 1;
 
       UI.updateNav(CONSTANTS.STATUS.SYNCING, `同步 Ep.${progress}...`);
-      Log.info(`Syncing progress: Ep.${progress} for media ${rule.id}`);
+      Log.info(`Syncing progress: Ep.${progress} for media ${rule.aniId}`);
 
       try {
-        const data = await App.getMediaData(rule.id);
+        const data = await App.getMediaData(rule.aniId);
 
         const maxEp = data.episodes;
         const checkData = data.mediaListEntry; // 從合併資料中取得狀態
@@ -3391,7 +3411,7 @@
           checkData?.status === CONSTANTS.ANI_STATUS.PAUSED.value
         ) {
           Log.info(`Auto switching status from ${checkData?.status} to CURRENT`);
-          await AniListAPI.updateUserStatus(rule.id, CONSTANTS.ANI_STATUS.CURRENT.value);
+          await AniListAPI.updateUserStatus(rule.aniId, CONSTANTS.ANI_STATUS.CURRENT.value);
         }
 
         if (checkData?.progress > progress) {
@@ -3416,12 +3436,15 @@
           return;
         }
 
-        let result = await AniListAPI.updateUserProgress(rule.id, progress);
-        this.updateLocalStatus(rule.id, result);
+        let result = await AniListAPI.updateUserProgress(rule.aniId, progress);
+        this.updateLocalStatus(rule.aniId, result);
 
         if (maxEp && progress === maxEp && result.status !== CONSTANTS.ANI_STATUS.COMPLETED.value) {
           Log.info('Auto completing media...');
-          result = await AniListAPI.updateUserStatus(rule.id, CONSTANTS.ANI_STATUS.COMPLETED.value);
+          result = await AniListAPI.updateUserStatus(
+            rule.aniId,
+            CONSTANTS.ANI_STATUS.COMPLETED.value,
+          );
           State.userStatus = result; // 若有自動完結，再次更新狀態
           UI.updateNav(CONSTANTS.STATUS.DONE, `已同步 Ep.${progress} (完結)`);
         } else {
@@ -3572,7 +3595,12 @@
           return m.id === targetId;
         });
         if (!exists) {
-          chain.push({ id: targetId, title: { native: title }, episodes: 12, format: 'TV' });
+          chain.push({
+            id: targetId,
+            title: { native: title, romaji: title },
+            episodes: 12,
+            format: 'TV',
+          });
         }
 
         const pageMin = EpisodeCalculator.getMin();
@@ -3581,7 +3609,7 @@
 
         const currentUIState = {};
         State.rules.forEach((r) => {
-          currentUIState[r.id] = r.bahaStart;
+          currentUIState[r.aniId] = r.bahaStart;
         });
         SeriesLogic.calculateOffsets(chain, targetId, anchorStart, currentUIState);
 
@@ -3609,9 +3637,10 @@
 
           if (m.id === targetId || isOverlapping) {
             newRules.push({
-              bahaStart: mStart,
-              id: m.id,
+              aniId: m.id,
               title: m.title.native || m.title.romaji,
+              malId: m.idMal || null,
+              bahaStart: mStart,
             });
           }
         });
@@ -3623,9 +3652,9 @@
       if (newRules.length === 0) {
         const fallback = EpisodeCalculator.getMin() || 1;
         newRules.push({
-          bahaStart: fallback,
-          id: targetId,
+          aniId: targetId,
           title: title,
+          bahaStart: fallback,
         });
       }
 
@@ -3745,7 +3774,7 @@
       }
 
       try {
-        const mediaInfo = await App.getMediaData(rule.id);
+        const mediaInfo = await App.getMediaData(rule.aniId);
         if (!mediaInfo) {
           return null;
         }
