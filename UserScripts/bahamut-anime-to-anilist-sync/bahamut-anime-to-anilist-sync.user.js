@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              7.0.0
+// @version              7.1.0
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -49,6 +49,12 @@
 
     URLS: {
       VIDEO_PAGE: 'animeVideo.php', // 用於判斷是否在播放頁
+
+      // --- 外部 API & 網頁模板 ---
+      ANILIST_BASE: 'https://anilist.co',
+      ANILIST_MEDIA: 'https://anilist.co/anime/',
+      MAL_MEDIA: 'https://myanimelist.net/anime/',
+      SYOBOI_TID: 'https://cal.syoboi.jp/tid/',
     },
 
     // --- API 連線重試機制 ---
@@ -90,6 +96,8 @@
       MAL: {
         externalLinks: '.external_links', // 外部連結區
         syoboiLink: 'a[href*="cal.syoboi.jp/tid/"]', // Syoboi Url
+        opTheme: '.theme-songs.opnening', // OP 主題曲區塊
+        edTheme: '.theme-songs.ending', // ED 主題曲區塊
       },
     },
 
@@ -418,8 +426,9 @@
 
       if (url.includes('syoboi.jp')) {
         return 'しょぼいカレンダー';
-      }
-      if (url.includes('anilist.co')) {
+      } else if (url.includes('myanimelist.net')) {
+        return 'MyAnimeList';
+      } else if (url.includes('anilist.co')) {
         return 'AniList';
       }
 
@@ -1192,7 +1201,7 @@
       // 2. 遍歷鏈條
       const visited = new Map(); // 使用 Map 來避免重複並儲存節點
       // 定義要抓取的關聯類型
-      const targetRelations = [ 'SEQUEL', 'PREQUEL', 'PARENT','SIDE_STORY', 'SPIN_OFF'];
+      const targetRelations = ['SEQUEL', 'PREQUEL', 'PARENT', 'SIDE_STORY', 'SPIN_OFF'];
 
       const traverse = (node) => {
         if (!node || visited.has(node.id)) {
@@ -1242,24 +1251,24 @@
 
   // #region ================= [API] MAL 通訊層 =================
   const MALAPI = {
-    async fetchSyoboiUrl(mediaInfo) {
+    async fetchSyoboiTid(mediaInfo) {
       if (!mediaInfo || !mediaInfo.idMal) {
         return '';
       }
       const malId = mediaInfo.idMal;
 
-      // 1. 檢查目前播放季 (activeRule) 是否已有該季專屬的 Syoboi 網址快取
+      // 1. 檢查目前播放季 (activeRule) 是否已有該季專屬的 Syoboi TID 快取
       if (
         State.activeRule &&
         State.activeRule.aniId === mediaInfo.id &&
-        State.activeRule.syoboiUrl !== undefined
+        State.activeRule.syoboiTid !== undefined
       ) {
         Log.info(
-          `[MAL Cache] Hit for AniList ID ${mediaInfo.id} (${State.activeRule.title}): ${State.activeRule.syoboiUrl}`,
+          `[MAL Cache] Hit for AniList ID ${mediaInfo.id} (${State.activeRule.title}): TID=${State.activeRule.syoboiTid}`,
         );
-        return State.activeRule.syoboiUrl;
+        return State.activeRule.syoboiTid;
       }
-      const url = `https://myanimelist.net/anime/${malId}`;
+      const url = `${CONSTANTS.URLS.MAL_MEDIA}${malId}`;
       try {
         const html = await new Promise((r, j) => {
           return GM_xmlhttpRequest({
@@ -1288,29 +1297,90 @@
 
         const syoboiEl = doc.querySelector(CONSTANTS.SELECTORS.MAL.syoboiLink);
 
-        let syoboiUrl = '';
+        let syoboiTid = '';
         if (syoboiEl) {
-          syoboiUrl = syoboiEl.getAttribute('href') || '';
+          const href = syoboiEl.getAttribute('href') || '';
+          const match = href.match(/cal\.syoboi\.jp\/tid\/(\d+)/);
+          if (match) {
+            syoboiTid = match[1];
+          }
         }
 
         // 找不到元素時的防禦與提示
         if (typeof Log !== 'undefined') {
-          Log.warn(`MAL Parser Warning: 該作品頁面未建立 Syoboi 連結 (MALID: ${malId})`);
+          Log.warn(
+            `MAL Parser Warning: 該作品頁面未建立 Syoboi 連結或無法解析 TID (MALID: ${malId})`,
+          );
         }
 
-        // 2. 將此季專屬的 malId 與 syoboiUrl 綁定至該季的 Rule 內並更新本機儲存
+        // 2. 將此季專屬的 malId 與 syoboiTid 綁定至該季的 Rule 內並更新本機儲存
         if (State.activeRule && State.activeRule.aniId === mediaInfo.id) {
           State.activeRule.malId = malId;
-          State.activeRule.syoboiUrl = syoboiUrl;
+          State.activeRule.syoboiTid = syoboiTid;
           App.saveRules(State.rules);
         }
 
-        return syoboiUrl;
+        return syoboiTid;
       } catch (e) {
         if (typeof Log !== 'undefined') {
           Log.error('MAL Data Fetch Error', e);
         }
         return null;
+      }
+    },
+    /**
+     * 從 MyAnimeList 頁面抓取 OP/ED 主題曲資料
+     * @param {number|string} malId - MAL 的作品 ID
+     * @returns {Promise<Array<{type: string, title: string, singer: string}>>}
+     */
+    async fetchThemeSongs(malId) {
+      if (!malId) {
+        return [];
+      }
+      const url = `${CONSTANTS.URLS.MAL_MEDIA}${malId}`;
+      try {
+        const html = await new Promise((r, j) => {
+          GM_xmlhttpRequest({
+            method: 'GET',
+            url,
+            onload: (x) => {
+              return r(x.responseText);
+            },
+            onerror: j,
+          });
+        });
+
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const songs = [];
+
+        const parseSection = (selector, type) => {
+          const container = doc.querySelector(selector);
+          if (!container) {
+            return;
+          }
+          container.querySelectorAll('table tr').forEach((row) => {
+            const text = row.querySelector('td:nth-child(2)')?.textContent?.trim() || '';
+            if (!text) {
+              return;
+            }
+            // 解析格式範例: "I-BULL (いぶる)" by jo0ji
+            const match = text.match(/"([^"]+)"(?:\s*by\s*(.+))?/);
+            if (match) {
+              songs.push({
+                type: type,
+                title: match[1].trim(),
+                singer: match[2] ? match[2].trim() : '-',
+              });
+            }
+          });
+        };
+        parseSection(CONSTANTS.SELECTORS.MAL.opTheme, 'OP');
+        parseSection(CONSTANTS.SELECTORS.MAL.edTheme, 'ED');
+
+        return songs;
+      } catch (e) {
+        Log.error('MAL Theme Songs Fetch Error', e);
+        return [];
       }
     },
   };
@@ -1320,13 +1390,15 @@
   const SyoboiAPI = {
     /**
      * 抓取並解析 Syoboi 頁面的 CAST 與主題曲
-     * @param {string} syoboiUrl
-     * @returns {Promise<{cast: Array, song: Array, source: string}|null>}
+     * @param {string|number} syoboiTid
+     * @returns {Promise<{cast: Array, song: Array}|null>}
      */
-    async fetchInfo(syoboiUrl) {
-      if (!syoboiUrl) {
+    async fetchInfo(syoboiTid) {
+      if (!syoboiTid) {
         return null;
       }
+
+      const syoboiUrl = `https://cal.syoboi.jp/tid/${syoboiTid}`;
 
       try {
         // 1. 發送 GET 請求取得 Syoboi 頁面的 HTML 原始碼
@@ -1416,7 +1488,7 @@
           }
         });
 
-        return { cast, song, source: syoboiUrl };
+        return { cast, song };
       } catch (e) {
         Log.error('Syoboi Fetch Error', e);
         return null;
@@ -1728,12 +1800,12 @@
       const links = [];
       if (info?.idMal) {
         links.push(
-          `<a href="https://myanimelist.net/anime/${info.idMal}" target="_blank" rel="noopener noreferrer" class="al-link">MyAnimeList</a>`,
+          `<a href="${CONSTANTS.URLS.MAL_MEDIA}${info.idMal}" target="_blank" rel="noopener noreferrer" class="al-link">MyAnimeList</a>`,
         );
       }
-      if (info?.syoboiUrl) {
+      if (info?.syoboiTid) {
         links.push(
-          `<a href="${info.syoboiUrl}" target="_blank" rel="noopener noreferrer" class="al-link">しょぼいカレンダー</a>`,
+          `<a href="${CONSTANTS.URLS.SYOBOI_TID}${info.syoboiTid}" target="_blank" rel="noopener noreferrer" class="al-link">しょぼいカレンダー</a>`,
         );
       }
       let externalLinksHtml = '';
@@ -1753,12 +1825,12 @@
         </div>
 
         <div class="al-card al-flex al-gap-3">
-          <a href="https://anilist.co/anime/${rule.aniId}" target="_blank" class="al-shrink-0">
+          <a href="${CONSTANTS.URLS.ANILIST_MEDIA}${rule.aniId}" target="_blank" class="al-shrink-0">
             <img src="${info.coverImage.medium}" class="al-cover al-cover-lg">
           </a>
           <div class="al-flex al-flex-col al-justify-between al-flex-1" style="overflow:hidden;">
             <div>
-              <a href="https://anilist.co/anime/${rule.aniId}" target="_blank" 
+              <a href="${CONSTANTS.URLS.ANILIST_MEDIA}${rule.aniId}" target="_blank" 
                 class="al-link al-font-bold" style="font-size:15px; display:block;">
                 ${rule.title}
               </a>
@@ -1808,11 +1880,11 @@
           <div class="al-card al-card-suggest al-mb-3">
             <div class="al-font-bold al-text-warn al-text-xs al-mb-1">💡 建議匹配</div>
             <div class="al-flex al-gap-3">
-              <a href="https://anilist.co/anime/${candidate.id}" target="_blank">
+              <a href="${CONSTANTS.URLS.ANILIST_MEDIA}${candidate.id}" target="_blank">
                 <img src="${candidate.coverImage.medium}" class="al-cover al-cover-md">
               </a>
               <div class="al-flex-1">
-                <a href="https://anilist.co/anime/${
+                <a href="${CONSTANTS.URLS.ANILIST_MEDIA}${
                   candidate.id
                 }" target="_blank" class="al-link al-font-bold">
                   ${candidate.title.native}
@@ -1849,11 +1921,11 @@
     searchResult: (m) => {
       return `
       <div class="al-flex al-gap-3 al-items-center al-p-2" style="border-bottom:1px solid var(--al-border);">
-        <a href="https://anilist.co/anime/${m.id}" target="_blank">
+        <a href="${CONSTANTS.URLS.ANILIST_MEDIA}${m.id}" target="_blank">
           <img src="${m.coverImage.medium}" class="al-cover al-cover-sm">
         </a>
         <div class="al-flex-1" style="overflow:hidden;">
-          <a href="https://anilist.co/anime/${
+          <a href="${CONSTANTS.URLS.ANILIST_MEDIA}${
             m.id
           }" target="_blank" class="al-link al-font-bold al-text-sm">
             ${m.title.native || m.title.romaji}
@@ -1919,11 +1991,11 @@
           </td>
           <td>
             <div class="al-flex al-gap-3 al-items-center">
-               <a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-shrink-0">
+               <a href="${CONSTANTS.URLS.ANILIST_MEDIA}${m.id}" target="_blank" class="al-shrink-0">
                  <img src="${m.coverImage.medium}" class="al-cover al-cover-sm">
                </a>
                <div style="min-width:0; flex:1;">
-                 <a href="https://anilist.co/anime/${m.id}" target="_blank" class="al-link al-text-sm al-font-bold" style="display:block; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">    ${m.title.native || m.title.romaji}
+                 <a href="${CONSTANTS.URLS.ANILIST_MEDIA}${m.id}" target="_blank" class="al-link al-text-sm al-font-bold" style="display:block; line-height:1.4; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">    ${m.title.native || m.title.romaji}
                  </a>
                  <div class="al-text-sub al-text-xs al-mt-1">
                   ${Utils.formatDate(m.startDate)} · ${CONSTANTS.MEDIA_STATUS[m.status] || m.status} · ${m.format}</div>
@@ -2000,8 +2072,14 @@
         ? 'max-height: 280px; overflow-y: auto; padding-right: 4px;'
         : 'max-height: 240px; overflow-y: auto; padding-right: 4px;';
 
-      const sourceUrl = creditsData.source || '#';
-      const sourceLabel = Utils.getSourceName(sourceUrl);
+      const sources = Array.isArray(creditsData.sources)
+        ? creditsData.sources
+        : [creditsData.source || '#'];
+      const sourceLinksHtml = sources
+        .map((url) => {
+          return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="al-link">${Utils.getSourceName(url)}</a>`;
+        })
+        .join(' <span class="al-text-sub">|</span> ');
 
       return `
         <div id="al-syoboi-info-container" class="${containerClass}" style="background: var(--al-bg-sec); border: 1px solid var(--al-border); border-radius: var(--al-radius);">
@@ -2022,12 +2100,10 @@
                 ${songRowsHtml || '<div class="al-text-sub al-text-sm">無主題曲資料</div>'}
               </div>
             </div>
-
           </div>
-
           <div class="al-text-sm al-text-sub al-mt-2" style="text-align:right;">
-          資料來源：<a href="${sourceUrl}" target="_blank" rel="noopener noreferrer" class="al-link">${sourceLabel}</a>
-        </div>
+            資料來源：${sourceLinksHtml}
+          </div>
         </div>
       `;
     },
@@ -3166,7 +3242,7 @@
           const data = await AniListAPI.getMediaAndStatus(State.activeRule.aniId);
 
           if (data && data.idMal) {
-            data.syoboiUrl = await MALAPI.fetchSyoboiUrl(data);
+            data.syoboiTid = await MALAPI.fetchSyoboiTid(data);
           }
 
           // --- 偵測集數溢位 ---
@@ -3787,33 +3863,47 @@
 
         let finalCast = [];
         let finalSongs = [];
-        let syoboiSource = '';
-        let hasSyoboiCast = false;
+        const sources = new Set();
 
         // --------------------------------------------------
         // 階段 1：嘗試從 Syoboi 抓取資料 (第一優先)
         // --------------------------------------------------
-        if (mediaInfo.syoboiUrl) {
-          const syoboiData = await SyoboiAPI.fetchInfo(mediaInfo.syoboiUrl);
+        if (mediaInfo.syoboiTid) {
+          const syoboiData = await SyoboiAPI.fetchInfo(mediaInfo.syoboiTid);
           if (syoboiData) {
             finalSongs = syoboiData.song || [];
-            syoboiSource = syoboiData.source || mediaInfo.syoboiUrl;
-
-            // 檢查 Syoboi 是否有聲優資料
-            if (Array.isArray(syoboiData.cast) && syoboiData.cast.length > 0) {
-              finalCast = syoboiData.cast;
-              hasSyoboiCast = true;
-              Log.info('[Cast Source] 成功使用 Syoboi 聲優資料');
+            finalCast = syoboiData.cast || [];
+            if (finalSongs.length > 0 || finalCast.length > 0) {
+              sources.add(`${CONSTANTS.URLS.SYOBOI_TID}${mediaInfo.syoboiTid}`);
+              Log.info('[Cast Source] 成功使用 Syoboi 資料');
             }
           }
         }
 
         // --------------------------------------------------
-        // 階段 2：若 Syoboi 無聲優資料，備用改抓 AniList (Fallback)
+        // 階段 2：資料補齊與備援機制 (Fallback)
         // --------------------------------------------------
-        if (!hasSyoboiCast) {
-          Log.warn('[Cast Source] Syoboi 無聲優資料或連線失敗，備用切換至 AniList');
+        // [聲優備援] 若 Syoboi 無聲優資料，切換至 AniList
+        if (finalCast.length === 0) {
+          Log.warn('[Cast Source] 無 Syoboi 聲優資料，備用切換至 AniList');
           finalCast = Utils.extractCast(mediaInfo);
+          if (finalCast.length > 0) {
+            sources.add(`${CONSTANTS.URLS.ANILIST_MEDIA}${mediaInfo.id}`);
+          }
+        }
+
+        // [主題曲備援] 若 Syoboi 無主題曲資料，切換至 MAL
+        if (finalSongs.length === 0 && mediaInfo.idMal) {
+          Log.info('[Song Source] 無 Syoboi 主題曲資料，備用切換至 MAL');
+          finalSongs = await MALAPI.fetchThemeSongs(mediaInfo.idMal);
+          if (finalSongs.length > 0) {
+            sources.add(`${CONSTANTS.URLS.MAL_MEDIA}${mediaInfo.idMal}`);
+          }
+        }
+
+        // 若萬一都沒有任何來源，預設顯示 AniList
+        if (sources.size === 0) {
+          sources.add(`${CONSTANTS.URLS.ANILIST_MEDIA}${mediaInfo.id}`);
         }
 
         // --------------------------------------------------
@@ -3825,7 +3915,7 @@
           creditsData: {
             cast: finalCast,
             song: finalSongs,
-            source: syoboiSource || `https://anilist.co/anime/${mediaInfo.id}`,
+            sources: Array.from(sources),
           },
           wikiMap,
           cacheKey,
