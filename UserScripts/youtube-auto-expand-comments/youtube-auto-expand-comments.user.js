@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube 自動展開所有留言
 // @namespace    https://github.com/downwarjers/WebTweaks
-// @version      3.9.3
+// @version      3.9.4
 // @description  自動展開 YouTube 留言。已修復畫面亂跳及無限展開隱藏的迴圈問題。
 // @author       downwarjers
 // @license      MIT
@@ -18,7 +18,7 @@
 
   // --- 設定 ---
   const MAX_RETRY_COUNT = 15; // 防卡死重試上限次數
-  const MAX_THREAD_EXPAND_TIME = 60; // 每則留言的監測秒數
+  const MAX_THREAD_EXPAND_TIME = 5; // 每則留言的監測秒數
   const GLOBAL_CHECK_INTERVAL = 4; // 全域展開的檢查頻率秒數
   const SINGLE_CHECK_INTERVAL = 2; // 單一留言串的檢查頻率秒數
 
@@ -56,8 +56,27 @@
         }
         #yt-expand-comments-wrapper {
             margin-left: 8px;
-            display: inline-block;
+            display: inline-block;vertical-align: middle;
         }
+        #yt-expand-comments-wrapper .yt-expand-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 36px;
+            padding: 0 16px;
+            border-radius: 18px;
+            border: none;
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--yt-spec-text-primary, #0f0f0f);
+            font-family: "Roboto", "Arial", sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        #yt-expand-comments-wrapper .yt-expand-btn:hover {
+            background-color: rgba(0, 0, 0, 0.1);
+         }
     `;
   document.head.appendChild(style);
 
@@ -375,24 +394,14 @@
       wrapper.id = 'yt-expand-comments-wrapper';
 
       wrapper.innerHTML = `
-            <yt-button-view-model class="ytd-menu-renderer">
-                <button-view-model class="ytSpecButtonViewModelHost style-scope ytd-menu-renderer">
-                    <button class="yt-spec-button-shape-next yt-spec-button-shape-next--tonal yt-spec-button-shape-next--mono yt-spec-button-shape-next--size-m yt-spec-button-shape-next--icon-leading yt-spec-button-shape-next--enable-backdrop-filter-experiment" aria-label="展開所有留言" style="">
-                        <div aria-hidden="true" class="yt-spec-button-shape-next__icon">
-                            <span class="ytIconWrapperHost" style="width: 24px; height: 24px;">
-                                <span class="yt-icon-shape ytSpecIconShapeHost">
-                                    <div style="width: 100%; height: 100%; display: block; fill: currentcolor;">
-                                        <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events: none; display: inherit; width: 100%; height: 100%;">
-                                            <path d="${ICON_EXPAND}"></path>
-                                        </svg>
-                                    </div>
-                                </span>
-                            </span>
-                        </div>
-                        <div class="yt-spec-button-shape-next__button-text-content">展開所有留言</div>
-                    </button>
-                </button-view-model>
-            </yt-button-view-model>
+            <button class="yt-expand-btn" aria-label="展開所有留言">
+                <span class="yt-spec-button-shape-next__icon" style="margin-right: 6px; display: flex; align-items: center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24" focusable="false" aria-hidden="true" style="pointer-events: none; fill: currentColor; width: 20px; height: 20px;">
+                        <path d="${ICON_EXPAND}"></path>
+                    </svg>
+                </span>
+                <span class="yt-spec-button-shape-next__button-text-content">展開所有留言</span>
+            </button>
             `;
 
       const actualBtn = wrapper.querySelector('button');
