@@ -45,6 +45,11 @@
 * **說明**: 當訪問手機版網頁（如 `m.`, `mobile.` 開頭或包含 `/mobile/` 路徑）時，自動嘗試跳轉回桌面版網址。內建防無限迴圈機制（檢查 Referrer 與 SessionStorage 計數），避免在只有手機版的網站上卡死。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/auto-redirect-to-desktop-web/auto-redirect-to-desktop-web.user.js)
 
+### 巴哈姆特留言板自動展開工具
+* **資料夾名稱**: `bahamut-anime-auto-expand-comments`
+* **說明**: 在巴哈姆特留言標題旁新增「全部展開」按鈕，支援遞迴展開歷史留言、子回覆、閱讀更多，並可切換是否自動開啟爭議折疊留言。
+* **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserScripts/bahamut-anime-auto-expand-comments/bahamut-anime-auto-expand-comments.user.js)
+
 ### Bahamut Anime to AniList Sync
 * **資料夾名稱**: `bahamut-anime-to-anilist-sync`
 * **說明**: 巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
