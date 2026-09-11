@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              7.1.0
+// @version              7.1.1
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -2058,7 +2058,7 @@
               <span class="al-text-sub al-text-sm">/ ${singerSafe}</span>
             </div>
             <div class="al-flex al-gap-2 al-shrink-0">
-              <a href="https://www.youtube.com/results?search_query=${encodedQuery}" target="_blank" class="al-link al-text-sm">🎧 Youtube</a>
+              <a href="https://music.youtube.com/search?q=${encodedQuery}" target="_blank" class="al-link al-text-sm">🎧 YT Music</a>
               <a href="https://open.spotify.com/search/${encodedQuery}" target="_blank" class="al-link al-text-sm">🎧 Spotify</a>
             </div>
           </div>
