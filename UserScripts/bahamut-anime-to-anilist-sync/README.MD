@@ -18,19 +18,23 @@
 
 ## 介面預覽
 
-![介面預覽](https://i.ibb.co/GNBsXWq/1.png)
+![介面預覽](https://i.ibb.co/0jK1tSG5/screencapture-ani-gamer-tw-anime-Video-php-2026-07-24-21-14-11.png)
 
 **1. 控制面板與狀態**
 腳本會在導航列顯示目前的同步狀態，點擊即可開啟設定面板。
-![控制面板](https://i.ibb.co/BVyndV3t/2.png)
+![控制面板](https://i.ibb.co/84YrX8VQ/2026-07-24-211446.png)
 
-**2. 系列作設定 (核心功能)**
+**2. 聲優陣容與音樂資訊**
+作品的相關資訊，可透過擴充功能顯示到播放頁面
+![控制面板](https://i.ibb.co/KjX7Xc6T/2026-07-24-211456.png)
+
+**3. 系列作設定 (核心功能)**
 若遇到集數對不上（例如第二季），請在此頁面調整「巴哈起始集數」對應「AniList 起始集數」。
-![系列設定](https://i.ibb.co/0RV5Y8ZF/3.png)
+![系列設定](https://i.ibb.co/Tqh39SdZ/2026-07-24-211512.png)
 
-**3. Token 與偏好設定**
+**4. Token 與偏好設定**
 首次使用需設定 AniList Token，並可調整同步觸發的時機。
-![設定頁面](https://i.ibb.co/Nd9H0DXv/5.png)
+![設定頁面](https://i.ibb.co/QjvLKbYh/2026-07-24-211622.png)
 
 ## 安裝與設定教學
 
