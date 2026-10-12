@@ -3,7 +3,7 @@
 // @name:zh-TW           巴哈姆特動畫瘋同步到 AniList
 // @name:zh-CN           巴哈姆特动画疯同步到 AniList
 // @namespace            https://github.com/downwarjers/WebTweaks
-// @version              7.1.1
+// @version              7.1.2
 // @description          巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-TW    巴哈姆特動畫瘋同步到 AniList。支援系列設定、自動計算集數、自動日期匹配、深色模式UI
 // @description:zh-CN    巴哈姆特动画疯同步到 AniList。支持系列设置、自动计算集数、自动日期匹配、深色模式UI
@@ -26,7 +26,7 @@
 // @noframes
 // @downloadURL https://update.greasyfork.org/scripts/563959/Bahamut%20Anime%20to%20AniList%20Sync.user.js
 // @updateURL https://update.greasyfork.org/scripts/563959/Bahamut%20Anime%20to%20AniList%20Sync.meta.js
-// // ==/UserScript==
+// ==/UserScript==
 
 (function () {
   'use strict';
