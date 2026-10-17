@@ -1,7 +1,7 @@
 /* ==UserStyle==
 @name         Language Reactor 字幕位置調整
 @namespace    https://github.com/downwarjers/WebTweaks
-@version      2.2
+@version      2.4
 @description  調整 Netflix/YouTube 上 Language Reactor (原 LLN) 插件的字幕面板位置，將其強制固定在螢幕底部 5% 的位置，並調整面板切換按鈕避免與播放列重疊。
 @author       downwarjers
 @license      MIT
@@ -121,6 +121,18 @@
 
   /* 滑鼠懸停至按鈕及其感應區時顯現 */
   .lln-toggle-vertical-view.lln-autohide-me:hover {
+    opacity: 1 !important;
+  }
+
+  /* 平時預設隱藏，同時保留滑鼠互動能力 */
+  .lln-move-subs.lln-control-btn {
+    opacity: 0 !important;
+    transition: opacity 0.2s ease-in-out !important;
+    pointer-events: auto !important;
+  }
+
+  /* 滑鼠懸停時顯示 */
+  .lln-move-subs.lln-control-btn:hover {
     opacity: 1 !important;
   }
 }
