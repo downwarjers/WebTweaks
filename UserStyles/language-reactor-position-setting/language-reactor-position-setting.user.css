@@ -1,8 +1,8 @@
 /* ==UserStyle==
 @name         Language Reactor 字幕位置調整
 @namespace    https://github.com/downwarjers/WebTweaks
-@version      2.5
-@description  調整 Netflix/YouTube 上 Language Reactor (原 LLN) 插件的字幕面板位置，將其強制固定在螢幕底部 3% 的位置，並調整面板切換按鈕避免與播放列重疊。修復背景去背失效與強制換行問題。
+@version      2.6
+@description  調整 Netflix/YouTube 上 Language Reactor (原 LLN) 插件的字幕面板位置
 @author       downwarjers
 @license      MIT
 @updateURL    https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/language-reactor-position-setting/language-reactor-position-setting.user.css
@@ -123,24 +123,20 @@
     display: none !important;
   }
 
-  /* --- 控制按鈕隱藏/懸停顯示 --- */
-  .lln-toggle-vertical-view.lln-autohide-me {
+  /* --- 控制按鈕與輔助 UI：平時隱藏，懸停（Hover）時顯示 --- */
+  .lln-toggle-vertical-view.lln-autohide-me,
+  .lln-move-subs.lln-control-btn,
+  .lln-main-left.lln-main-aside,
+  #autoPause-message {
     opacity: 0 !important;
     transition: opacity 0.2s ease-in-out !important;
     pointer-events: auto !important;
   }
 
-  .lln-toggle-vertical-view.lln-autohide-me:hover {
-    opacity: 1 !important;
-  }
-
-  .lln-move-subs.lln-control-btn {
-    opacity: 0 !important;
-    transition: opacity 0.2s ease-in-out !important;
-    pointer-events: auto !important;
-  }
-
-  .lln-move-subs.lln-control-btn:hover {
+  .lln-toggle-vertical-view.lln-autohide-me:hover,
+  .lln-move-subs.lln-control-btn:hover,
+  .lln-main-left.lln-main-aside:hover,
+  #autoPause-message:hover {
     opacity: 1 !important;
   }
 }
