@@ -196,7 +196,7 @@
 
 ### Language Reactor 字幕位置調整
 * **資料夾名稱**: `language-reactor-position-setting`
-* **說明**: 調整 Netflix/YouTube 上 Language Reactor (原 LLN) 插件的字幕面板位置，將其強制固定在螢幕底部 5% 的位置，並調整面板切換按鈕避免與播放列重疊。
+* **說明**: 調整 Netflix/YouTube 上 Language Reactor (原 LLN) 插件的字幕面板位置，將其強制固定在螢幕底部 3% 的位置，並調整面板切換按鈕避免與播放列重疊。修復背景去背失效與強制換行問題。
 * **安裝**: [點此安裝](https://raw.githubusercontent.com/downwarjers/WebTweaks/main/UserStyles/language-reactor-position-setting/language-reactor-position-setting.user.css)
 
 ### ofiii 歐飛移除暫停與遮擋廣告
